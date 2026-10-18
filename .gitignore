@@ -23,3 +23,6 @@ B5/storage/*.key
 .DS_Store
 .vscode/
 .idea/
+
+# Claude / AI local files
+.claude/
