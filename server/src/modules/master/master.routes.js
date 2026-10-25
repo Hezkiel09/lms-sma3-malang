@@ -20,6 +20,7 @@ router.post('/users/teacher', masterController.createTeacher);
 router.get('/users/students', masterController.getAllStudents);
 router.post('/users/student', masterController.createStudent);
 
+router.get('/users/parents', masterController.getAllParents);
 router.post('/users/parent', masterController.createParent);
 
 // Rute Course
