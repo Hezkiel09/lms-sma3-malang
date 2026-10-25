@@ -156,6 +156,16 @@ export const createParent = async (req, res) => {
   }
 };
 
+export const getAllParents = async (req, res) => {
+  try {
+    const parents = await masterService.getAllParentsService();
+    return res.status(200).json({ success: true, message: 'Berhasil mengambil data orang tua', data: parents });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Gagal mengambil data orang tua', error: error.message });
+  }
+};
+
+
 // --- COURSES ---
 export const getAllCourses = async (req, res) => {
   try {

@@ -142,13 +142,26 @@ export const createTeacherService = async ({ email, password, name, nip }) => {
 // --- SISWA ---
 export const getAllStudentsService = async () => {
   const { data, error } = await supabase
-    .schema('master')
-    .from('students')
-    .select('*, classes(id, name)')
-    .order('name', { ascending: true });
-
-  if (error) throw error;
-  return data;
+  .schema('master')
+  .from('students')
+  .select(`
+    *,
+    classes:class_id (
+      id,
+      name,
+      level,
+      major
+    ),
+    parents:parent_id (
+      id,
+      name,
+      phone
+    ),
+    users:user_id (
+      email,
+      role
+    )
+  `);
 };
 
 export const createStudentService = async ({ email, password, name, nis, class_id }) => {
@@ -218,6 +231,37 @@ export const createParentService = async ({ nis, password, name, phone }) => {
     await supabaseAdmin.auth.admin.deleteUser(userId);
     throw err;
   }
+};
+
+export const getAllParentsService = async () => {
+  const { data, error } = await supabase
+    .schema('master')
+    .from('parents')
+    .select(`
+      id,
+      name,
+      phone,
+      address,
+      users:user_id (
+        email,
+        role
+      ),
+      students (
+        id,
+        name,
+        nis,
+        classes:class_id (
+          id,
+          name,
+          level,
+          major
+        )
+      )
+    `)
+    .order('name', { ascending: true });
+
+  if (error) throw error;
+  return data;
 };
 
 // COURSES
