@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import { supabase } from './config/supabase.js';
 import masterRoutes from './modules/master/master.routes.js';
+import b8Routes from './modules/b8/b8.routes.js';
 
 dotenv.config();
 
@@ -24,6 +25,8 @@ app.get('/api/health', async (req, res) => {
 
 // Router Master Data
 app.use('/api/v1/master', masterRoutes);
+// Router B8: Pemantauan Orang Tua & Presensi
+app.use('/api/v1/b8', b8Routes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
