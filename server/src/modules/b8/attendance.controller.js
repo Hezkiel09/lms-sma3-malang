@@ -25,9 +25,26 @@ export const checkin = handle(async (req, res) =>
   ok(res, await service.checkin(req.user.id, req.params.id, req.body), 'Presensi tersimpan')
 );
 
-export const updateAttendance = handle(async (req, res) =>
-  ok(res, await service.updateAttendance(req.user.id, req.role, req.params.id, req.body), 'Presensi diperbarui')
+export const updateAttendance = handle(async (req, res) => {
+  const { data, changed } = await service.updateAttendance(req.user.id, req.params.id, req.body);
+  return ok(res, data, changed ? 'Presensi diperbarui' : 'Tidak ada perubahan');
+});
+
+export const updateSessionAttendances = handle(async (req, res) => {
+  const result = await service.updateSessionAttendances(req.user.id, req.params.id, req.body?.changes);
+  return ok(res, result, result.changed ? 'Presensi diperbarui' : 'Tidak ada perubahan');
+});
+
+export const listAttendances = handle(async (req, res) =>
+  ok(res, await service.listAttendances(req.user.id, req.role, req.query))
 );
+
+export const exportAttendances = handle(async (req, res) => {
+  const { filename, csv } = await service.exportAttendances(req.user.id, req.query);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send(csv);
+});
 
 export const getStudentAttendances = handle(async (req, res) =>
   ok(res, await service.getStudentAttendances(req.user.id, req.role, req.params.studentId, req.query))
