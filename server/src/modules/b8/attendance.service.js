@@ -33,7 +33,6 @@ async function fetchAll(build) {
   return out;
 }
 
-// Query ".in(...)" dipecah per 100 id supaya URL tidak kepanjangan.
 async function selectByIds(fromFn, columns, ids, col = 'id') {
   const uniq = [...new Set(ids.filter(Boolean))];
   const out = [];
@@ -105,8 +104,6 @@ async function enrichAttendances(rows) {
     subject_name: subjectBySchedule[r.schedule_id] ?? null,
   }));
 }
-
-// ---------------------------------------------------------------
 
 // UC-12: guru buka sesi untuk 1 jadwal + tanggal. Semua siswa kelas otomatis alpha,
 // lalu semua siswa kelas dinotifikasi (UC-19).
@@ -311,7 +308,6 @@ export async function checkin(userId, sessionId, { status, notes } = {}) {
   if (existing && existing.status !== 'alpha') throw httpError(409, 'Presensi sudah tercatat');
 
   if (existing) {
-    // .eq('status','alpha') mencegah dua pengiriman bersamaan saling menimpa.
     const updated = unwrap(
       await b8()
         .from('attendances')
@@ -371,8 +367,7 @@ export async function updateAttendance(userId, id, { status, notes } = {}) {
   return { data, changed: true };
 }
 
-// UC-13: tombol "Simpan Perubahan" - banyak siswa sekaligus.
-// changes: [{ attendanceId, status, notes? }]. Yang tidak berubah dilewati.
+//tombol "Simpan Perubahan" - banyak siswa sekaligus.
 export async function updateSessionAttendances(userId, sessionId, changes) {
   if (!Array.isArray(changes) || !changes.length) {
     throw httpError(422, 'changes wajib berisi minimal 1 item');
@@ -411,7 +406,6 @@ export async function updateSessionAttendances(userId, sessionId, changes) {
   return { changed: true, updated };
 }
 
-// UC-11 (guru) dan UC-06 (admin): riwayat presensi dengan filter.
 // Guru hanya melihat jadwal miliknya. Filter: classId, subjectId, studentId, status, from, to.
 export async function listAttendances(userId, role, { classId, subjectId, studentId, status, from, to } = {}) {
   checkRange(from, to);
@@ -497,7 +491,7 @@ export async function exportAttendances(userId, { classId, subjectId, from, to }
   return { filename, csv };
 }
 
-// UC-21 / UC-22 / UC-28: riwayat presensi satu siswa.
+// Riwayat presensi satu siswa.
 // Ortu: anak sendiri. Siswa: dirinya sendiri. Mengembalikan { summary, records }.
 export async function getStudentAttendances(userId, role, studentId, { from, to } = {}) {
   checkRange(from, to);
