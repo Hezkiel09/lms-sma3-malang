@@ -207,7 +207,25 @@ export async function listMySessions(userId, { scheduleId, classId, subjectId, d
   if (date) q = q.eq('date', date);
   if (from) q = q.gte('date', from);
   if (to) q = q.lte('date', to);
-  return withSchedule(unwrap(await q));
+    const sessions = await withSchedule(unwrap(await q));
+  if (!sessions.length) return sessions;
+  const ids = sessions.map((s) => s.id);
+  const rows = [];
+  for (let i = 0; i < ids.length; i += 20) {
+    const chunk = ids.slice(i, i + 20);
+    rows.push(
+      ...(await fetchAll(() =>
+        b8().from('attendances').select('session_id, status').in('session_id', chunk).order('id')
+      ))
+    );
+  }
+  const bySession = {};
+  rows.forEach((r) => (bySession[r.session_id] ??= []).push(r));
+  return sessions.map((s) => ({
+    ...s,
+    summary: summarize(bySession[s.id] ?? []),
+    total: (bySession[s.id] ?? []).length,
+  }));
 }
 
 // Detail sesi + daftar siswa + rekap sementara (UC-13, UC-14).
@@ -339,6 +357,12 @@ export async function checkin(userId, sessionId, { status, notes } = {}) {
 }
 
 // UC-13: koreksi satu presensi. Mengembalikan { data, changed }. Tidak ada notifikasi.
+function assertNotes(status, notes) {
+  if ((status === 'izin' || status === 'sakit') && !String(notes ?? '').trim()) {
+    throw httpError(422, 'Catatan wajib diisi untuk izin dan sakit');
+  }
+}
+
 export async function updateAttendance(userId, id, { status, notes } = {}) {
   if (!ATTENDANCE_STATUSES.includes(status)) {
     throw httpError(422, `status harus salah satu dari: ${ATTENDANCE_STATUSES.join(', ')}`);
@@ -352,8 +376,8 @@ export async function updateAttendance(userId, id, { status, notes } = {}) {
     : null;
   if (session?.opened_by !== teacher.id) throw httpError(403, 'Presensi ini bukan dari sesi kamu');
 
+  assertNotes(status, notes ?? existing.notes);
   if (existing.status === status && (notes === undefined || notes === existing.notes)) {
-    return { data: existing, changed: false };
   }
 
   const data = unwrap(
@@ -386,8 +410,8 @@ export async function updateSessionAttendances(userId, sessionId, changes) {
     }
     const row = byId[c.attendanceId];
     if (!row) throw httpError(404, `Presensi ${c.attendanceId} bukan bagian dari sesi ini`);
+    assertNotes(c.status, c.notes ?? row.notes);
     if (row.status === c.status && (c.notes === undefined || c.notes === row.notes)) continue;
-    todo.push({ row, c });
   }
   if (!todo.length) return { changed: false, updated: [] };
 
