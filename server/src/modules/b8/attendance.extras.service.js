@@ -135,7 +135,7 @@ export async function remindStudents(userId, sessionId) {
   if (session.status !== 'open') throw httpError(409, 'Sesi sudah ditutup');
 
   const pending = unwrap(
-    await b8().from('attendances').select('student_id').eq('session_id', sessionId).eq('status', 'alpha')
+        await b8().from('attendances').select('student_id').eq('session_id', sessionId).eq('status', 'alpha').is('recorded_at', null)
   );
   if (!pending.length) return { reminded: 0, message: 'Semua siswa sudah mengisi.' };
 

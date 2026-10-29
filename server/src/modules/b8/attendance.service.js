@@ -3,6 +3,8 @@ import { httpError } from './b8.http.js';
 import { ATTENDANCE_STATUSES, STUDENT_CHECKIN_STATUSES } from './b8.constants.js';
 import { notifyMany } from './notification.service.js';
 
+const METHODS = ['siswa', 'manual'];
+
 const isValidDate = (s) =>
   typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(new Date(s).getTime());
 
@@ -16,10 +18,30 @@ const summarize = (rows) =>
     { hadir: 0, sakit: 0, izin: 0, alpha: 0 }
   );
 
+// Siswa yang belum mengisi = belum ada recorded_at.
+const pendingCount = (rows) => rows.filter((r) => !r.recorded_at).length;
+const summaryWithPending = (rows) => ({ ...summarize(rows), pending: pendingCount(rows) });
+
 function checkRange(from, to) {
   if (from && !isValidDate(from)) throw httpError(422, 'Format from tidak valid (pakai YYYY-MM-DD)');
   if (to && !isValidDate(to)) throw httpError(422, 'Format to tidak valid (pakai YYYY-MM-DD)');
   if (from && to && from > to) throw httpError(422, 'Rentang tanggal tidak valid (from lebih besar dari to)');
+}
+
+// Catatan wajib untuk izin dan sakit.
+function assertNotes(status, notes) {
+  if ((status === 'izin' || status === 'sakit') && !String(notes ?? '').trim()) {
+    throw httpError(422, 'Catatan wajib diisi untuk izin dan sakit');
+  }
+}
+
+function cleanText(value, max, label) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'string') throw httpError(422, `${label} harus berupa teks`);
+  const t = value.trim();
+  if (!t) return null;
+  if (t.length > max) throw httpError(422, `${label} maksimal ${max} karakter`);
+  return t;
 }
 
 // PostgREST membatasi 1000 baris per request: ambil bertahap.
@@ -33,6 +55,7 @@ async function fetchAll(build) {
   return out;
 }
 
+// Query ".in(...)" dipecah per 100 id supaya URL tidak kepanjangan.
 async function selectByIds(fromFn, columns, ids, col = 'id') {
   const uniq = [...new Set(ids.filter(Boolean))];
   const out = [];
@@ -105,11 +128,43 @@ async function enrichAttendances(rows) {
   }));
 }
 
-// UC-12: guru buka sesi untuk 1 jadwal + tanggal. Semua siswa kelas otomatis alpha,
-// lalu semua siswa kelas dinotifikasi (UC-19).
-export async function openSession(userId, { scheduleId, date } = {}) {
+// Nomor pertemuan: urutan sesi guru yang sama pada kelas + mapel yang sama.
+async function meetingNumber(session, schedule) {
+  if (!schedule) return null;
+  let sq = master()
+    .from('schedules')
+    .select('id')
+    .eq('class_id', schedule.class_id)
+    .eq('subject_id', schedule.subject_id);
+  if (schedule.teacher_id) sq = sq.eq('teacher_id', schedule.teacher_id);
+  const ids = unwrap(await sq).map((s) => s.id);
+  if (!ids.length) return null;
+  const list = unwrap(
+    await b8()
+      .from('attendance_sessions')
+      .select('id')
+      .in('schedule_id', ids)
+      .order('date', { ascending: true })
+      .order('opened_at', { ascending: true })
+  );
+  const i = list.findIndex((s) => s.id === session.id);
+  return i === -1 ? null : i + 1;
+}
+
+// ---------------------------------------------------------------
+
+// UC-12: guru buka sesi untuk 1 jadwal + tanggal. Semua siswa kelas otomatis alpha
+// (belum mengisi), lalu semua siswa kelas dinotifikasi (UC-19).
+// Opsional: topic (materi), learningOutcome (sub capaian), method ('siswa' | 'manual').
+export async function openSession(userId, { scheduleId, date, topic, learningOutcome, method } = {}) {
   if (!scheduleId || !date) throw httpError(422, 'scheduleId dan date wajib diisi');
   if (!isValidDate(date)) throw httpError(422, 'Format date tidak valid (pakai YYYY-MM-DD)');
+  const sessionMethod = method ?? 'siswa';
+  if (!METHODS.includes(sessionMethod)) {
+    throw httpError(422, `method harus salah satu dari: ${METHODS.join(', ')}`);
+  }
+  const cleanTopic = cleanText(topic, 200, 'topic');
+  const cleanOutcome = cleanText(learningOutcome, 1000, 'learningOutcome');
 
   const teacher = await getTeacher(userId);
   const schedule = unwrap(await master().from('schedules').select('*').eq('id', scheduleId).maybeSingle());
@@ -133,7 +188,14 @@ export async function openSession(userId, { scheduleId, date } = {}) {
   const session = unwrap(
     await b8()
       .from('attendance_sessions')
-      .insert({ schedule_id: scheduleId, date, opened_by: teacher.id })
+      .insert({
+        schedule_id: scheduleId,
+        date,
+        opened_by: teacher.id,
+        topic: cleanTopic,
+        learning_outcome: cleanOutcome,
+        method: sessionMethod,
+      })
       .select()
       .single()
   );
@@ -163,11 +225,15 @@ export async function openSession(userId, { scheduleId, date } = {}) {
     const subject = schedule.subject_id
       ? unwrap(await master().from('subjects').select('name').eq('id', schedule.subject_id).maybeSingle())
       : null;
+    const subjectName = subject?.name ?? 'pelajaran';
     await notifyMany(
       students.map((s) => s.user_id),
       {
         title: 'Sesi presensi dibuka',
-        message: `Sesi presensi ${subject?.name ?? 'pelajaran'} tanggal ${date} sudah dibuka. Silakan isi presensi kamu.`,
+        message:
+          sessionMethod === 'manual'
+            ? `Sesi presensi ${subjectName} tanggal ${date} dibuka. Kehadiran dicatat oleh guru.`
+            : `Sesi presensi ${subjectName} tanggal ${date} sudah dibuka. Silakan isi presensi kamu.`,
         type: 'presensi',
       }
     );
@@ -179,10 +245,16 @@ export async function openSession(userId, { scheduleId, date } = {}) {
   const attendances = rows
     .map((r) => ({ ...r, student: studentById[r.student_id] ?? null }))
     .sort((a, b) => (a.student?.name ?? '').localeCompare(b.student?.name ?? ''));
-  return { ...session, summary: summarize(rows), attendances };
+  return {
+    ...session,
+    meeting_number: await meetingNumber(session, schedule),
+    summary: summaryWithPending(rows),
+    attendances,
+  };
 }
 
-// Daftar sesi milik guru. Filter opsional: scheduleId, classId, subjectId, date, from, to.
+// Daftar sesi milik guru + ringkasan per sesi.
+// Filter opsional: scheduleId, classId, subjectId, date, from, to.
 export async function listMySessions(userId, { scheduleId, classId, subjectId, date, from, to } = {}) {
   checkRange(from, to);
   const teacher = await getTeacher(userId);
@@ -207,15 +279,17 @@ export async function listMySessions(userId, { scheduleId, classId, subjectId, d
   if (date) q = q.eq('date', date);
   if (from) q = q.gte('date', from);
   if (to) q = q.lte('date', to);
-    const sessions = await withSchedule(unwrap(await q));
+
+  const sessions = await withSchedule(unwrap(await q));
   if (!sessions.length) return sessions;
+
   const ids = sessions.map((s) => s.id);
   const rows = [];
   for (let i = 0; i < ids.length; i += 20) {
     const chunk = ids.slice(i, i + 20);
     rows.push(
       ...(await fetchAll(() =>
-        b8().from('attendances').select('session_id, status').in('session_id', chunk).order('id')
+        b8().from('attendances').select('session_id, status, recorded_at').in('session_id', chunk).order('id')
       ))
     );
   }
@@ -223,7 +297,7 @@ export async function listMySessions(userId, { scheduleId, classId, subjectId, d
   rows.forEach((r) => (bySession[r.session_id] ??= []).push(r));
   return sessions.map((s) => ({
     ...s,
-    summary: summarize(bySession[s.id] ?? []),
+    summary: summaryWithPending(bySession[s.id] ?? []),
     total: (bySession[s.id] ?? []).length,
   }));
 }
@@ -244,10 +318,15 @@ export async function getSession(userId, role, id) {
   const attendances = rows
     .map((r) => ({ ...r, student: studentById[r.student_id] ?? null }))
     .sort((a, b) => (a.student?.name ?? '').localeCompare(b.student?.name ?? ''));
-  return { ...full, summary: summarize(rows), attendances };
+  return {
+    ...full,
+    meeting_number: await meetingNumber(session, full.schedule),
+    summary: summaryWithPending(rows),
+    attendances,
+  };
 }
 
-// UC-14: tutup sesi, lalu notifikasi ke siswa kelas (UC-19).
+// UC-14: tutup sesi, lalu notifikasi ke siswa kelas (UC-19). Mengembalikan sesi + ringkasan.
 export async function closeSession(userId, id) {
   const teacher = await getTeacher(userId);
   const session = await getOwnedSession(id, teacher.id);
@@ -279,7 +358,9 @@ export async function closeSession(userId, id) {
   } catch (e) {
     console.error('[notif] sesi ditutup:', e.message);
   }
-  return closed;
+
+  const rows = unwrap(await b8().from('attendances').select('status, recorded_at').eq('session_id', id));
+  return { ...closed, summary: summaryWithPending(rows) };
 }
 
 // UC-27: sesi terbuka untuk kelas siswa + presensi dia sendiri.
@@ -307,7 +388,7 @@ export async function activeForMe(userId) {
   return full.map((s) => ({ ...s, myAttendance: mineBySession[s.id] ?? null }));
 }
 
-// UC-27: siswa mengisi presensi sendiri (hadir / izin / sakit), hanya kalau masih alpha.
+// UC-27: siswa mengisi presensi sendiri (hadir / izin / sakit), hanya kalau belum tercatat.
 export async function checkin(userId, sessionId, { status, notes } = {}) {
   if (!STUDENT_CHECKIN_STATUSES.includes(status)) {
     throw httpError(422, `status harus salah satu dari: ${STUDENT_CHECKIN_STATUSES.join(', ')}`);
@@ -316,6 +397,7 @@ export async function checkin(userId, sessionId, { status, notes } = {}) {
   const session = unwrap(await b8().from('attendance_sessions').select('*').eq('id', sessionId).maybeSingle());
   if (!session) throw httpError(404, 'Sesi tidak ditemukan');
   if (session.status !== 'open') throw httpError(409, 'Sesi sudah ditutup');
+  if (session.method === 'manual') throw httpError(409, 'Presensi sesi ini dicatat manual oleh guru');
 
   const schedule = unwrap(await master().from('schedules').select('class_id').eq('id', session.schedule_id).maybeSingle());
   if (!schedule || schedule.class_id !== student.class_id) throw httpError(403, 'Sesi ini bukan untuk kelas kamu');
@@ -323,15 +405,20 @@ export async function checkin(userId, sessionId, { status, notes } = {}) {
   const existing = unwrap(
     await b8().from('attendances').select('*').eq('session_id', sessionId).eq('student_id', student.id).maybeSingle()
   );
-  if (existing && existing.status !== 'alpha') throw httpError(409, 'Presensi sudah tercatat');
+  if (existing && (existing.status !== 'alpha' || existing.recorded_at)) {
+    throw httpError(409, 'Presensi sudah tercatat');
+  }
 
+  const now = new Date().toISOString();
   if (existing) {
+    // Syarat status alpha + recorded_at kosong mencegah dua pengiriman bersamaan saling menimpa.
     const updated = unwrap(
       await b8()
         .from('attendances')
-        .update({ status, notes: notes ?? null, source: 'siswa' })
+        .update({ status, notes: notes ?? null, source: 'siswa', recorded_at: now })
         .eq('id', existing.id)
         .eq('status', 'alpha')
+        .is('recorded_at', null)
         .select()
     );
     if (!updated.length) throw httpError(409, 'Presensi sudah tercatat');
@@ -350,6 +437,7 @@ export async function checkin(userId, sessionId, { status, notes } = {}) {
         status,
         notes: notes ?? null,
         source: 'siswa',
+        recorded_at: now,
       })
       .select()
       .single()
@@ -357,12 +445,6 @@ export async function checkin(userId, sessionId, { status, notes } = {}) {
 }
 
 // UC-13: koreksi satu presensi. Mengembalikan { data, changed }. Tidak ada notifikasi.
-function assertNotes(status, notes) {
-  if ((status === 'izin' || status === 'sakit') && !String(notes ?? '').trim()) {
-    throw httpError(422, 'Catatan wajib diisi untuk izin dan sakit');
-  }
-}
-
 export async function updateAttendance(userId, id, { status, notes } = {}) {
   if (!ATTENDANCE_STATUSES.includes(status)) {
     throw httpError(422, `status harus salah satu dari: ${ATTENDANCE_STATUSES.join(', ')}`);
@@ -377,13 +459,20 @@ export async function updateAttendance(userId, id, { status, notes } = {}) {
   if (session?.opened_by !== teacher.id) throw httpError(403, 'Presensi ini bukan dari sesi kamu');
 
   assertNotes(status, notes ?? existing.notes);
-  if (existing.status === status && (notes === undefined || notes === existing.notes)) {
+  if (existing.recorded_at && existing.status === status && (notes === undefined || notes === existing.notes)) {
+    return { data: existing, changed: false };
   }
 
   const data = unwrap(
     await b8()
       .from('attendances')
-      .update({ status, notes: notes ?? existing.notes, source: 'guru', recorded_by: teacher.id })
+      .update({
+        status,
+        notes: notes ?? existing.notes,
+        source: 'guru',
+        recorded_by: teacher.id,
+        recorded_at: new Date().toISOString(),
+      })
       .eq('id', id)
       .select()
       .single()
@@ -391,7 +480,8 @@ export async function updateAttendance(userId, id, { status, notes } = {}) {
   return { data, changed: true };
 }
 
-//tombol "Simpan Perubahan" - banyak siswa sekaligus.
+// UC-13: tombol "Simpan Perubahan" - banyak siswa sekaligus.
+// changes: [{ attendanceId, status, notes? }]. Yang tidak berubah dilewati.
 export async function updateSessionAttendances(userId, sessionId, changes) {
   if (!Array.isArray(changes) || !changes.length) {
     throw httpError(422, 'changes wajib berisi minimal 1 item');
@@ -411,16 +501,24 @@ export async function updateSessionAttendances(userId, sessionId, changes) {
     const row = byId[c.attendanceId];
     if (!row) throw httpError(404, `Presensi ${c.attendanceId} bukan bagian dari sesi ini`);
     assertNotes(c.status, c.notes ?? row.notes);
-    if (row.status === c.status && (c.notes === undefined || c.notes === row.notes)) continue;
+    if (row.recorded_at && row.status === c.status && (c.notes === undefined || c.notes === row.notes)) continue;
+    todo.push({ row, c });
   }
   if (!todo.length) return { changed: false, updated: [] };
 
+  const now = new Date().toISOString();
   const updated = await Promise.all(
     todo.map(async ({ row, c }) =>
       unwrap(
         await b8()
           .from('attendances')
-          .update({ status: c.status, notes: c.notes ?? row.notes, source: 'guru', recorded_by: teacher.id })
+          .update({
+            status: c.status,
+            notes: c.notes ?? row.notes,
+            source: 'guru',
+            recorded_by: teacher.id,
+            recorded_at: now,
+          })
           .eq('id', row.id)
           .select()
           .single()
@@ -430,6 +528,7 @@ export async function updateSessionAttendances(userId, sessionId, changes) {
   return { changed: true, updated };
 }
 
+// UC-11 (guru) dan UC-06 (admin): riwayat presensi dengan filter.
 // Guru hanya melihat jadwal miliknya. Filter: classId, subjectId, studentId, status, from, to.
 export async function listAttendances(userId, role, { classId, subjectId, studentId, status, from, to } = {}) {
   checkRange(from, to);
@@ -515,7 +614,7 @@ export async function exportAttendances(userId, { classId, subjectId, from, to }
   return { filename, csv };
 }
 
-// Riwayat presensi satu siswa.
+// UC-21 / UC-22 / UC-28: riwayat presensi satu siswa.
 // Ortu: anak sendiri. Siswa: dirinya sendiri. Mengembalikan { summary, records }.
 export async function getStudentAttendances(userId, role, studentId, { from, to } = {}) {
   checkRange(from, to);
