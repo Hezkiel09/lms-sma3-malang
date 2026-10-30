@@ -2,6 +2,7 @@ import { master, b8, unwrap } from './b8.db.js';
 import { httpError } from './b8.http.js';
 import { notifyMany } from './notification.service.js';
 import { selectByIds, emptySummary } from './b8.utils.js';
+import { sessionClock } from './b8.time.js';
 
 const THRESHOLD = 80; // batas minimum kehadiran sekolah (%)
 
@@ -50,7 +51,7 @@ export async function getRecap(userId, role, { classId, subjectId, from, to } = 
   const cls = unwrap(await master().from('classes').select('id, name').eq('id', classId).maybeSingle());
   const subj = unwrap(await master().from('subjects').select('id, name').eq('id', subjectId).maybeSingle());
   const students = unwrap(
-    await master().from('students').select('id, nis, name').eq('class_id', classId).order('name')
+    await master().from('students').select('id, nis, name, parent_id').eq('class_id', classId).order('name')
   );
 
   let sessions = [];
@@ -98,6 +99,7 @@ export async function getRecap(userId, role, { classId, subjectId, from, to } = 
       id: st.id,
       nis: st.nis,
       name: st.name,
+      parentId: st.parent_id ?? null,
       meetings: perMeeting,
       ...counts,
       percent,
@@ -110,10 +112,13 @@ export async function getRecap(userId, role, { classId, subjectId, from, to } = 
     averagePercent: withPercent.length
       ? Math.round(withPercent.reduce((a, s) => a + s.percent, 0) / withPercent.length)
       : null,
+    label: null,
     belowThreshold: list.filter((s) => s.needsAttention).length,
     totalIzinSakit: list.reduce((a, s) => a + s.izin + s.sakit, 0),
     totalAlpha: list.reduce((a, s) => a + s.alpha, 0),
   };
+
+  summary.label = summary.averagePercent === null ? null : summary.averagePercent >= THRESHOLD ? 'Baik' : 'Perlu perhatian';
 
   return {
     class: cls,
@@ -126,21 +131,25 @@ export async function getRecap(userId, role, { classId, subjectId, from, to } = 
   };
 }
 
-// Tombol "Ingatkan siswa": notifikasi ke siswa yang belum mengisi (status masih alpha).
+// Tombol "Ingatkan N siswa": notifikasi ke siswa yang belum mengisi (belum ada recorded_at).
 export async function remindStudents(userId, sessionId) {
   const teacher = await getTeacher(userId);
   const session = unwrap(await b8().from('attendance_sessions').select('*').eq('id', sessionId).maybeSingle());
   if (!session) throw httpError(404, 'Sesi tidak ditemukan');
   if (session.opened_by !== teacher.id) throw httpError(403, 'Ini bukan sesi kamu');
-  if (session.status !== 'open') throw httpError(409, 'Sesi sudah ditutup');
+
+  const schedule = unwrap(
+    await master().from('schedules').select('subject_id, end_time').eq('id', session.schedule_id).maybeSingle()
+  );
+  if (sessionClock(session, schedule).state !== 'open') throw httpError(409, 'Sesi sudah berakhir atau ditutup');
+  if (session.method === 'manual') throw httpError(409, 'Presensi sesi ini dicatat manual oleh guru');
 
   const pending = unwrap(
-        await b8().from('attendances').select('student_id').eq('session_id', sessionId).eq('status', 'alpha').is('recorded_at', null)
+    await b8().from('attendances').select('student_id').eq('session_id', sessionId).is('recorded_at', null)
   );
   if (!pending.length) return { reminded: 0, message: 'Semua siswa sudah mengisi.' };
 
   const students = await selectByIds(() => master().from('students'), 'id, user_id', pending.map((p) => p.student_id));
-  const schedule = unwrap(await master().from('schedules').select('subject_id').eq('id', session.schedule_id).maybeSingle());
   const subject = schedule?.subject_id
     ? unwrap(await master().from('subjects').select('name').eq('id', schedule.subject_id).maybeSingle())
     : null;
@@ -148,10 +157,19 @@ export async function remindStudents(userId, sessionId) {
   const reminded = await notifyMany(
     students.map((s) => s.user_id),
     {
-      title: 'Pengingat presensi',
-      message: `Kamu belum mengisi presensi ${subject?.name ?? 'pelajaran'} tanggal ${session.date}. Segera isi sebelum sesi ditutup.`,
+      title: 'Pengingat: presensi masih terbuka',
+      message: `Presensi ${subject?.name ?? 'pelajaran'} belum kamu isi. Segera isi sebelum ditutup guru.`,
       type: 'presensi',
+      data: { action: 'isi_presensi', sessionId },
     }
   );
-  return { reminded };
+
+  unwrap(
+    await b8()
+      .from('attendance_sessions')
+      .update({ last_reminded_at: new Date().toISOString(), last_reminded_count: reminded })
+      .eq('id', sessionId)
+      .select('id')
+  );
+  return { reminded, message: `Pengingat dikirim ke ${reminded} siswa.` };
 }

@@ -1,7 +1,6 @@
 import { supabaseAdmin } from '../../config/supabase.js';
 import { fail } from './b8.http.js';
 
-// Dipasang setelah authenticateUser: ambil role dari master.users -> req.role
 export const loadRole = async (req, res, next) => {
   try {
     const { data, error } = await supabaseAdmin

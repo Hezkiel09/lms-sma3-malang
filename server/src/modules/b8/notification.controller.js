@@ -8,3 +8,7 @@ export const listNotifications = handle(async (req, res) =>
 export const markRead = handle(async (req, res) =>
   ok(res, await service.markRead(req.user.id, req.params.id), 'Notifikasi ditandai sudah dibaca')
 );
+
+export const markAllRead = handle(async (req, res) =>
+  ok(res, await service.markAllRead(req.user.id), 'Semua notifikasi ditandai dibaca')
+);

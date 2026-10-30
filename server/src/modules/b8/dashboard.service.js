@@ -1,14 +1,8 @@
 import { master, b8, unwrap } from './b8.db.js';
 import { httpError } from './b8.http.js';
 import { listNotifications } from './notification.service.js';
-import {
-  nowInfo,
-  dayIndex,
-  emptySummary,
-  summarize,
-  selectByIds,
-  gradesPlaceholder,
-} from './b8.utils.js';
+import { getOverview, getWeek } from './attendance.student.service.js';
+import { nowInfo, dayIndex, emptySummary, summarize, selectByIds, gradesPlaceholder,} from './b8.utils.js';
 
 const STATUSES = ['hadir', 'sakit', 'izin', 'alpha'];
 
@@ -100,13 +94,12 @@ export async function teacherDashboard(userId) {
 }
 
 // UC-20: dashboard anak untuk orang tua. studentId opsional (pilih anak).
-export async function parentDashboard(userId, { studentId } = {}) {
+export async function parentDashboard(userId, { studentId, month } = {}) {
   const parent = unwrap(
     await master().from('parents').select('id, name').eq('user_id', userId).maybeSingle()
   );
   if (!parent) throw httpError(404, 'Profil orang tua tidak ditemukan');
-
-  const { monthStart, monthEnd } = nowInfo();
+  
   const { unreadCount, notifications } = await listNotifications(userId, { limit: 5 });
   const notif = { unreadCount, latest: notifications };
 
@@ -137,35 +130,26 @@ export async function parentDashboard(userId, { studentId } = {}) {
   const child = studentId ? children.find((c) => c.id === studentId) : children[0];
   if (!child) throw httpError(403, 'Tidak punya akses ke data siswa ini');
 
-  const rows = unwrap(
-    await b8()
-      .from('attendances')
-      .select('*')
-      .eq('student_id', child.id)
-      .gte('date', monthStart)
-      .lte('date', monthEnd)
-      .order('date', { ascending: false })
-  );
-  const schedules = await selectByIds(() => master().from('schedules'), 'id, subject_id', rows.map((r) => r.schedule_id));
-  const subjects = await selectByIds(() => master().from('subjects'), 'id, name', schedules.map((s) => s.subject_id));
-  const subjectById = Object.fromEntries(subjects.map((s) => [s.id, s.name]));
-  const subjectBySchedule = Object.fromEntries(schedules.map((s) => [s.id, subjectById[s.subject_id] ?? null]));
+    // Presensi anak: ringkasan bulan ini + presensi minggu ini (aturan hitung sama dengan halaman Presensi Anak).
+  const [overview, week] = await Promise.all([
+    getOverview(userId, 'parent', child.id, { month }),
+    getWeek(userId, 'parent', child.id),
+  ]);
 
   return {
     parent,
     children, // untuk pilihan anak kalau lebih dari satu
     selected: child, // profil: nama, kelas, NIS
-    period: { from: monthStart, to: monthEnd },
+    period: overview.period,
     attendance: {
-      summary: summarize(rows),
-      recent: rows.slice(0, 5).map((r) => ({
-        id: r.id,
-        date: r.date,
-        status: r.status,
-        notes: r.notes,
-        subject_name: subjectBySchedule[r.schedule_id] ?? null,
-      })),
-      message: rows.length ? null : 'Data presensi bulan ini belum ada.',
+      month: overview.month,
+      month_label: overview.month_label,
+      summary: overview.summary,
+      week: week.days,
+      week_period: week.period,
+      today_note: week.today_note,
+      subjects_notice: overview.subjects_notice,
+      message: overview.summary.recorded_days ? null : 'Data presensi bulan ini belum ada.',
     },
     grades: gradesPlaceholder(),
     notifications: notif,

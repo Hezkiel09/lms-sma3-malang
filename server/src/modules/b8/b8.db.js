@@ -4,7 +4,6 @@ import { httpError } from './b8.http.js';
 export const master = () => supabaseAdmin.schema('master');
 export const b8 = () => supabaseAdmin.schema('b8');
 
-// Ambil data dari hasil query; lempar error HTTP kalau gagal.
 export const unwrap = ({ data, error }) => {
   if (error) {
     if (error.code === '23505') throw httpError(409, 'Data sudah ada (duplikat).');
