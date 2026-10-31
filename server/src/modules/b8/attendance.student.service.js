@@ -161,7 +161,8 @@ export async function getTodayForMe(userId) {
       remaining_label: clock.remainingLabel,
       ends_at: base.time.end,
       my: mine,
-      can_submit: clock.state === 'open' && session.method === 'siswa' && !recorded,      
+      can_submit: clock.state === 'open' && session.method === 'siswa' && !recorded,
+      lesson_over: scheduleTiming(sch) === 'selesai', // jam pelajaran sudah lewat 
       options: STUDENT_CHECKIN_STATUSES.map((v) => ({ value: v, label: LABEL[v] })),
       announcement:
         state === 'open'
