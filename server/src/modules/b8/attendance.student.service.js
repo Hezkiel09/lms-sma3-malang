@@ -161,7 +161,7 @@ export async function getTodayForMe(userId) {
       remaining_label: clock.remainingLabel,
       ends_at: base.time.end,
       my: mine,
-      can_submit: clock.state === 'open' && session.method === 'siswa' && !(mine && mine.source === 'guru'),
+      can_submit: clock.state === 'open' && session.method === 'siswa' && !recorded,      
       options: STUDENT_CHECKIN_STATUSES.map((v) => ({ value: v, label: LABEL[v] })),
       announcement:
         state === 'open'
@@ -209,7 +209,7 @@ export async function getTodayForMe(userId) {
   return { ...out, subtitle, has_open: hasOpen, sessions: cards, next };
 }
 
-// UC-27: siswa mengisi presensi (hadir / izin / sakit). Pilihan boleh diubah selama sesi
+// UC-27: siswa mengisi presensi (hadir / izin / sakit). Pilihan terkunci setelah dikirim. Koreksi hanya lewat guru.
 // masih berlangsung, kecuali sudah dikoreksi guru.
 export async function checkin(userId, sessionId, { status, notes } = {}) {
   if (!STUDENT_CHECKIN_STATUSES.includes(status)) {
@@ -261,8 +261,8 @@ export async function checkin(userId, sessionId, { status, notes } = {}) {
     return respond(row, true);
   }
 
-  if (existing.recorded_at && existing.source !== 'siswa') {
-    throw httpError(409, 'Presensi kamu sudah dicatat guru. Hubungi guru untuk mengubahnya.');
+  if (existing.recorded_at) {
+    throw httpError(409, 'Presensi kamu sudah terkirim dan tidak dapat diubah. Hubungi guru jika salah mengisi.');
   }
   if (existing.recorded_at && existing.status === status && (existing.notes ?? null) === cleanNotes) {
     return respond(existing, false);
@@ -273,7 +273,7 @@ export async function checkin(userId, sessionId, { status, notes } = {}) {
     .from('attendances')
     .update({ status, notes: cleanNotes, source: 'siswa', recorded_at: now })
     .eq('id', existing.id);
-  q = existing.recorded_at ? q.eq('source', 'siswa') : q.is('recorded_at', null);
+  q = q.is('recorded_at', null);
   const updated = unwrap(await q.select());
   if (!updated.length) throw httpError(409, 'Presensi sudah berubah, muat ulang halaman');
   return respond(updated[0], true);
