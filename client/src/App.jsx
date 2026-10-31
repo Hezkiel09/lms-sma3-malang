@@ -1,122 +1,58 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import AdminLayout from './layouts/AdminLayout';
+import AdminDashboard from './pages/admin/Dashboard';
+import PenggunaPage from './pages/admin/Pengguna';
+import AkademikPage from './pages/admin/Akademik';
+import MonitoringPage from './pages/admin/Monitoring';
+import PengumumanPage from './pages/admin/Pengumuman';
+import SiswaPage from './pages/admin/Siswa';
+import GuruPage from './pages/admin/Guru';
+import LoginPage from './pages/auth/Login';
 
-function App() {
-  const [count, setCount] = useState(0)
-
+// Generic placeholder component for submenus that will be sliced later
+function PagePlaceholder({ title }) {
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+    <div className="max-w-7xl mx-auto space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight sm:text-3xl">{title}</h1>
+        <p className="mt-1 text-sm text-slate-500">Halaman ini siap untuk di-slice berikutnya.</p>
+      </div>
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
+        <h3 className="text-base font-semibold text-slate-700">Area Slicing Halaman {title}</h3>
+        <p className="mt-1 text-sm text-slate-400">Silakan letakkan komponen untuk menu ini di sini.</p>
+      </div>
+    </div>
+  );
 }
 
-export default App
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Auth routes */}
+        <Route path="/login" element={<LoginPage />} />
+
+        {/* Admin Dashboard with shared Layout */}
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="pengguna" element={<PenggunaPage />} />
+          <Route path="akademik" element={<AkademikPage />} />
+          <Route path="monitoring" element={<MonitoringPage />} />
+          <Route path="pengumuman" element={<PengumumanPage />} />
+          <Route path="laporan" element={<PagePlaceholder title="Laporan" />} />
+          <Route path="profil" element={<PagePlaceholder title="Profil Admin" />} />
+          <Route path="siswa" element={<SiswaPage />} />
+          <Route path="guru" element={<GuruPage />} />
+          {/* Catch-all route inside admin */}
+          <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
+        </Route>
+
+        {/* Root redirect to admin dashboard */}
+        <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
+        {/* 404 fallback */}
+        <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
