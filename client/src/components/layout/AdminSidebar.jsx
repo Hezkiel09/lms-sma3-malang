@@ -9,8 +9,8 @@ import {
   User,
   LogOut,
   X,
-} from 'lucide-react'
-import logosmanti from '../../assets/logo smanti.png'
+} from 'lucide-react';
+import logosmanti from '../../assets/logo smanti.png';
 
 const menuItems = [
   { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
