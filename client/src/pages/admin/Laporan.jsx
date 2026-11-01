@@ -5,18 +5,16 @@ import {
   mockLaporanFormat,
   mockLaporanCards,
 } from '../../data/mockLaporan';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+import { apiFetch } from '../../lib/api';
 
 async function fetchMasterData(resource) {
-  const response = await fetch(`${API_BASE_URL}/api/v1/master/${resource}`);
-  const result = await response.json();
+  const data = await apiFetch(`/master/${resource}`);
 
-  if (!response.ok || result.success !== true || !Array.isArray(result.data)) {
-    throw new Error(result.message || `Backend gagal mengirim data ${resource}.`);
+  if (!Array.isArray(data)) {
+    throw new Error(`Backend mengirim format data ${resource} yang tidak sesuai.`);
   }
 
-  return result.data;
+  return data;
 }
 
 async function fetchAcademicData() {

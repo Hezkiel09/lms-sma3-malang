@@ -146,22 +146,25 @@ export const getAllStudentsService = async () => {
   .from('students')
   .select(`
     *,
-    classes:class_id (
+    classes:classes!students_class_id_fkey (
       id,
       name,
       level,
       major
     ),
-    parents:parent_id (
+    parents:parents!students_parent_id_fkey (
       id,
       name,
       phone
     ),
-    users:user_id (
+    users:users!students_user_id_fkey (
       email,
       role
     )
   `);
+
+  if (error) throw error;
+  return data;
 };
 
 export const createStudentService = async ({ email, password, name, nis, class_id }) => {
@@ -242,15 +245,15 @@ export const getAllParentsService = async () => {
       name,
       phone,
       address,
-      users:user_id (
+      users:users!parents_user_id_fkey (
         email,
         role
       ),
-      students (
+      students:students!students_parent_id_fkey (
         id,
         name,
         nis,
-        classes:class_id (
+        classes:classes!students_class_id_fkey (
           id,
           name,
           level,
