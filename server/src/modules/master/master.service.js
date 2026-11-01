@@ -162,6 +162,9 @@ export const getAllStudentsService = async () => {
       role
     )
   `);
+
+  if (error) throw error;
+  return data;
 };
 
 export const createStudentService = async ({ email, password, name, nis, class_id }) => {

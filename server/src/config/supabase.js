@@ -1,7 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
+import { fileURLToPath } from 'node:url';
 
 dotenv.config();
+dotenv.config({ path: fileURLToPath(new URL('../.env', import.meta.url)) });
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -15,5 +17,3 @@ if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
-
-//module.exports = supabase;
