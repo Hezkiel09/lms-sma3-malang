@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Home, 
   Calendar as CalendarIcon, 
@@ -22,19 +22,68 @@ import logoSmanti from '../../../assets/Logo.png';
 import TabTugasGuru from './TabTugasGuru'; // Import komponen tab tugas
 import TabNilaiGuru from './TabNilaiGuru';
 
-const DetailCourseGuru = ({ onKembali, onKeModeEdit, onKeEditTugas }) => {
-  const [tabAktif, setTabAktif] = useState('materi'); // 'materi' | 'tugas' | 'nilai'
-  const [openBab, setOpenBab] = useState({
-    1: true,  // Persamaan Garis Lurus
-    2: true,  // Fungsi Kuadrat
-    3: true,  // Sistem Persamaan Linear
-    4: true,  // Logaritma
-    5: true   // Trigonometri
-  });
+const COURSE_ID = 'bf720e90-1886-4c01-9868-249181f900dc';
 
-  const toggleBab = (id) => {
-    setOpenBab(prev => ({ ...prev, [id]: !prev[id] }));
+const DetailCourseGuru = ({ onKembali, onKeModeEdit, onKeEditTugas }) => {
+  const [daftarBab, setDaftarBab] = useState([]);
+  const [daftarMateri, setDaftarMateri] = useState([]);
+  const [loadingAPI, setLoadingAPI] = useState(true);
+  const [errorAPI, setErrorAPI] = useState('');
+
+  const [tabAktif, setTabAktif] = useState('materi');
+
+ const [openBab, setOpenBab] = useState({});
+
+const toggleBab = (id) => {
+  setOpenBab((prev) => ({
+    ...prev,
+    [id]: !prev[id]
+  }));
+};
+
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      setLoadingAPI(true);
+      setErrorAPI('');
+
+      const [responseSection, responseMateri] = await Promise.all([
+        fetch(`http://localhost:5000/api/v1/b5/courses/${COURSE_ID}/sections`),
+        fetch(`http://localhost:5000/api/v1/b5/courses/${COURSE_ID}/materials`)
+      ]);
+
+      if (!responseSection.ok || !responseMateri.ok) {
+        throw new Error('Gagal mengambil data dari backend.');
+      }
+
+      const hasilSection = await responseSection.json();
+      const hasilMateri = await responseMateri.json();
+
+      if (!Array.isArray(hasilSection.data)) {
+        throw new Error('Format data Section tidak sesuai.');
+      }
+
+      if (!Array.isArray(hasilMateri.data)) {
+        throw new Error('Format data Materi tidak sesuai.');
+      }
+
+      setDaftarBab(hasilSection.data);
+      setOpenBab(
+        Object.fromEntries(
+            hasilSection.data.map((bab) => [bab.id, true])
+        )
+    );
+      setDaftarMateri(hasilMateri.data);
+    } catch (error) {
+      console.error('Error mengambil data:', error);
+      setErrorAPI(error.message);
+    } finally {
+      setLoadingAPI(false);
+    }
   };
+
+  fetchData();
+}, []);
 
   return (
     <div className="flex min-h-screen bg-white font-sans text-[#17242E] w-full">
@@ -177,116 +226,101 @@ const DetailCourseGuru = ({ onKembali, onKeModeEdit, onKeEditTugas }) => {
           </button>
         </div>
 
-        {/* ISI TAB: MATERI */}
-        {tabAktif === 'materi' && (
-          <div className="space-y-6 w-full">
-            
-            {/* BAB 1: Persamaan Garis Lurus */}
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-[0_4px_20px_rgba(0,136,168,0.08)] overflow-hidden">
-              <div 
-                onClick={() => toggleBab(1)}
-                className="p-5 flex justify-between items-center bg-[#F8FAFC]/60 border-b border-gray-100 cursor-pointer hover:bg-cyan-50/20 transition"
-              >
-                <div className="flex items-center gap-3">
-                  {openBab[1] ? <ChevronUp size={18} className="text-[#0088A8]" /> : <ChevronDown size={18} className="text-gray-400" />}
-                  <h3 className="font-bold text-base text-[#17242E]">Persamaan Garis Lurus</h3>
-                </div>
-                <span className="text-[11px] text-[#71808D]">12 Okt 2026</span>
+{/* ISI TAB: MATERI */}
+{tabAktif === 'materi' && (
+  <div className="space-y-6 w-full">
+
+    {loadingAPI ? (
+      <p className="text-sm text-gray-500">
+        Memuat data materi...
+      </p>
+    ) : errorAPI ? (
+      <div className="p-4 rounded-xl bg-red-50 border border-red-200">
+        <p className="text-sm text-red-600">{errorAPI}</p>
+      </div>
+    ) : daftarBab.length === 0 ? (
+      <p className="text-sm text-gray-500">
+        Belum ada bagian materi.
+      </p>
+    ) : (
+      daftarBab.map((bab) => {
+        const materiPerSection = daftarMateri.filter(
+          (materi) => materi.section_id === bab.id
+        );
+
+        return (
+          <div
+            key={bab.id}
+            className="bg-white rounded-3xl border border-gray-100 shadow-[0_4px_20px_rgba(0,136,168,0.08)] overflow-hidden"
+          >
+            <div
+              onClick={() => toggleBab(bab.id)}
+              className="p-5 flex justify-between items-center bg-[#F8FAFC]/60 border-b border-gray-100 cursor-pointer hover:bg-cyan-50/20 transition"
+            >
+              <div className="flex items-center gap-3">
+                {openBab[bab.id] ? (
+                  <ChevronUp size={18} className="text-[#0088A8]" />
+                ) : (
+                  <ChevronDown size={18} className="text-gray-400" />
+                )}
+
+                <h3 className="font-bold text-base text-[#17242E]">
+                  {bab.title}
+                </h3>
               </div>
 
-              {openBab[1] && (
-                <div className="p-6 space-y-4">
-                  <div className="text-xs text-[#71808D] leading-relaxed">
-                    <p>Materi tentang persamaan garis lurus, gradien, dan grafiknya.</p>
-                    <p className="font-bold text-[#17242E] mt-2">Tujuan :</p>
-                    <p>1. Menentukan gradien dan persamaan garis lurus dari titik atau grafik yang diketahui.</p>
-                    <p>2. Menggambar grafik garis lurus dan menerapkannya untuk menyelesaikan masalah sehari-hari.</p>
-                  </div>
+              <span className="text-[11px] text-[#71808D]">
+                {materiPerSection.length} materi
+              </span>
+            </div>
 
-                  {/* PDF DOKUMEN */}
-                  <div className="bg-[#E0F7FA]/40 border border-cyan-100 p-3.5 rounded-2xl flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-[#0088A8] text-white flex items-center justify-center shrink-0 shadow-2xs">
-                        <FileText size={20} />
-                      </div>
-                      <div>
-                        <p className="font-bold text-xs text-[#17242E]">Garis Lurus.pdf</p>
-                        <p className="text-[10px] text-[#71808D] uppercase font-semibold">DOKUMEN PDF • 2.4 MB</p>
+            {openBab[bab.id] && (
+              <div className="p-6 space-y-4">
+
+                {materiPerSection.length === 0 ? (
+                  <p className="text-xs text-gray-500">
+                    Belum ada materi pada bagian ini.
+                  </p>
+                ) : (
+                  materiPerSection.map((materi) => (
+                    <div
+                      key={materi.id}
+                      className="bg-[#E0F7FA]/40 border border-cyan-100 p-3.5 rounded-2xl"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-[#0088A8] text-white flex items-center justify-center shrink-0">
+                          <FileText size={20} />
+                        </div>
+
+                        <div>
+                          <p className="font-bold text-xs text-[#17242E]">
+                            {materi.title || 'Materi tanpa judul'}
+                          </p>
+
+                          {materi.description && (
+                            <p className="text-[10px] text-[#71808D] mt-1">
+                              {materi.description}
+                            </p>
+                          )}
+
+                          <p className="text-[10px] text-[#71808D] mt-1">
+                            Status: {materi.status || 'Belum tersedia'}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                    <button className="px-4 py-2 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-2xs">
-                      <Download size={14} /> Unduh
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+                  ))
+                )}
 
-            {/* BAB 2: Fungsi Kuadrat */}
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-[0_4px_20px_rgba(0,136,168,0.08)] overflow-hidden">
-              <div 
-                onClick={() => toggleBab(2)}
-                className="p-5 flex justify-between items-center bg-[#F8FAFC]/60 border-b border-gray-100 cursor-pointer hover:bg-cyan-50/20 transition"
-              >
-                <div className="flex items-center gap-3">
-                  {openBab[2] ? <ChevronUp size={18} className="text-[#0088A8]" /> : <ChevronDown size={18} className="text-gray-400" />}
-                  <h3 className="font-bold text-base text-[#17242E]">Fungsi Kuadrat</h3>
-                </div>
-                <span className="text-[11px] text-[#71808D]">14 Okt 2026</span>
               </div>
-
-              {openBab[2] && (
-                <div className="p-6 space-y-4">
-                  <div className="text-xs text-[#71808D] leading-relaxed">
-                    <p>Materi tentang bentuk umum, puncak, dan grafik fungsi kuadrat.</p>
-                    <p className="font-bold text-[#17242E] mt-2">Tujuan :</p>
-                    <p>1. Menentukan bentuk umum, puncak, dan sumbu simetri fungsi kuadrat.</p>
-                    <p>2. Menggambar grafik fungsi kuadrat dan menerapkannya untuk menyelesaikan masalah sehari-hari.</p>
-                  </div>
-
-                  {/* PDF 1 */}
-                  <div className="bg-[#E0F7FA]/40 border border-cyan-100 p-3.5 rounded-2xl flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-[#0088A8] text-white flex items-center justify-center shrink-0 shadow-2xs">
-                        <FileText size={20} />
-                      </div>
-                      <div>
-                        <p className="font-bold text-xs text-[#17242E]">fungsi_kuadrat_xa.pdf</p>
-                        <p className="text-[10px] text-[#71808D] uppercase font-semibold">DOKUMEN PDF • 2.4 MB</p>
-                      </div>
-                    </div>
-                    <button className="px-4 py-2 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-2xs">
-                      <Download size={14} /> Unduh
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* BAB 3: Sistem Persamaan Linear */}
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-[0_4px_20px_rgba(0,136,168,0.08)] overflow-hidden">
-              <div 
-                onClick={() => toggleBab(3)}
-                className="p-5 flex justify-between items-center bg-[#F8FAFC]/60 border-b border-gray-100 cursor-pointer hover:bg-cyan-50/20 transition"
-              >
-                <div className="flex items-center gap-3">
-                  {openBab[3] ? <ChevronUp size={18} className="text-[#0088A8]" /> : <ChevronDown size={18} className="text-gray-400" />}
-                  <h3 className="font-bold text-base text-[#17242E]">Sistem Persamaan Linear</h3>
-                </div>
-                <span className="text-[11px] text-[#71808D]">16 Okt 2026</span>
-              </div>
-
-              {openBab[3] && (
-                <div className="p-6 space-y-4">
-                  <div className="text-xs text-[#71808D] leading-relaxed">
-                    <p>Materi tentang metode substitusi dan eliminasi pada SPL.</p>
-                  </div>
-                </div>
-              )}
-            </div>
-
+            )}
           </div>
-        )}
+        );
+      })
+    )}
+
+  </div>
+)}
 
         {/* ISI TAB: TUGAS (Memanggil Komponen TabTugasGuru yang sesuai Figma) */}
         {tabAktif === 'tugas' && (
