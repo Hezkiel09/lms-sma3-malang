@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Radio, Clock, Check, School, FileText, Activity, Info, X, CalendarDays, ChevronRight, TriangleAlert, MessageSquare } from 'lucide-react';
+import PresensiTabs from '../../components/PresensiTabs';
 import { todayOpen, todaySubmitted, todayEnded, todayEmpty, todayWeekend, todayEndedNext, todayOver } from '../../mocks/todayMock';
 
 // true  = kartu Alfa tetap tampil sampai akhir hari, walau jam pelajarannya sudah lewat
@@ -118,7 +119,7 @@ function SessionCard({ card, onSubmit }) {
               <b>{card.result.title}</b>
               <p>Dikirim pukul {card.my.time} · Salah mengisi? <HubungiGuru /></p>
             </div>
-            <button className="btn" title="Segera hadir">Lihat riwayat <ChevronRight size={16} /></button>
+            <Link className="btn" to="/siswa/presensi/riwayat">Lihat riwayat <ChevronRight size={16} /></Link>
           </div>
         )}
 
@@ -133,7 +134,7 @@ function SessionCard({ card, onSubmit }) {
               </div>
               <div className="acts">
                 <HubungiGuruBtn />
-                <button className="btn ghost" title="Segera hadir">Lihat riwayat</button>
+                <Link className="btn ghost" to="/siswa/presensi/riwayat">Lihat riwayat</Link>
               </div>
             </div>
           ) : (
@@ -143,7 +144,7 @@ function SessionCard({ card, onSubmit }) {
                 <b>{card.result.title}</b>
                 <p>{card.result.message}</p>
               </div>
-              <button className="btn" title="Segera hadir">Lihat riwayat <ChevronRight size={16} /></button>
+              <Link className="btn" to="/siswa/presensi/riwayat">Lihat riwayat <ChevronRight size={16} /></Link>
             </div>
           )
         )}
@@ -201,7 +202,7 @@ function EmptyState({ next }) {
           : 'Tidak ada jadwal pelajaran yang tersisa hari ini, atau hari ini libur. Presensi akan tersedia lagi di hari sekolah berikutnya.'}
       </p>
       {next && <NextCard next={next} />}
-      <button className="btn" title="Segera hadir">Lihat riwayat presensi <ChevronRight size={18} /></button>
+      <Link className="btn" to="/siswa/presensi/riwayat">Lihat riwayat presensi <ChevronRight size={18} /></Link>
     </div>
   );
 }
@@ -240,10 +241,7 @@ export default function HariIni() {
       <h1 className="title">Isi Presensi</h1>
       <p className="subtitle">{subtitle}</p>
 
-      <div className="tabs">
-        <button className="tab on">Hari Ini</button>
-        <button className="tab" disabled title="Segera hadir">Riwayat per Mapel</button>
-      </div>
+      <PresensiTabs />
 
       {banners.map((s) => (
         <div className="banner" key={s.session_id}>
