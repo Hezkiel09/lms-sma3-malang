@@ -18,8 +18,9 @@ import BuatKuisPage from './pages/guru/BuatKuis';
 import ImportSoalExcelPage from './pages/guru/ImportSoalExcel';
 import AmbilDariBankSoalPage from './pages/guru/AmbilDariBankSoal';
 import TambahSoalKuisPage from './pages/guru/TambahSoalKuis';
+import RekapHasilPage from './pages/guru/RekapHasil';
 
-// Placeholder for other guru pages
+// Placeholder for remaining guru pages
 function GuruPlaceholder({ title }) {
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -29,7 +30,7 @@ function GuruPlaceholder({ title }) {
       </div>
       <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
         <h3 className="text-base font-semibold text-slate-700">Area {title}</h3>
-        <p className="mt-1 text-sm text-slate-400">Silakan gunakan menu Bank Soal atau Buat Kuis.</p>
+        <p className="mt-1 text-sm text-slate-400">Silakan gunakan menu Bank Soal, Buat Kuis, atau Rekap Nilai.</p>
       </div>
     </div>
   );
@@ -51,7 +52,8 @@ export default function App() {
           <Route path="buat-kuis/import" element={<ImportSoalExcelPage />} />
           <Route path="buat-kuis/ambil-bank-soal" element={<AmbilDariBankSoalPage />} />
           <Route path="buat-kuis/tambah-soal" element={<TambahSoalKuisPage />} />
-          <Route path="rekap-nilai" element={<GuruPlaceholder title="Rekap Nilai" />} />
+          <Route path="rekap-nilai" element={<RekapHasilPage />} />
+          <Route path="asesmen/rekap-hasil" element={<RekapHasilPage />} />
           <Route path="presensi" element={<GuruPlaceholder title="Presensi Guru" />} />
           <Route path="pesan" element={<GuruPlaceholder title="Pesan" />} />
           <Route path="*" element={<Navigate to="/guru/buat-kuis" replace />} />
@@ -75,6 +77,8 @@ export default function App() {
         {/* Direct shortcuts */}
         <Route path="/buat-kuis" element={<Navigate to="/guru/buat-kuis" replace />} />
         <Route path="/bank-soal" element={<Navigate to="/guru/bank-soal" replace />} />
+        <Route path="/rekap-nilai" element={<Navigate to="/guru/rekap-nilai" replace />} />
+        <Route path="/rekap-hasil" element={<Navigate to="/guru/rekap-nilai" replace />} />
 
         {/* Root redirect directly to Buat Kuis */}
         <Route path="/" element={<Navigate to="/guru/buat-kuis" replace />} />

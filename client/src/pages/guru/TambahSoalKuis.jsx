@@ -11,20 +11,50 @@ export default function TambahSoalKuisPage() {
   const navigate = useNavigate();
 
   // State
-  const [jenisSoal, setJenisSoal] = useState('Pilihan Ganda');
-  const [pertanyaan, setPertanyaan] = useState('Hasil dari 12 × 8 adalah ...');
-  const [kunciJawaban, setKunciJawaban] = useState('B');
+  const [jenisSoal, setJenisSoal] = useState('Benar / Salah'); // Default to Gambar 1, easily toggled
+  const [pertanyaan, setPertanyaan] = useState(
+    'Pada barisan aritmetika 5, 8, 11, ..., suku ke-10 adalah 32.'
+  );
+  const [kunciJawabanPG, setKunciJawabanPG] = useState('B');
+  const [kunciBenarSalah, setKunciBenarSalah] = useState('Benar');
   const [bobot, setBobot] = useState(5);
-  const [pilihan, setPilihan] = useState({
+  const [pilihanPG, setPilihanPG] = useState({
     A: '84',
     B: '96',
     C: '108',
     D: '120',
   });
 
+  // Esai reference & rubric
+  const [jawabanAcuan, setJawabanAcuan] = useState(
+    `Diketahui a = 5 dan b = 8 – 5 = 3.\nU₁₀ = a + (10 – 1)b = 5 + 9 × 3 = 32.\nS₁₀ = 10/2 × (2 × 5 + 9 × 3) = 5 × 37 = 185.`
+  );
+  const rubricList = [
+    { text: 'Menentukan a = 5 dan b = 3 dengan benar.', poin: '2 poin' },
+    { text: 'Menggunakan rumus U₁₀ dan memperoleh U₁₀ = 32.', poin: '3 poin' },
+    { text: 'Menuliskan rumus S₁₀ = n/2 × (2a + (n - 1)b).', poin: '2 poin' },
+    { text: 'Menghitung S₁₀ = 185 dengan langkah yang benar.', poin: '3 poin' },
+  ];
+
+  const handleTabChange = (type) => {
+    setJenisSoal(type);
+    if (type === 'Benar / Salah') {
+      setPertanyaan('Pada barisan aritmetika 5, 8, 11, ..., suku ke-10 adalah 32.');
+      setBobot(5);
+    } else if (type === 'Esai') {
+      setPertanyaan(
+        'Diketahui barisan aritmetika 5, 8, 11, .... Tentukan suku ke-10 dan jumlah 10 suku pertama. Tuliskan langkah penyelesaiannya.'
+      );
+      setBobot(10);
+    } else {
+      setPertanyaan('Hasil dari 12 × 8 adalah ...');
+      setBobot(5);
+    }
+  };
+
   const handleSimpanSoal = (e) => {
     e.preventDefault();
-    alert('Soal 41 berhasil disimpan ke daftar soal!');
+    alert(`Soal 41 (${jenisSoal}) berhasil disimpan ke daftar soal!`);
     navigate('/guru/buat-kuis', { state: { addedQuestionNumber: 41 } });
   };
 
@@ -32,11 +62,11 @@ export default function TambahSoalKuisPage() {
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* 1. Breadcrumbs */}
       <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
-        <Link to="/guru/beranda" className="hover:text-slate-600">
+        <Link to="/guru/beranda" className="hover:text-slate-600 transition-colors">
           Beranda
         </Link>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-        <Link to="/guru/buat-kuis" className="hover:text-slate-600">
+        <Link to="/guru/buat-kuis" className="hover:text-slate-600 transition-colors">
           Buat Kuis
         </Link>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
@@ -61,7 +91,9 @@ export default function TambahSoalKuisPage() {
             <div>
               <h2 className="text-base font-bold text-slate-800">Detail Soal</h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                Susun pertanyaan dan tentukan jawaban yang benar.
+                {jenisSoal === 'Esai'
+                  ? 'Susun pertanyaan, jawaban acuan, dan penilaian.'
+                  : 'Susun pernyataan dan tentukan jawaban yang benar.'}
               </p>
             </div>
             <span className="rounded-md bg-[#e0f7fa] px-3 py-1 text-xs font-semibold text-[#006064]">
@@ -78,7 +110,7 @@ export default function TambahSoalKuisPage() {
               {/* Option 1: Pilihan Ganda */}
               <button
                 type="button"
-                onClick={() => setJenisSoal('Pilihan Ganda')}
+                onClick={() => handleTabChange('Pilihan Ganda')}
                 className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs sm:text-sm font-semibold transition-all ${
                   jenisSoal === 'Pilihan Ganda'
                     ? 'border-2 border-cyan-500 bg-cyan-50/60 text-[#005b64]'
@@ -94,7 +126,7 @@ export default function TambahSoalKuisPage() {
               {/* Option 2: Benar / Salah */}
               <button
                 type="button"
-                onClick={() => setJenisSoal('Benar / Salah')}
+                onClick={() => handleTabChange('Benar / Salah')}
                 className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs sm:text-sm font-semibold transition-all ${
                   jenisSoal === 'Benar / Salah'
                     ? 'border-2 border-cyan-500 bg-cyan-50/60 text-[#005b64]'
@@ -110,7 +142,7 @@ export default function TambahSoalKuisPage() {
               {/* Option 3: Esai */}
               <button
                 type="button"
-                onClick={() => setJenisSoal('Esai')}
+                onClick={() => handleTabChange('Esai')}
                 className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs sm:text-sm font-semibold transition-all ${
                   jenisSoal === 'Esai'
                     ? 'border-2 border-cyan-500 bg-cyan-50/60 text-[#005b64]'
@@ -131,7 +163,7 @@ export default function TambahSoalKuisPage() {
               Pertanyaan
             </label>
             <textarea
-              rows={3}
+              rows={jenisSoal === 'Esai' ? 4 : 3}
               value={pertanyaan}
               onChange={(e) => setPertanyaan(e.target.value)}
               className="w-full rounded-xl border border-slate-200 p-3.5 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:border-[#004d57] focus:outline-none"
@@ -167,7 +199,61 @@ export default function TambahSoalKuisPage() {
             </div>
           </div>
 
-          {/* Section: Pilihan Jawaban & Kunci Jawaban */}
+          {/* Section: Mode Benar / Salah */}
+          {jenisSoal === 'Benar / Salah' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700">
+                  Pilihan Jawaban &amp; Kunci Jawaban
+                </label>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Tentukan apakah pernyataan benar atau salah sebagai kunci.
+                </p>
+              </div>
+
+              <div className="space-y-2.5">
+                {['Benar', 'Salah'].map((val) => {
+                  const isChecked = kunciBenarSalah === val;
+                  return (
+                    <div
+                      key={val}
+                      onClick={() => setKunciBenarSalah(val)}
+                      className={`flex items-center justify-between rounded-xl border p-3.5 transition-all cursor-pointer ${
+                        isChecked
+                          ? 'border-2 border-cyan-400 bg-cyan-50/50 shadow-2xs'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`flex h-4 w-4 items-center justify-center rounded-full border transition-all ${
+                            isChecked
+                              ? 'border-[#008994] bg-[#008994]'
+                              : 'border-slate-300 bg-white'
+                          }`}
+                        >
+                          {isChecked && (
+                            <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                          )}
+                        </div>
+                        <span className="text-xs sm:text-sm font-semibold text-slate-800">
+                          {val}
+                        </span>
+                      </div>
+
+                      {isChecked && (
+                        <span className="text-xs font-semibold text-[#005b64]">
+                          Kunci jawaban
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Section: Mode Pilihan Ganda */}
           {jenisSoal === 'Pilihan Ganda' && (
             <div className="space-y-3">
               <div>
@@ -181,11 +267,11 @@ export default function TambahSoalKuisPage() {
 
               <div className="space-y-2.5">
                 {['A', 'B', 'C', 'D'].map((key) => {
-                  const isChecked = kunciJawaban === key;
+                  const isChecked = kunciJawabanPG === key;
                   return (
                     <div
                       key={key}
-                      onClick={() => setKunciJawaban(key)}
+                      onClick={() => setKunciJawabanPG(key)}
                       className={`flex items-center justify-between rounded-xl border p-3 transition-all cursor-pointer ${
                         isChecked
                           ? 'border-2 border-cyan-400 bg-cyan-50/50 shadow-2xs'
@@ -193,11 +279,10 @@ export default function TambahSoalKuisPage() {
                       }`}
                     >
                       <div className="flex items-center gap-3 flex-1">
-                        {/* Radio custom */}
                         <div
                           className={`flex h-4 w-4 items-center justify-center rounded-full border ${
                             isChecked
-                              ? 'border-cyan-600 bg-cyan-600'
+                              ? 'border-[#008994] bg-[#008994]'
                               : 'border-slate-300 bg-white'
                           }`}
                         >
@@ -212,10 +297,10 @@ export default function TambahSoalKuisPage() {
 
                         <input
                           type="text"
-                          value={pilihan[key]}
+                          value={pilihanPG[key]}
                           onClick={(e) => e.stopPropagation()}
                           onChange={(e) =>
-                            setPilihan({ ...pilihan, [key]: e.target.value })
+                            setPilihanPG({ ...pilihanPG, [key]: e.target.value })
                           }
                           className="flex-1 bg-transparent text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none"
                         />
@@ -229,6 +314,52 @@ export default function TambahSoalKuisPage() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* Section: Mode Esai (Jawaban Acuan & Pedoman Penilaian) */}
+          {jenisSoal === 'Esai' && (
+            <div className="space-y-6">
+              {/* Jawaban Acuan */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Jawaban Acuan
+                </label>
+                <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
+                  <div className="text-xs sm:text-sm text-slate-800 font-mono whitespace-pre-line leading-relaxed">
+                    {jawabanAcuan}
+                  </div>
+                  <div className="pt-2 text-xs text-slate-400 border-t border-slate-50">
+                    Acuan untuk guru; langkah setara yang benar tetap diterima.
+                  </div>
+                </div>
+              </div>
+
+              {/* Pedoman Penilaian */}
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Pedoman Penilaian
+                  </label>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Berikan poin sesuai langkah yang benar. Total maksimal 10 poin.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-slate-100 bg-white divide-y divide-slate-100 shadow-2xs">
+                  {rubricList.map((rubric, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between px-4 py-3 text-xs sm:text-sm"
+                    >
+                      <span className="text-slate-700">{rubric.text}</span>
+                      <span className="font-bold text-[#005b64] pl-3 whitespace-nowrap">
+                        {rubric.poin}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -249,7 +380,9 @@ export default function TambahSoalKuisPage() {
                 <span className="text-xs font-semibold text-slate-600">poin</span>
               </div>
               <span className="text-xs text-slate-400 sm:ml-4">
-                Siswa mendapat {bobot} poin jika menjawab benar. Jawaban salah atau kosong bernilai 0.
+                {jenisSoal === 'Esai'
+                  ? 'Nilai diberikan guru berdasarkan pedoman penilaian, dari 0 hingga 10 poin. Jawaban kosong bernilai 0.'
+                  : `Siswa mendapat ${bobot} poin jika menjawab benar. Jawaban salah atau kosong bernilai 0.`}
               </span>
             </div>
           </div>
@@ -282,4 +415,3 @@ export default function TambahSoalKuisPage() {
     </div>
   );
 }
-

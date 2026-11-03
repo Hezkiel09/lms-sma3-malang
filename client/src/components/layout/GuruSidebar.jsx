@@ -7,15 +7,23 @@ import {
   MessageSquare,
   LogOut,
   X,
-  FileQuestion,
 } from 'lucide-react';
 import logosmanti from '../../assets/logo smanti.png';
 
 const menuItems = [
   { name: 'Beranda', path: '/guru/beranda', icon: Home },
-  { name: 'Bank Soal', path: '/guru/bank-soal', icon: BookOpen, relatedPaths: ['/guru/bank-soal', '/guru/buat-kuis'] },
-  { name: 'Buat Kuis', path: '/guru/buat-kuis', icon: FileQuestion },
-  { name: 'Rekap Nilai', path: '/guru/rekap-nilai', icon: FileText },
+  {
+    name: 'Bank Soal',
+    path: '/guru/buat-kuis',
+    icon: BookOpen,
+    relatedPaths: ['/guru/bank-soal', '/guru/buat-kuis'],
+  },
+  {
+    name: 'Rekap Nilai',
+    path: '/guru/rekap-nilai',
+    icon: FileText,
+    relatedPaths: ['/guru/rekap-nilai', '/guru/asesmen/rekap-hasil'],
+  },
   { name: 'Presensi', path: '/guru/presensi', icon: Calendar },
   { name: 'Pesan', path: '/guru/pesan', icon: MessageSquare },
 ];
@@ -62,14 +70,14 @@ export default function GuruSidebar({ isOpen, onClose }) {
             {menuItems.map((item) => {
               const Icon = item.icon;
               // Check active status
-              const isItemActive =
-                item.relatedPaths
-                  ? item.relatedPaths.some((p) => location.pathname.startsWith(p))
-                  : location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+              const isItemActive = item.relatedPaths
+                ? item.relatedPaths.some((p) => location.pathname.startsWith(p))
+                : location.pathname === item.path ||
+                  location.pathname.startsWith(item.path + '/');
 
               return (
                 <NavLink
-                  key={item.path}
+                  key={item.name}
                   to={item.path}
                   onClick={() => onClose?.()}
                   className={`flex items-center gap-3.5 rounded-2xl px-4 py-3 text-sm font-semibold transition-all ${
@@ -101,10 +109,10 @@ export default function GuruSidebar({ isOpen, onClose }) {
 
           <NavLink
             to="/login"
-            className="flex items-center justify-between rounded-xl bg-red-50/80 px-4 py-2.5 text-sm font-semibold text-red-500 hover:bg-red-100/80 transition-colors"
+            className="flex items-center justify-between rounded-xl bg-[#fee2e2]/50 px-4 py-2.5 text-sm font-semibold text-[#ef4444] hover:bg-[#fee2e2] transition-colors"
           >
             <span>Keluar</span>
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-4 w-4 text-[#ef4444]" />
           </NavLink>
         </div>
       </aside>
