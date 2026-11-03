@@ -166,6 +166,11 @@ function Subjects({ data }) {
           </div>
         ))}
       </div>
+      
+      {data.subjects.length === 0 && (
+        <p className="empty-note">Belum ada data presensi pada {data.month_label}.</p>
+        )
+      }
 
       <div className={`notice ${n.ok ? '' : 'warn'}`}>
         {n.ok ? <Check size={16} /> : <TriangleAlert size={16} />}
