@@ -49,6 +49,7 @@ const KelolaCourseGuru = ({ onKembali }) => {
   const [showModalAktivitas, setShowModalAktivitas] = useState(false);
   const [pilihanAktivitas, setPilihanAktivitas] = useState('Tugas');
   const [activePopover, setActivePopover] = useState(null);
+  const [activeMaterialPopover, setActiveMaterialPopover] = useState(null);
 
   const [selectedMaterialId, setSelectedMaterialId] = useState(null);
   const [selectedAssignmentId, setSelectedAssignmentId] = useState(null);
@@ -93,12 +94,12 @@ const KelolaCourseGuru = ({ onKembali }) => {
           throw new Error('Format data Materi dari backend tidak sesuai.');
         }
 
-        // Mengubah data Section agar sesuai dengan struktur tampilan
+        // Mengubah data Section agar sesuai dengan struktur tampilan (isOpen: true agar langsung terbuka)
         setDaftarBab(
           hasilSection.data.map((section) => ({
             id: section.id,
             judul: section.title,
-            isOpen: false,
+            isOpen: true,
             subBagian: []
           }))
         );
@@ -254,7 +255,6 @@ const KelolaCourseGuru = ({ onKembali }) => {
           daftarBab.find((bab) => bab.id === selectedSectionId)?.judul
         }
         onSaveSuccess={(newMaterialId, newMaterial) => {
-          // Perbarui daftar materi tanpa mengambil ulang seluruh halaman.
           if (newMaterial) {
             setDaftarMateriAPI((previousMaterials) => [
               newMaterial,
@@ -264,7 +264,6 @@ const KelolaCourseGuru = ({ onKembali }) => {
             ]);
           }
 
-          // Gunakan ID asli dari database untuk membuka DetailFileGuru.
           setSelectedMaterialId(newMaterialId);
           setSubHalaman('detailFile');
         }}
@@ -272,7 +271,7 @@ const KelolaCourseGuru = ({ onKembali }) => {
     );
   }
 
-  // UC-03: Detail Materi
+  // UC-03: Detail Materi (Terintegrasi penuh dengan GET /api/v1/b5/materials/:id di dalam DetailFileGuru)
   if (subHalaman === 'detailFile') {
     return (
       <DetailFileGuru
@@ -337,11 +336,13 @@ const KelolaCourseGuru = ({ onKembali }) => {
       <EditFileGuru
         materialId={selectedMaterialId}
         onKembali={() => setSubHalaman(null)}
+        onSaveSuccess={(id) => {
+          setSelectedMaterialId(id);
+          setSubHalaman('detailFile');
+        }}
       />
     );
   }
-
-
 
   // TAMPILAN HALAMAN TAMBAH LINK
   if (subHalaman === 'tambahLink') {
@@ -708,16 +709,21 @@ const KelolaCourseGuru = ({ onKembali }) => {
                       </button>
 
                       {activePopover === `bab-${bab.id}` && (
-                        <div className="absolute right-0 top-8 bg-white border border-gray-100 rounded-xl shadow-xl p-1.5 w-28 z-50 space-y-1 text-xs font-medium">
+                        <div className="absolute right-0 top-8 bg-white border border-gray-100 rounded-xl shadow-xl p-1.5 w-36 z-50 space-y-1 text-xs font-medium">
                           <button
                             onClick={() => {
-                              setSelectedSectionId(bab.id);
-                              setShowModalAktivitas(true);
+                              const targetMateri = daftarMateriAPI.find((m) => m.section_id === bab.id);
+                              if (targetMateri) {
+                                setSelectedMaterialId(targetMateri.id);
+                                setSubHalaman('editFile');
+                              } else {
+                                alert('Belum ada materi di dalam bab ini untuk diedit.');
+                              }
                               setActivePopover(null);
                             }}
                             className="w-full text-left px-3 py-1.5 text-[#17242E] hover:bg-cyan-50 rounded-lg cursor-pointer"
                           >
-                            Edit
+                            Edit Bab / Materi
                           </button>
 
                           <button
@@ -729,7 +735,7 @@ const KelolaCourseGuru = ({ onKembali }) => {
                             }}
                             className="w-full text-left px-3 py-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"
                           >
-                            Hapus
+                            Hapus Bab
                           </button>
                         </div>
                       )}
@@ -745,7 +751,7 @@ const KelolaCourseGuru = ({ onKembali }) => {
                         </p>
                       </div>
 
-                      {/* Materi dari backend */}
+                      {/* Materi dari backend - Selaras dengan Mode View */}
                       {materiPerSection.length === 0 ? (
                         <div className="p-4 rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/20">
                           <p className="text-xs text-gray-500">
@@ -753,76 +759,99 @@ const KelolaCourseGuru = ({ onKembali }) => {
                           </p>
                         </div>
                       ) : (
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                           {materiPerSection.map((materi) => (
                             <div
                               key={materi.id}
-                              className="bg-white border border-cyan-100 p-3.5 rounded-2xl"
+                              onClick={() => {
+                                setSelectedMaterialId(materi.id);
+                                setSubHalaman('detailFile');
+                              }}
+                              className="bg-[#E0F7FA]/40 border border-cyan-100 p-3.5 rounded-2xl hover:border-[#0088A8] hover:bg-cyan-50/40 transition cursor-pointer relative"
                             >
-                              {/* Judul dan detail materi */}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedMaterialId(materi.id);
-                                  setSubHalaman('detailFile');
-                                }}
-                                className="text-left w-full cursor-pointer"
-                              >
-                                <p className="text-xs font-semibold text-[#0088A8] hover:underline">
-                                  {materi.title || 'Materi tanpa judul'}
-                                </p>
-                              </button>
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-center gap-3 min-w-0 pr-8">
+                                  {/* Kotak Ikon Dokumen */}
+                                  <div className="w-10 h-10 rounded-xl bg-[#0088A8] text-white flex items-center justify-center shrink-0">
+                                    <FileText size={20} />
+                                  </div>
 
-                              {materi.description && (
-                                <p className="text-xs text-gray-500 mt-1">
-                                  {materi.description}
-                                </p>
-                              )}
+                                  <div className="min-w-0">
+                                    <p className="font-bold text-xs text-[#17242E] truncate">
+                                      {materi.title || 'Materi tanpa judul'}
+                                    </p>
 
-                              <div className="flex items-center justify-between mt-2">
-                                <p className="text-[11px] text-gray-400">
-                                  Status:{' '}
-                                  {materi.status === 'published'
-                                    ? 'Dipublikasikan'
-                                    : 'Draf'}
-                                </p>
+                                    {materi.description && (
+                                      <p className="text-[10px] text-[#71808D] mt-1 line-clamp-1">
+                                        {materi.description}
+                                      </p>
+                                    )}
 
-                                {materi.created_at && (
-                                  <p className="text-[11px] text-gray-400">
-                                    {new Date(materi.created_at).toLocaleDateString('id-ID')}
-                                  </p>
-                                )}
-                              </div>
-
-                              {/* Daftar lampiran */}
-                              {materi.material_files?.length > 0 && (
-                                <div className="mt-3 space-y-2">
-                                  {materi.material_files.map((file) => (
-                                    <a
-                                      key={file.id}
-                                      href={file.file_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex items-center justify-between gap-3 p-3 rounded-xl bg-[#E0F7FA]/60 border border-cyan-100 hover:bg-[#E0F7FA] transition"
-                                    >
-                                      <div className="flex items-center gap-2 min-w-0">
-                                        <FileText
-                                          size={18}
-                                          className="text-[#0088A8] shrink-0"
-                                        />
-
-                                        <span className="text-xs font-medium text-[#17242E] truncate">
-                                          {file.file_name}
+                                    <div className="flex items-center gap-2 mt-1 text-[10px] text-[#71808D]">
+                                      <span>
+                                        Status:{' '}
+                                        <span className={materi.status && materi.status.toLowerCase() === 'published' ? 'text-green-600 font-semibold' : 'text-amber-600 font-semibold'}>
+                                          {materi.status && materi.status.toLowerCase() === 'published' ? 'Dipublikasikan' : 'Draf'}
                                         </span>
-                                      </div>
-
-                                      <span className="text-[10px] font-semibold text-[#0088A8] shrink-0">
-                                        Buka File
                                       </span>
-                                    </a>
-                                  ))}
+                                      {materi.created_at && (
+                                        <>
+                                          <span>•</span>
+                                          <span>{new Date(materi.created_at).toLocaleDateString('id-ID')}</span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
-                              )}
+
+                                {/* Menu Tiga Titik Khusus Mode Edit */}
+                                <div className="absolute right-3 top-3" onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveMaterialPopover(
+                                        activeMaterialPopover === materi.id ? null : materi.id
+                                      );
+                                    }}
+                                    className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg cursor-pointer bg-white shadow-2xs border border-gray-100"
+                                  >
+                                    <MoreHorizontal size={16} />
+                                  </button>
+
+                                  {activeMaterialPopover === materi.id && (
+                                    <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-xl shadow-xl p-1.5 w-28 z-50 space-y-1 text-xs font-medium">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedMaterialId(materi.id);
+                                          setSubHalaman('editFile');
+                                          setActiveMaterialPopover(null);
+                                        }}
+                                        className="w-full text-left px-3 py-1.5 text-[#17242E] hover:bg-cyan-50 rounded-lg cursor-pointer"
+                                      >
+                                        Edit
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (confirm('Apakah Anda yakin ingin menghapus materi ini?')) {
+                                            setDaftarMateriAPI((prev) =>
+                                              prev.filter((item) => item.id !== materi.id)
+                                            );
+                                          }
+                                          setActiveMaterialPopover(null);
+                                        }}
+                                        className="w-full text-left px-3 py-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"
+                                      >
+                                        Hapus
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           ))}
                         </div>

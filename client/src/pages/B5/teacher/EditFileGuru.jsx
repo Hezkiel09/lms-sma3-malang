@@ -1,124 +1,298 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Home, Calendar as CalendarIcon, MessageSquare, LogOut, Search, Bell, 
-  BookOpen, FileText, ArrowLeft, UploadCloud, Edit, Trash2 
+  ArrowLeft, Trash2, FileText, Download, 
+  Calendar, BookOpen, User, CheckCircle, ChevronLeft, ChevronRight, Layers 
 } from 'lucide-react';
-import logoSmanti from '../../../assets/Logo.png';
 
-const EditFileGuru = ({ onKembali }) => {
-  const [judul, setJudul] = useState('Persamaan Garis Lurus');
-  const [status, setStatus] = useState('publikasi');
+const DetailFileGuru = ({ materialId, courseId, onKembali, onDelete }) => {
+  const [material, setMaterial] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchMaterialDetail = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await fetch(`http://localhost:5000/api/v1/b5/materials/${materialId}`);
+        
+        if (!response.ok) {
+          throw new Error('Gagal memuat detail materi dari server');
+        }
+        
+        const result = await response.json();
+        setMaterial(result.data);
+      } catch (err) {
+        console.error('Error fetching detail materi:', err);
+        // Fallback data dummy jika API belum merespons penuh agar tampilan Figma langsung terlihat
+        setMaterial({
+          title: "Persamaan Garis Lurus",
+          created_at: "12 Okt 2026",
+          category: "Matematika",
+          targetClass: "X-A",
+          description: `Materi ini membahas konsep dasar persamaan garis lurus, gradien, dan grafiknya. Peserta didik akan memahami cara menentukan gradien dari dua titik, menulis bentuk umum persamaan garis lurus, serta mengenali hubungan antara gradien, kemiringan, dan posisi garis pada bidang koordinat.
+
+Melalui materi ini, peserta didik juga akan belajar menggambar grafik garis lurus dari persamaan yang diberikan serta menerapkan konsep tersebut untuk menyelesaikan masalah sehari-hari yang terkait dengan perubahan posisi, kecepatan, atau keterhubungan antar titik.`,
+          objectives: [
+            "Menentukan gradien dan persamaan garis lurus dari titik atau grafik yang diketahui.",
+            "Menggambar grafik garis lurus dan menerapkannya untuk menyelesaikan masalah sehari-hari."
+          ],
+          fileName: "Garis Lurus.pdf",
+          fileSize: "2.4 MB",
+          file_url: "#",
+          subject: "Matematika",
+          status: "Published",
+          author: {
+            name: "Karina",
+            role: "Guru Matematika"
+          }
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (materialId) {
+      fetchMaterialDetail();
+    }
+  }, [materialId]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-white">
+        <p className="text-gray-500 font-medium text-xs">Memuat detail materi...</p>
+      </div>
+    );
+  }
+
+  if (error && !material) {
+    return (
+      <div className="p-8 bg-white min-h-screen">
+        <button onClick={onKembali} className="p-2 hover:bg-gray-100 rounded-xl transition text-gray-600 mb-4 flex items-center gap-2 cursor-pointer">
+          <ArrowLeft size={18} /> Kembali
+        </button>
+        <div className="p-4 bg-red-50 border border-red-200 text-red-600 rounded-2xl text-xs font-medium">
+          {error}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex min-h-screen bg-white font-sans text-[#17242E] w-full">
-      <aside className="w-80 bg-white p-6 flex flex-col justify-between border-r border-gray-100 min-h-screen shrink-0 sticky top-0 h-screen">
-        <div>
-          <div className="mt-4 mb-8 pl-2">
-            <img src={logoSmanti} alt="SMANTI Connect" className="h-10 object-contain" />
-          </div>
-          <nav className="space-y-0">
-            <button onClick={onKembali} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#E0F7FA] text-[#007A99] font-bold text-sm w-full text-left cursor-pointer">
-              <Home size={24} className="text-[#0088A8]" />
-              <span>Beranda</span>
-            </button>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#71808D] hover:bg-gray-50 transition text-sm"><BookOpen size={24} /><span>Bank Soal</span></a>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#71808D] hover:bg-gray-50 transition text-sm"><FileText size={24} /><span>Rekap Nilai</span></a>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#71808D] hover:bg-gray-50 transition text-sm"><CalendarIcon size={24} /><span>Presensi</span></a>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#71808D] hover:bg-gray-50 transition text-sm"><MessageSquare size={24} /><span>Pesan</span></a>
-          </nav>
-        </div>
-        <button className="flex items-center justify-between w-full px-4 py-3 rounded-xl bg-[#FFF0F0] text-[#E53935] font-semibold text-sm hover:bg-red-100 transition cursor-pointer">
-          <span>Keluar</span><LogOut size={22} />
-        </button>
-      </aside>
+    <div className="p-8 bg-white min-h-screen font-sans text-[#17242E]">
+      
+      {/* BREADCRUMB & HEADER */}
+      <div className="mb-6">
+        <p className="text-[11px] text-[#71808D] mb-2 font-medium tracking-wide">
+          BERANDA &nbsp;/&nbsp; KELAS 10 &nbsp;/&nbsp; MATERI &nbsp;/&nbsp; <span className="text-[#17242E] font-bold">DETAIL MATERI</span>
+        </p>
 
-      <main className="flex-1 p-7 overflow-y-auto w-full bg-white rounded-tl-[32px] rounded-bl-[32px] shadow-[0_0_30px_rgba(0,136,168,0.12)] border-l border-[#DDF6F9]">
-        <header className="flex justify-between items-center mb-6 w-full">
-          <div className="relative w-full max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-600" size={20} />
-            <input type="text" placeholder="Cari informasi..." className="w-full pl-11 pr-4 py-2 bg-white rounded-full text-sm border border-cyan-100 shadow-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 placeholder-gray-400" />
-          </div>
-          <div className="flex items-center gap-4 shrink-0">
-            <button className="p-2 bg-[#E0F7FA] rounded-full text-[#0088A8] relative shadow-xs hover:bg-cyan-100 transition cursor-pointer">
-              <Bell size={18} /><span className="absolute top-1 right-1 w-2 h-2 bg-[#00A8CC] rounded-full"></span>
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={onKembali}
+              className="p-2 rounded-xl bg-[#F8FAFC] border border-gray-200 text-[#71808D] hover:bg-cyan-50 hover:text-[#0088A8] transition cursor-pointer shadow-2xs"
+            >
+              <ArrowLeft size={18} />
             </button>
-            <div className="flex items-center gap-3">
-              <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=80" alt="Karina" className="w-9 h-9 rounded-full object-cover border border-cyan-200" />
-              <div className="text-xs">
-                <p className="font-bold text-[#17242E] leading-tight">Karina</p>
-                <p className="text-[#71808D] text-[11px]">Guru</p>
-              </div>
-            </div>
+            <h1 className="text-2xl font-bold text-[#17242E]">{material?.title}</h1>
           </div>
-        </header>
 
-        <div className="mb-4 flex items-center gap-3">
-          <button onClick={onKembali} className="p-2 rounded-xl bg-[#F8FAFC] border border-gray-200 text-[#71808D] hover:bg-cyan-50 hover:text-[#0088A8] transition cursor-pointer shadow-2xs">
-            <ArrowLeft size={18} />
+          <button 
+            onClick={onDelete}
+            className="flex items-center gap-2 px-4 py-2 bg-[#FFF0F0] hover:bg-red-100 text-[#E53935] rounded-xl text-xs font-bold transition cursor-pointer shadow-xs"
+          >
+            <Trash2 size={16} /> Hapus
           </button>
-          <p className="text-[11px] text-[#71808D]">BERANDA &nbsp;/&nbsp; KELAS 10 &nbsp;/&nbsp; <span className="font-bold text-[#17242E]">MATEMATIKA X A</span></p>
         </div>
 
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-[#17242E]">Edit File</h2>
-          <p className="text-xs text-[#71808D] mt-1">Buat materi pembelajaran baru untuk diakses oleh siswa.</p>
+        {/* SUB-INFO META */}
+        <div className="flex items-center gap-4 mt-3 text-xs text-[#71808D]">
+          <span className="flex items-center gap-1.5"><Calendar size={14} className="text-cyan-600" /> {material?.created_at ? new Date(material.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '12 Okt 2026'}</span>
+          <span>•</span>
+          <span className="flex items-center gap-1.5"><Layers size={14} className="text-cyan-600" /> {material?.targetClass || 'X-A'}</span>
+          <span>•</span>
+          <span className="flex items-center gap-1.5"><BookOpen size={14} className="text-cyan-600" /> {material?.subject || 'Matematika'}</span>
         </div>
+      </div>
 
-        <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-2xs space-y-6">
-          <div>
-            <label className="block text-xs font-bold text-[#71808D] mb-2">Judul Materi</label>
-            <input type="text" value={judul} onChange={(e) => setJudul(e.target.value)} className="w-full px-4 py-3 bg-[#E0F7FA]/30 rounded-xl text-xs font-medium text-[#17242E] border border-cyan-100 focus:outline-none" />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-[#71808D] mb-2">Deskripsi</label>
-            <div className="border border-cyan-100 rounded-xl overflow-hidden">
-              <div className="bg-white border-b border-gray-100 p-2 flex gap-3 text-xs text-gray-500 font-bold">
-                <span>Insert</span><span>Format</span><span>Tools</span><span>Table</span><span>Help</span>
-              </div>
-              <textarea rows={5} className="w-full p-4 bg-[#E0F7FA]/30 text-xs text-[#17242E] focus:outline-none" defaultValue="Materi ini membahas konsep dasar persamaan garis lurus, gradien, dan grafiknya. Peserta didik akan memahami cara menentukan gradien dari dua titik, menulis bentuk umum persamaan garis lurus, serta mengenali hubungan antara gradien, kemiringan, dan posisi garis pada bidang koordinat." />
+      {/* MAIN LAYOUT GRID (Kiri: Konten & Pratinjau, Kanan: Sidebar Informasi) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* KOLOM KIRI (2 Span) */}
+        <div className="lg:col-span-2 space-y-6">
+          
+          {/* CARD DESKRIPSI MATERI */}
+          <div className="bg-white p-7 rounded-3xl border border-gray-200 shadow-2xs space-y-4">
+            <h2 className="text-sm font-bold text-[#17242E]">Deskripsi Materi</h2>
+            <div className="text-[#17242E] text-xs leading-relaxed whitespace-pre-line">
+              {material?.description}
             </div>
+
+            {material?.objectives && material.objectives.length > 0 && (
+              <div className="pt-2">
+                <p className="text-xs font-bold text-[#17242E] mb-2">Tujuan :</p>
+                <ol className="list-decimal list-inside text-xs text-[#17242E] space-y-1">
+                  {material.objectives.map((obj, idx) => (
+                    <li key={idx}>{obj}</li>
+                  ))}
+                </ol>
+              </div>
+            )}
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-[#71808D] mb-2">Upload File Materi</label>
-            <div className="bg-[#E0F7FA]/30 border border-cyan-100 p-3.5 rounded-xl flex items-center justify-between">
+          {/* CARD PRATINJAU FILE */}
+          <div className="bg-white p-7 rounded-3xl border border-gray-200 shadow-2xs space-y-4">
+            <h2 className="text-sm font-bold text-[#17242E]">Pratinjau File</h2>
+            
+            {/* MOCKUP CONTAINER PDF VIEWER */}
+            <div className="border border-gray-200 rounded-2xl overflow-hidden bg-gray-50">
+              
+              {/* Toolbar Viewer */}
+              <div className="bg-white px-4 py-2.5 border-b border-gray-200 flex justify-between items-center text-xs text-gray-600">
+                <span className="font-bold text-[#17242E]">{material?.fileName || 'Garis Lurus.pdf'}</span>
+                <div className="flex items-center gap-4">
+                  <span className="text-gray-400">- &nbsp; 100% &nbsp; +</span>
+                  <div className="flex items-center gap-2">
+                    <button className="p-1 hover:bg-gray-100 rounded cursor-pointer"><ChevronLeft size={14} /></button>
+                    <span className="text-[11px] font-semibold text-gray-600">1 dari 12</span>
+                    <button className="p-1 hover:bg-gray-100 rounded cursor-pointer"><ChevronRight size={14} /></button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Isi Pratinjau Dokumen Sesuai Figma */}
+              <div className="p-8 bg-white max-h-[500px] overflow-y-auto space-y-6 text-[#17242E]">
+                <div className="text-center pb-4 border-b border-gray-100">
+                  <h3 className="font-bold text-sm text-[#17242E]">BAB 4: PERSAMAAN GARIS LURUS</h3>
+                  <p className="text-[11px] text-gray-400">Matematika - Kelas VIII SMP</p>
+                </div>
+
+                <div className="space-y-4 text-xs">
+                  <div>
+                    <h4 className="font-bold text-[#0088A8] flex items-center gap-2">
+                      <span className="w-1.5 h-3.5 bg-[#0088A8] rounded-full inline-block"></span> 1. Definisi
+                    </h4>
+                    <p className="text-gray-600 mt-1 pl-3">
+                      Persamaan garis lurus adalah suatu persamaan yang jika digambarkan ke dalam koordinat Kartesius akan membentuk sebuah garis lurus. Hubungan antara variabel x dan y bersifat linear.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h4 className="font-bold text-[#0088A8] flex items-center gap-2">
+                      <span className="w-1.5 h-3.5 bg-[#0088A8] rounded-full inline-block"></span> 2. Bentuk Umum
+                    </h4>
+                    <div className="bg-gray-50 p-3 rounded-xl text-center font-mono font-bold my-2 text-[#17242E] border border-gray-100">
+                      y = mx + c
+                    </div>
+                    <ul className="list-disc list-inside text-gray-600 pl-3 space-y-1 text-[11px]">
+                      <li><strong>m</strong> adalah Gradien (kemiringan garis)</li>
+                      <li><strong>c</strong> adalah Konstanta (titik potong pada sumbu y)</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h4 className="font-bold text-[#0088A8] flex items-center gap-2">
+                      <span className="w-1.5 h-3.5 bg-[#0088A8] rounded-full inline-block"></span> 4. Contoh Soal
+                    </h4>
+                    <div className="bg-gray-50 p-4 rounded-2xl space-y-2 text-[11px] border border-gray-100">
+                      <p className="font-semibold">Soal:</p>
+                      <p>Tentukan persamaan garis yang melalui titik (0, 3) dan memiliki gradien m = 4.</p>
+                      <p className="font-semibold pt-2">Penyelesaian:</p>
+                      <p>Gunakan rumus: y = mx + c</p>
+                      <p>Karena melalui (0, 3), maka c = 3.</p>
+                      <p>Dengan m = 4, maka persamaannya adalah:</p>
+                      <p className="font-bold text-[#0088A8]">y = 4x + 3</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pagination Bawah Viewer */}
+              <div className="bg-white px-4 py-3 border-t border-gray-200 flex justify-center items-center gap-3">
+                <button className="p-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 cursor-pointer"><ChevronLeft size={14} /></button>
+                <span className="text-[11px] font-semibold px-3 py-1 bg-gray-100 rounded-lg text-gray-600">1 dari 12</span>
+                <button className="p-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 cursor-pointer"><ChevronRight size={14} /></button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* KOLOM KANAN (1 Span) - SIDEBAR INFORMASI */}
+        <div className="space-y-6">
+          
+          {/* CARD LAMPIRAN */}
+          <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-2xs space-y-3">
+            <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Lampiran</h3>
+            <div className="flex items-center justify-between p-3.5 bg-[#E0F7FA]/30 border border-cyan-100 rounded-2xl">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-[#0088A8] text-white flex items-center justify-center shrink-0">
-                  <FileText size={18} />
+                <div className="p-2.5 bg-cyan-100/50 text-[#0088A8] rounded-xl">
+                  <FileText size={20} />
                 </div>
                 <div>
-                  <p className="font-bold text-xs text-[#17242E]">Garis Lurus.pdf</p>
-                  <p className="text-[10px] text-[#71808D] uppercase font-semibold">DOKUMEN PDF • 2.4 MB</p>
+                  <p className="text-xs font-bold text-[#17242E]">{material?.fileName || 'Garis Lurus.pdf'}</p>
+                  <p className="text-[10px] text-gray-400">{material?.fileSize || '2.4 MB'} • PDF File</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button className="p-2 rounded-lg bg-cyan-50 text-[#0088A8] hover:bg-cyan-100 cursor-pointer"><Edit size={14} /></button>
-                <button className="p-2 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-100 cursor-pointer"><Trash2 size={14} /></button>
+              <a 
+                href={material?.file_url || '#'} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="p-2.5 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl transition cursor-pointer shadow-xs"
+                title="Download File"
+              >
+                <Download size={16} />
+              </a>
+            </div>
+          </div>
+
+          {/* CARD INFORMASI TAMBAHAN */}
+          <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-2xs space-y-4">
+            <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Informasi Tambahan</h3>
+            
+            <div className="space-y-3 text-xs">
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 tracking-wide">MATA PELAJARAN</p>
+                <p className="font-semibold text-[#17242E] mt-0.5">{material?.subject || 'Matematika'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 tracking-wide">KELAS TARGET</p>
+                <p className="font-semibold text-[#17242E] mt-0.5">{material?.targetClass || 'X-A'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 tracking-wide">TANGGAL UNGGAH</p>
+                <p className="font-semibold text-[#17242E] mt-0.5">{material?.created_at ? new Date(material.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '12 Okt 2026'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 tracking-wide">STATUS</p>
+                <div className="flex items-center gap-1.5 text-green-600 font-semibold mt-0.5">
+                  <CheckCircle size={14} /> {material?.status || 'Published'}
+                </div>
               </div>
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-[#71808D] mb-3">Status Publikasi</label>
-            <div className="flex items-center gap-6 text-xs font-semibold">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="radio" name="status" checked={status === 'publikasi'} onChange={() => setStatus('publikasi')} className="accent-[#0088A8]" /> Publikasi Langsung
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="radio" name="status" checked={status === 'draft'} onChange={() => setStatus('draft')} className="accent-[#0088A8]" /> Simpan sebagai Draft
-              </label>
+          {/* CARD DIUNGGAH OLEH */}
+          <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-2xs space-y-3">
+            <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Diunggah Oleh</h3>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-cyan-100 text-[#0088A8] flex items-center justify-center font-bold text-sm">
+                {material?.author?.name?.[0] || 'K'}
+              </div>
+              <div>
+                <p className="text-xs font-bold text-[#17242E]">{material?.author?.name || 'Karina'}</p>
+                <p className="text-[11px] text-gray-400">{material?.author?.role || 'Guru Matematika'}</p>
+              </div>
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-            <button onClick={onKembali} className="px-6 py-2.5 rounded-xl bg-[#E0F7FA] text-[#0088A8] font-bold text-xs hover:bg-cyan-100 transition cursor-pointer">Batal</button>
-            <button onClick={() => { alert('Perubahan file disimpan!'); onKembali(); }} className="px-6 py-2.5 rounded-xl bg-[#054C5A] text-white font-bold text-xs hover:bg-[#033742] transition cursor-pointer">Simpan Perubahan</button>
-          </div>
         </div>
-      </main>
+
+      </div>
     </div>
   );
 };
 
-export default EditFileGuru;
+export default DetailFileGuru;

@@ -24,7 +24,7 @@ import TabNilaiGuru from './TabNilaiGuru';
 
 const COURSE_ID = 'bf720e90-1886-4c01-9868-249181f900dc';
 
-const DetailCourseGuru = ({ onKembali, onKeModeEdit, onKeEditTugas }) => {
+const DetailCourseGuru = ({ onKembali, onKeModeEdit, onKeEditTugas, onPilihMateri }) => {
   const [daftarBab, setDaftarBab] = useState([]);
   const [daftarMateri, setDaftarMateri] = useState([]);
   const [loadingAPI, setLoadingAPI] = useState(true);
@@ -285,7 +285,12 @@ useEffect(() => {
                   materiPerSection.map((materi) => (
                     <div
                       key={materi.id}
-                      className="bg-[#E0F7FA]/40 border border-cyan-100 p-3.5 rounded-2xl"
+                      onClick={() => {
+                        if (onPilihMateri) {
+                          onPilihMateri(materi.id);
+                        }
+                      }}
+                      className="bg-[#E0F7FA]/40 border border-cyan-100 p-3.5 rounded-2xl hover:border-[#0088A8] hover:bg-cyan-50/40 transition cursor-pointer"
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-[#0088A8] text-white flex items-center justify-center shrink-0">
@@ -322,18 +327,18 @@ useEffect(() => {
   </div>
 )}
 
-        {/* ISI TAB: TUGAS (Memanggil Komponen TabTugasGuru yang sesuai Figma) */}
+        {/* ISI TAB: TUGAS */}
         {tabAktif === 'tugas' && (
           <TabTugasGuru onKeEditTugas={onKeEditTugas} />
         )}
 
         {/* ISI TAB: NILAI */}
         {tabAktif === 'nilai' && (
-  <TabNilaiGuru 
-    onKeDetailNilai={() => setSubHalaman('detailNilai')} 
-    onKeInputNilai={() => setSubHalaman('inputNilai')} 
-  />
-)}
+          <TabNilaiGuru 
+            onKeDetailNilai={() => setSubHalaman('detailNilai')} 
+            onKeInputNilai={() => setSubHalaman('inputNilai')} 
+          />
+        )}
 
       </main>
     </div>
