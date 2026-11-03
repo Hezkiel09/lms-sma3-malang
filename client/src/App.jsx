@@ -14,6 +14,10 @@ import LoginPage from './pages/auth/Login';
 // Guru Portal
 import GuruLayout from './layouts/GuruLayout';
 import BankSoalPage from './pages/guru/BankSoal';
+import BuatKuisPage from './pages/guru/BuatKuis';
+import ImportSoalExcelPage from './pages/guru/ImportSoalExcel';
+import AmbilDariBankSoalPage from './pages/guru/AmbilDariBankSoal';
+import TambahSoalKuisPage from './pages/guru/TambahSoalKuis';
 
 // Placeholder for other guru pages
 function GuruPlaceholder({ title }) {
@@ -25,7 +29,7 @@ function GuruPlaceholder({ title }) {
       </div>
       <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
         <h3 className="text-base font-semibold text-slate-700">Area {title}</h3>
-        <p className="mt-1 text-sm text-slate-400">Silakan gunakan menu Bank Soal untuk melihat alur slicing soal.</p>
+        <p className="mt-1 text-sm text-slate-400">Silakan gunakan menu Bank Soal atau Buat Kuis.</p>
       </div>
     </div>
   );
@@ -53,19 +57,24 @@ export default function App() {
           <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
         </Route>
 
-        {/* Guru Portal (Bank Soal, Presensi, dll) */}
+        {/* Guru Portal (Bank Soal, Buat Kuis, Presensi, dll) */}
         <Route path="/guru" element={<GuruLayout />}>
           <Route index element={<Navigate to="/guru/bank-soal" replace />} />
           <Route path="beranda" element={<GuruPlaceholder title="Beranda Guru" />} />
           <Route path="bank-soal" element={<BankSoalPage />} />
+          <Route path="buat-kuis" element={<BuatKuisPage />} />
+          <Route path="buat-kuis/import" element={<ImportSoalExcelPage />} />
+          <Route path="buat-kuis/ambil-bank-soal" element={<AmbilDariBankSoalPage />} />
+          <Route path="buat-kuis/tambah-soal" element={<TambahSoalKuisPage />} />
           <Route path="rekap-nilai" element={<GuruPlaceholder title="Rekap Nilai" />} />
           <Route path="presensi" element={<GuruPlaceholder title="Presensi Guru" />} />
           <Route path="pesan" element={<GuruPlaceholder title="Pesan" />} />
           <Route path="*" element={<Navigate to="/guru/bank-soal" replace />} />
         </Route>
 
-        {/* Direct shortcut to Bank Soal */}
+        {/* Direct shortcuts */}
         <Route path="/bank-soal" element={<Navigate to="/guru/bank-soal" replace />} />
+        <Route path="/buat-kuis" element={<Navigate to="/guru/buat-kuis" replace />} />
 
         {/* Root redirect to admin dashboard */}
         <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />

@@ -101,3 +101,4 @@ export const mockQuestionsList = [
     pembahasan: 'Misal y = 2x + 3 => 2x = y - 3 => x = (y - 3) / 2. Maka f⁻¹(x) = (x - 3) / 2 adalah Benar.',
   },
 ];
+
