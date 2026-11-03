@@ -1,64 +1,56 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Upload,
   Clock,
   FileText,
   CheckCircle2,
   Info,
-  ChevronRight,
 } from 'lucide-react';
-import { initialQuizData } from '../../data/mockKuis';
 
-export default function BuatKuisPage({ addedFromBank = false }) {
+export default function BuatKuisPage() {
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Local state for quiz details
+  // Check if routed with added questions
+  const hasAddedFromLocation = Boolean(location.state?.addedFromBank || location.state?.importedCount);
+  const [hasAddedFromBank, setHasAddedFromBank] = useState(hasAddedFromLocation);
+
+  // Form details
   const [formData, setFormData] = useState({
     judul: '',
     kkm: 75,
-    jumlahSoal: addedFromBank ? 42 : 40,
+    jumlahSoal: hasAddedFromBank ? 42 : 40,
     durasi: '75 menit',
     deskripsi: '',
   });
 
-  // State to toggle/demo "Soal dari Bank Ditambahkan" (Gambar 4 vs Gambar 1)
-  const [hasAddedFromBank, setHasAddedFromBank] = useState(addedFromBank);
-
-  // Soal numbers list: 40 default + 2 extra if addedFromBank is true
   const totalQuestions = hasAddedFromBank ? 42 : 40;
   const numbersList = Array.from({ length: totalQuestions }, (_, i) => i + 1);
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      {/* 1. Breadcrumbs */}
-      <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
-        <Link to="/guru/beranda" className="hover:text-slate-600">
-          Beranda
-        </Link>
-        <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-        <span className="text-[#005b64] font-semibold">Buat Kuis</span>
-      </nav>
-
-      {/* 2. Header Title & Optional Badge */}
+    <div className="space-y-6 max-w-6xl mx-auto">
+      {/* 1. Header Title (Persis di Foto: Langsung "Buat Kuis" Tanpa Breadcrumb di Atasnya) */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">
-            Buat Kuis
-          </h1>
-        </div>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">
+          Buat Kuis
+        </h1>
 
         <div className="flex items-center gap-3">
-          {/* Badge Gambar 4 */}
+          {/* Badge Gambar 4 jika ada soal dari bank */}
           {hasAddedFromBank && (
             <span className="rounded-full bg-[#e6f7f8] px-3.5 py-1 text-xs font-semibold text-[#005b64]">
               Soal dari Bank Ditambahkan
             </span>
           )}
 
-          {/* Demo toggle button to switch between Gambar 1 & Gambar 4 */}
+          {/* Toggle demo switch untuk beralih antara Gambar 1 & Gambar 4 */}
           <button
-            onClick={() => setHasAddedFromBank(!hasAddedFromBank)}
+            onClick={() => {
+              const next = !hasAddedFromBank;
+              setHasAddedFromBank(next);
+              setFormData((prev) => ({ ...prev, jumlahSoal: next ? 42 : 40 }));
+            }}
             className="text-[11px] text-slate-400 hover:text-slate-600 underline"
           >
             [Demo: {hasAddedFromBank ? 'Lihat Tampilan Gambar 1 (40 Soal)' : 'Lihat Tampilan Gambar 4 (+2 Soal)'}]
@@ -66,7 +58,7 @@ export default function BuatKuisPage({ addedFromBank = false }) {
         </div>
       </div>
 
-      {/* 3. Success Alert Banner (Hanya muncul jika soal ditambahkan - Gambar 4) */}
+      {/* 2. Success Alert Banner (Hanya muncul jika soal ditambahkan - Gambar 4) */}
       {hasAddedFromBank && (
         <div className="flex items-center gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-xs sm:text-sm font-semibold text-emerald-800">
           <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />
@@ -74,7 +66,7 @@ export default function BuatKuisPage({ addedFromBank = false }) {
         </div>
       )}
 
-      {/* 4. Top Card: Detail Kuis */}
+      {/* 3. Card 1: Detail Kuis */}
       <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xs space-y-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -86,17 +78,17 @@ export default function BuatKuisPage({ addedFromBank = false }) {
           <div>
             <button
               onClick={() => alert('Draft kuis berhasil disimpan!')}
-              className="rounded-xl bg-[#004d57] px-5 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] transition-colors"
+              className="rounded-xl bg-[#004d57] px-6 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] transition-colors"
             >
               Simpan Draft
             </button>
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 pt-1">
           {/* Judul Kuis */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+            <label className="block text-xs font-medium text-slate-500 mb-1.5">
               Judul Kuis
             </label>
             <input
@@ -111,19 +103,19 @@ export default function BuatKuisPage({ addedFromBank = false }) {
           {/* Row: KKM, Jumlah Soal, Durasi */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+              <label className="block text-xs font-medium text-slate-500 mb-1.5">
                 KKM
               </label>
               <input
                 type="number"
                 value={formData.kkm}
-                onChange={(e) => setFormData({ ...formData, kkm: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, kkm: Number(e.target.value) })}
                 className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-xs sm:text-sm text-slate-800 focus:border-[#004d57] focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+              <label className="block text-xs font-medium text-slate-500 mb-1.5">
                 Jumlah Soal
               </label>
               <input
@@ -135,7 +127,7 @@ export default function BuatKuisPage({ addedFromBank = false }) {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+              <label className="block text-xs font-medium text-slate-500 mb-1.5">
                 Durasi
               </label>
               <div className="relative">
@@ -152,21 +144,21 @@ export default function BuatKuisPage({ addedFromBank = false }) {
 
           {/* Deskripsi */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+            <label className="block text-xs font-medium text-slate-500 mb-1.5">
               Deskripsi
             </label>
             <textarea
-              rows={3}
+              rows={4}
               placeholder="Tuliskan instruksi singkat untuk siswa sebelum memulai kuis."
               value={formData.deskripsi}
               onChange={(e) => setFormData({ ...formData, deskripsi: e.target.value })}
-              className="w-full rounded-xl border border-slate-200 p-3.5 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:border-[#004d57] focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 p-4 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:border-[#004d57] focus:outline-none"
             />
           </div>
         </div>
       </div>
 
-      {/* 5. Bottom Card: Daftar Soal */}
+      {/* 4. Card 2: Daftar Soal */}
       <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xs space-y-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -209,7 +201,7 @@ export default function BuatKuisPage({ addedFromBank = false }) {
             return (
               <button
                 key={num}
-                className={`h-7 w-7 sm:h-8 sm:w-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${
+                className={`h-7 w-7 sm:h-8 sm:w-8 rounded-lg flex items-center justify-center text-xs font-semibold transition-all ${
                   isNewlyAdded
                     ? 'bg-[#004d57] text-white ring-2 ring-cyan-400 hover:brightness-110'
                     : 'bg-[#008994] text-white hover:brightness-110'
@@ -223,9 +215,9 @@ export default function BuatKuisPage({ addedFromBank = false }) {
         </div>
 
         {/* Sub-info line below numbers */}
-        <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-50">
+        <div className="flex items-center justify-between text-xs text-slate-400 pt-3 border-t border-slate-50">
           <div className="flex items-center gap-2">
-            <FileText className="h-3.5 w-3.5 text-slate-400" />
+            <FileText className="h-4 w-4 text-slate-400" />
             <span>
               {totalQuestions} soal tersedia untuk diedit atau ditambahkan.
             </span>

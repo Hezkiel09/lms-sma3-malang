@@ -42,7 +42,22 @@ export default function App() {
         {/* Auth routes */}
         <Route path="/login" element={<LoginPage />} />
 
-        {/* Admin Portal with shared Layout */}
+        {/* Guru Portal (Default: Buat Kuis & Bank Soal Sesuai Desain Foto) */}
+        <Route path="/guru" element={<GuruLayout />}>
+          <Route index element={<Navigate to="/guru/buat-kuis" replace />} />
+          <Route path="beranda" element={<GuruPlaceholder title="Beranda Guru" />} />
+          <Route path="bank-soal" element={<BankSoalPage />} />
+          <Route path="buat-kuis" element={<BuatKuisPage />} />
+          <Route path="buat-kuis/import" element={<ImportSoalExcelPage />} />
+          <Route path="buat-kuis/ambil-bank-soal" element={<AmbilDariBankSoalPage />} />
+          <Route path="buat-kuis/tambah-soal" element={<TambahSoalKuisPage />} />
+          <Route path="rekap-nilai" element={<GuruPlaceholder title="Rekap Nilai" />} />
+          <Route path="presensi" element={<GuruPlaceholder title="Presensi Guru" />} />
+          <Route path="pesan" element={<GuruPlaceholder title="Pesan" />} />
+          <Route path="*" element={<Navigate to="/guru/buat-kuis" replace />} />
+        </Route>
+
+        {/* Admin Portal */}
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboard />} />
@@ -57,29 +72,14 @@ export default function App() {
           <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
         </Route>
 
-        {/* Guru Portal (Bank Soal, Buat Kuis, Presensi, dll) */}
-        <Route path="/guru" element={<GuruLayout />}>
-          <Route index element={<Navigate to="/guru/bank-soal" replace />} />
-          <Route path="beranda" element={<GuruPlaceholder title="Beranda Guru" />} />
-          <Route path="bank-soal" element={<BankSoalPage />} />
-          <Route path="buat-kuis" element={<BuatKuisPage />} />
-          <Route path="buat-kuis/import" element={<ImportSoalExcelPage />} />
-          <Route path="buat-kuis/ambil-bank-soal" element={<AmbilDariBankSoalPage />} />
-          <Route path="buat-kuis/tambah-soal" element={<TambahSoalKuisPage />} />
-          <Route path="rekap-nilai" element={<GuruPlaceholder title="Rekap Nilai" />} />
-          <Route path="presensi" element={<GuruPlaceholder title="Presensi Guru" />} />
-          <Route path="pesan" element={<GuruPlaceholder title="Pesan" />} />
-          <Route path="*" element={<Navigate to="/guru/bank-soal" replace />} />
-        </Route>
-
         {/* Direct shortcuts */}
-        <Route path="/bank-soal" element={<Navigate to="/guru/bank-soal" replace />} />
         <Route path="/buat-kuis" element={<Navigate to="/guru/buat-kuis" replace />} />
+        <Route path="/bank-soal" element={<Navigate to="/guru/bank-soal" replace />} />
 
-        {/* Root redirect to admin dashboard */}
-        <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
-        {/* 404 fallback */}
-        <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
+        {/* Root redirect directly to Buat Kuis */}
+        <Route path="/" element={<Navigate to="/guru/buat-kuis" replace />} />
+        {/* 404 fallback to Buat Kuis */}
+        <Route path="*" element={<Navigate to="/guru/buat-kuis" replace />} />
       </Routes>
     </BrowserRouter>
   );
