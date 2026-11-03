@@ -1,0 +1,71 @@
+{
+  "info": {
+    "_postman_id": "2ee2d98c-d737-4bf8-bb32-0b2f3b329a03",
+    "name": "LMS Admin API",
+    "description": "Master data API. Set baseUrl and replace resource IDs and example values before sending requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000/api/v1/master" },
+    { "key": "teacherId", "value": "replace-with-teacher-id" },
+    { "key": "studentId", "value": "replace-with-student-id" },
+    { "key": "parentId", "value": "replace-with-parent-id" },
+    { "key": "classId", "value": "replace-with-class-id" },
+    { "key": "subjectId", "value": "replace-with-subject-id" },
+    { "key": "scheduleId", "value": "replace-with-schedule-id" }
+  ],
+  "item": [
+    {
+      "name": "Classes",
+      "item": [
+        { "name": "List classes with total_students", "request": { "method": "GET", "url": "{{baseUrl}}/classes" } }
+      ]
+    },
+    {
+      "name": "Academic Subjects",
+      "item": [
+        { "name": "List subjects", "request": { "method": "GET", "url": "{{baseUrl}}/academic/subjects" } },
+        { "name": "Create subject", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Matematika\",\n  \"code\": \"MAT\",\n  \"credit_hours\": 4\n}" }, "url": "{{baseUrl}}/academic/subjects" } },
+        { "name": "Update subject", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Matematika Wajib\",\n  \"code\": \"MAT-W\",\n  \"credit_hours\": 4\n}" }, "url": "{{baseUrl}}/academic/subjects/{{subjectId}}" } },
+        { "name": "Delete subject", "request": { "method": "DELETE", "url": "{{baseUrl}}/academic/subjects/{{subjectId}}" } }
+      ]
+    },
+    {
+      "name": "Academic Schedules",
+      "item": [
+        { "name": "List schedules", "request": { "method": "GET", "url": "{{baseUrl}}/academic/schedules" } },
+        { "name": "List schedules by class", "request": { "method": "GET", "url": "{{baseUrl}}/academic/schedules?class_id={{classId}}" } },
+        { "name": "Create schedule", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"class_id\": \"{{classId}}\",\n  \"subject_id\": \"{{subjectId}}\",\n  \"teacher_id\": \"{{teacherId}}\",\n  \"day\": \"Senin\",\n  \"start_time\": \"07:00\",\n  \"end_time\": \"07:45\",\n  \"room\": \"Ruang 1\"\n}" }, "url": "{{baseUrl}}/academic/schedules" } },
+        { "name": "Update schedule", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"day\": \"Selasa\",\n  \"start_time\": \"08:00\",\n  \"end_time\": \"08:45\",\n  \"room\": \"Ruang 2\"\n}" }, "url": "{{baseUrl}}/academic/schedules/{{scheduleId}}" } },
+        { "name": "Delete schedule", "request": { "method": "DELETE", "url": "{{baseUrl}}/academic/schedules/{{scheduleId}}" } }
+      ]
+    },
+    {
+      "name": "Teachers",
+      "item": [
+        { "name": "List teachers", "request": { "method": "GET", "url": "{{baseUrl}}/users/teachers" } },
+        { "name": "Create teacher", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"guru@example.com\",\n  \"password\": \"change-me\",\n  \"name\": \"Nama Guru\",\n  \"nip\": \"198001012000011001\",\n  \"phone\": \"081234567890\"\n}" }, "url": "{{baseUrl}}/users/teachers" } },
+        { "name": "Update teacher", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Nama Guru Diperbarui\",\n  \"nip\": \"198001012000011001\",\n  \"phone\": \"081234567890\"\n}" }, "url": "{{baseUrl}}/users/teachers/{{teacherId}}" } },
+        { "name": "Delete teacher", "request": { "method": "DELETE", "url": "{{baseUrl}}/users/teachers/{{teacherId}}" } }
+      ]
+    },
+    {
+      "name": "Students",
+      "item": [
+        { "name": "List students", "request": { "method": "GET", "url": "{{baseUrl}}/users/students" } },
+        { "name": "Create student", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"siswa@example.com\",\n  \"password\": \"change-me\",\n  \"name\": \"Nama Siswa\",\n  \"nis\": \"123456\",\n  \"class_id\": null\n}" }, "url": "{{baseUrl}}/users/students" } },
+        { "name": "Update student", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Nama Siswa Diperbarui\",\n  \"nis\": \"123456\",\n  \"class_id\": null,\n  \"parent_id\": null\n}" }, "url": "{{baseUrl}}/users/students/{{studentId}}" } },
+        { "name": "Delete student", "request": { "method": "DELETE", "url": "{{baseUrl}}/users/students/{{studentId}}" } }
+      ]
+    },
+    {
+      "name": "Parents",
+      "item": [
+        { "name": "List parents", "request": { "method": "GET", "url": "{{baseUrl}}/users/parents" } },
+        { "name": "Create parent", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"nis\": \"123456\",\n  \"password\": \"change-me\",\n  \"name\": \"Nama Orang Tua\",\n  \"phone\": \"081234567890\"\n}" }, "url": "{{baseUrl}}/users/parents" } },
+        { "name": "Update parent", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Nama Orang Tua Diperbarui\",\n  \"phone\": \"081234567890\",\n  \"address\": \"Alamat baru\"\n}" }, "url": "{{baseUrl}}/users/parents/{{parentId}}" } },
+        { "name": "Delete parent", "request": { "method": "DELETE", "url": "{{baseUrl}}/users/parents/{{parentId}}" } }
+      ]
+    }
+  ]
+}
