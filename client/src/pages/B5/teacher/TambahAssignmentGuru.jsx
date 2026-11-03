@@ -5,9 +5,20 @@ import {
 } from 'lucide-react';
 import logoSmanti from '../../../assets/Logo.png';
 
-const TambahAssignmentGuru = ({ onKembali }) => {
+const TambahAssignmentGuru = ({ onKembali, onSaveSuccess }) => {
   const [judul, setJudul] = useState('');
   const [instruksi, setInstruksi] = useState('');
+
+  const handleSimpanTugas = () => {
+    const generatedAssignmentId = 'tugas-' + Date.now();
+    
+    if (onSaveSuccess) {
+      onSaveSuccess(generatedAssignmentId);
+    } else {
+      alert('Tugas berhasil disimpan!');
+      onKembali();
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-white font-sans text-[#17242E] w-full">
@@ -56,7 +67,7 @@ const TambahAssignmentGuru = ({ onKembali }) => {
           <button onClick={onKembali} className="p-2 rounded-xl bg-[#F8FAFC] border border-gray-200 text-[#71808D] hover:bg-cyan-50 hover:text-[#0088A8] transition cursor-pointer shadow-2xs">
             <ArrowLeft size={18} />
           </button>
-          <p className="text-[11px] text-[#71808D]">BERANDA &nbsp;/&nbsp; MY KELAS 10 &nbsp;/&nbsp; TUGAS &nbsp;/&nbsp; <span className="font-bold text-[#17242E]">BUAT TUGAS</span></p>
+          <p className="text-[11px] text-[#71808D]">BERANDA &nbsp;/&nbsp; KELAS 10 &nbsp;/&nbsp; TUGAS &nbsp;/&nbsp; <span className="font-bold text-[#17242E]">BUAT TUGAS</span></p>
         </div>
 
         <div className="mb-6">
@@ -134,10 +145,23 @@ const TambahAssignmentGuru = ({ onKembali }) => {
             </div>
           </div>
 
+          {/* TOMBOL AKSI */}
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-            <button onClick={onKembali} className="px-6 py-2.5 rounded-xl bg-[#E0F7FA] text-[#0088A8] font-bold text-xs hover:bg-cyan-100 transition cursor-pointer">Batal</button>
-            <button onClick={() => { alert('Tugas baru berhasil dibuat!'); onKembali(); }} className="px-6 py-2.5 rounded-xl bg-[#054C5A] text-white font-bold text-xs hover:bg-[#033742] transition cursor-pointer">Tambah Tugas</button>
+            <button 
+              onClick={onKembali}
+              className="px-6 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-200 cursor-pointer transition"
+            >
+              Batal
+            </button>
+            
+            <button 
+              onClick={handleSimpanTugas}
+              className="px-7 py-2.5 bg-[#054C5A] text-white rounded-xl text-xs font-bold hover:bg-[#033742] cursor-pointer transition shadow-xs"
+            >
+              Simpan
+            </button>
           </div>
+
         </div>
       </main>
     </div>

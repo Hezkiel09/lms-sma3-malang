@@ -8,7 +8,6 @@ import {
   Bell, 
   BookOpen, 
   FileText, 
-  ArrowLeft,
   CloudUpload,
   Bold,
   Italic,
@@ -33,10 +32,21 @@ import {
 } from 'lucide-react';
 import logoSmanti from '../../../assets/Logo.png';
 
-const TambahMateri = ({ onKembali }) => {
+const TambahMateri = ({ onKembali, sectionId, onSaveSuccess }) => {
   const [judul, setJudul] = useState('');
   const [deskripsi, setDeskripsi] = useState('');
   const [statusPublikasi, setStatusPublikasi] = useState('publikasi');
+
+  const handleSimpan = () => {
+    const generatedMaterialId = 'materi-' + Date.now();
+    
+    if (onSaveSuccess) {
+      onSaveSuccess(generatedMaterialId);
+    } else {
+      alert(`File materi berhasil disimpan untuk Section ID: ${sectionId || 'Belum dipilih'}!`);
+      onKembali();
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-white font-sans text-[#17242E] w-full relative">
@@ -117,7 +127,7 @@ const TambahMateri = ({ onKembali }) => {
         {/* BREADCRUMB */}
         <div className="mb-4">
           <p className="text-[11px] text-[#71808D]">
-            BERANDA &nbsp;/&nbsp; KELAS 10 &nbsp;/&nbsp; <span className="font-bold text-[#17242E]">MATEMATIKA X A</span>
+            BERANDA &nbsp;/&nbsp; KELAS 10 &nbsp;/&nbsp; <span className="font-bold text-[#17242E]">MATEMATIKA X A</span> {sectionId && <span className="text-cyan-600">(Section ID: {sectionId})</span>}
           </p>
         </div>
 
@@ -253,10 +263,7 @@ const TambahMateri = ({ onKembali }) => {
               Batal
             </button>
             <button 
-              onClick={() => {
-                alert('File materi berhasil disimpan!');
-                onKembali();
-              }}
+              onClick={handleSimpan}
               className="px-7 py-2.5 bg-[#054C5A] text-white rounded-xl text-xs font-bold hover:bg-[#033742] cursor-pointer transition shadow-xs"
             >
               Simpan

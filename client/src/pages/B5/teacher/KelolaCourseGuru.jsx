@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Home,
@@ -33,6 +32,8 @@ import TambahMateri from './TambahMateri';
 import EditFileGuru from './EditFileGuru';
 import EditAssignmentGuru from './EditAssignmentGuru';
 import TambahAssignmentGuru from './TambahAssignmentGuru';
+import DetailFileGuru from './DetailFileGuru';
+import DetailTugasGuru from './DetailTugasGuru'; 
 
 // ID course Matematika X A untuk keperluan demo
 const COURSE_ID = 'bf720e90-1886-4c01-9868-249181f900dc';
@@ -48,6 +49,9 @@ const KelolaCourseGuru = ({ onKembali }) => {
   const [showModalAktivitas, setShowModalAktivitas] = useState(false);
   const [pilihanAktivitas, setPilihanAktivitas] = useState('Tugas');
   const [activePopover, setActivePopover] = useState(null);
+
+  const [selectedMaterialId, setSelectedMaterialId] = useState(null);
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState(null);
 
   // State Form Tambah Link
   const [linkJudul, setLinkJudul] = useState('');
@@ -65,16 +69,14 @@ const KelolaCourseGuru = ({ onKembali }) => {
         setLoadingAPI(true);
         setErrorAPI('');
 
-        
-const [responseSection, responseMateri] = await Promise.all([
-  fetch(
-    `http://localhost:5000/api/v1/b5/courses/${COURSE_ID}/sections`
-  ),
-  fetch(
-    `http://localhost:5000/api/v1/b5/courses/${COURSE_ID}/materials`
-  )
-]);
-
+        const [responseSection, responseMateri] = await Promise.all([
+          fetch(
+            `http://localhost:5000/api/v1/b5/courses/${COURSE_ID}/sections`
+          ),
+          fetch(
+            `http://localhost:5000/api/v1/b5/courses/${COURSE_ID}/materials`
+          )
+        ]);
 
         if (!responseSection.ok || !responseMateri.ok) {
           throw new Error('Gagal mengambil data dari backend.');
@@ -198,7 +200,6 @@ const [responseSection, responseMateri] = await Promise.all([
   };
 
   // Menambahkan bab baru secara lokal
-  // Belum dihubungkan ke POST backend
   const handleSimpanBabBaru = () => {
     if (newBabTitle.trim() !== '') {
       const newBab = {
@@ -245,15 +246,95 @@ const [responseSection, responseMateri] = await Promise.all([
   if (subHalaman === 'tambahMateri') {
     return (
       <TambahMateri
-  onKembali={() => setSubHalaman(null)}
-  sectionId={selectedSectionId}
-/>
+        onKembali={() => setSubHalaman(null)}
+        sectionId={selectedSectionId}
+        onSaveSuccess={(newId) => {
+          setSelectedMaterialId(newId);
+          setSubHalaman('detailFile');
+        }}
+      />
     );
   }
 
+  if (subHalaman === 'detailFile') {
+    return (
+      <DetailFileGuru
+        materialId={selectedMaterialId}
+        courseId={COURSE_ID}
+        onKembali={() => setSubHalaman(null)}
+        onDelete={() => {
+          setSubHalaman(null);
+        }}
+      />
+    );
+  }
+
+  // PENGONDISIAN ASSIGNMENT
   if (subHalaman === 'tambahAssignment') {
     return (
       <TambahAssignmentGuru
+        onKembali={() => setSubHalaman(null)}
+        onSaveSuccess={(newId) => {
+          setSelectedAssignmentId(newId);
+          setSubHalaman('detailAssignment');
+        }}
+      />
+    );
+  }
+
+  if (subHalaman === 'editAssignment') {
+    return (
+      <EditAssignmentGuru
+        assignmentId={selectedAssignmentId}
+        onKembali={() => setSubHalaman(null)}
+        onSaveSuccess={(id) => {
+          setSelectedAssignmentId(id);
+          setSubHalaman('detailAssignment');
+        }}
+      />
+    );
+  }
+
+  if (subHalaman === 'detailAssignment') {
+    return (
+      <DetailTugasGuru
+        assignmentId={selectedAssignmentId}
+        courseId={COURSE_ID}
+        onKembali={() => setSubHalaman(null)}
+      />
+    );
+  }
+
+  //pengondisian file/materi
+  if (subHalaman === 'tambahMateri') {
+    return (
+      <TambahMateri
+        onKembali={() => setSubHalaman(null)}
+        sectionId={selectedSectionId}
+        onSaveSuccess={(newId) => {
+          setSelectedMaterialId(newId);
+          setSubHalaman('detailFile');
+        }}
+      />
+    );
+  }
+
+  if (subHalaman === 'detailFile') {
+    return (
+      <DetailFileGuru
+        materialId={selectedMaterialId}
+        courseId={COURSE_ID}
+        onKembali={() => setSubHalaman(null)}
+        onDelete={() => {
+          setSubHalaman(null);
+        }}
+      />
+    );
+  }
+
+  if (subHalaman === 'tambahFile') {
+    return (
+      <TambahFileGuru
         onKembali={() => setSubHalaman(null)}
       />
     );
@@ -267,19 +348,19 @@ const [responseSection, responseMateri] = await Promise.all([
     );
   }
 
-  if (subHalaman === 'editAssignment') {
+  if (subHalaman === 'tambahFile') {
     return (
-      <EditAssignmentGuru
+      <TambahFileGuru
         onKembali={() => setSubHalaman(null)}
       />
     );
   }
 
+
   // TAMPILAN HALAMAN TAMBAH LINK
   if (subHalaman === 'tambahLink') {
     return (
       <div className="flex min-h-screen bg-white font-sans text-[#17242E] w-full relative">
-
         <aside className="w-80 bg-white p-6 flex flex-col justify-between border-r border-gray-100 min-h-screen shrink-0 sticky top-0 h-screen">
           <div>
             <div className="mt-4 mb-8 pl-2">
@@ -303,7 +384,6 @@ const [responseSection, responseMateri] = await Promise.all([
         </aside>
 
         <main className="flex-1 p-7 overflow-y-auto w-full bg-white rounded-tl-[32px] rounded-bl-[32px] shadow-[0_0_30px_rgba(0,136,168,0.12)] border-l border-[#DDF6F9]">
-
           <div className="mb-4">
             <p className="text-[11px] text-[#71808D]">
               BERANDA &nbsp;/&nbsp; KELAS 10 &nbsp;/&nbsp;
@@ -323,7 +403,6 @@ const [responseSection, responseMateri] = await Promise.all([
           </div>
 
           <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-2xs space-y-6 w-full max-w-4xl">
-
             <div>
               <label className="block text-xs font-bold text-[#17242E] mb-2">
                 Judul Link / Sumber
@@ -392,7 +471,6 @@ const [responseSection, responseMateri] = await Promise.all([
                 Simpan
               </button>
             </div>
-
           </div>
         </main>
       </div>
@@ -412,10 +490,8 @@ const [responseSection, responseMateri] = await Promise.all([
 
   return (
     <div className="flex min-h-screen bg-white font-sans text-[#17242E] w-full relative">
-
       {/* SIDEBAR */}
       <aside className="w-80 bg-white p-6 flex flex-col justify-between border-r border-gray-100 min-h-screen shrink-0 sticky top-0 h-screen">
-
         <div>
           <div className="mt-4 mb-8 pl-2">
             <img
@@ -464,10 +540,8 @@ const [responseSection, responseMateri] = await Promise.all([
 
       {/* MAIN CONTENT */}
       <main className="flex-1 p-7 overflow-y-auto w-full bg-white rounded-tl-[32px] rounded-bl-[32px] shadow-[0_0_30px_rgba(0,136,168,0.12)] border-l border-[#DDF6F9]">
-
         {/* TOPBAR */}
         <header className="flex justify-between items-center mb-6 w-full">
-
           <div className="relative w-full max-w-md">
             <Search
               className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-600"
@@ -558,33 +632,22 @@ const [responseSection, responseMateri] = await Promise.all([
 
         {/* LIST BAB DINAMIS */}
         <div className="space-y-6 w-full">
-
-          {/* Tampilan Loading */}
           {loadingAPI ? (
             <p className="text-sm text-gray-500">
               Memuat data bagian dan materi...
             </p>
-
           ) : errorAPI ? (
-
-            /* Tampilan Error */
             <div className="p-4 rounded-xl bg-red-50 border border-red-100">
               <p className="text-sm text-red-600 font-medium">
                 {errorAPI}
               </p>
             </div>
-
           ) : daftarBab.length === 0 ? (
-
-            /* Tampilan jika belum ada Section */
             <p className="text-sm text-gray-500">
               Belum ada bagian materi untuk mata pelajaran ini.
             </p>
-
           ) : (
-
             daftarBab.map((bab) => {
-              // Mengambil materi berdasarkan section_id
               const materiPerSection = daftarMateriAPI.filter(
                 (materi) => materi.section_id === bab.id
               );
@@ -594,10 +657,8 @@ const [responseSection, responseMateri] = await Promise.all([
                   key={bab.id}
                   className="bg-white rounded-3xl border border-gray-200 shadow-2xs overflow-visible relative"
                 >
-
                   {/* HEADER BAB UTAMA */}
                   <div className="p-5 flex justify-between items-center bg-white border-b border-gray-100 rounded-t-3xl">
-
                     <div
                       className="flex items-center gap-3 cursor-pointer flex-1"
                       onClick={() => toggleBab(bab.id)}
@@ -662,9 +723,9 @@ const [responseSection, responseMateri] = await Promise.all([
 
                       {activePopover === `bab-${bab.id}` && (
                         <div className="absolute right-0 top-8 bg-white border border-gray-100 rounded-xl shadow-xl p-1.5 w-28 z-50 space-y-1 text-xs font-medium">
-
                           <button
                             onClick={() => {
+                              setSelectedSectionId(bab.id);
                               setShowModalAktivitas(true);
                               setActivePopover(null);
                             }}
@@ -684,7 +745,6 @@ const [responseSection, responseMateri] = await Promise.all([
                           >
                             Hapus
                           </button>
-
                         </div>
                       )}
                     </div>
@@ -693,44 +753,43 @@ const [responseSection, responseMateri] = await Promise.all([
                   {/* ISI KONTEN BAB */}
                   {bab.isOpen && (
                     <div className="p-6 space-y-4">
-
                       <div className="text-xs text-[#71808D] leading-relaxed">
                         <p>
                           Materi pembelajaran untuk bab {bab.judul}.
                         </p>
                       </div>
 
-{/* Materi dari backend */}
-{materiPerSection.length === 0 ? (
-  <div className="p-4 rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/20">
-    <p className="text-xs text-gray-500">
-      Belum ada materi pada bagian ini.
-    </p>
-  </div>
-) : (
-  <div className="space-y-2">
-    {materiPerSection.map((materi) => (
-      <div
-        key={materi.id}
-        className="bg-[#E0F7FA]/40 border border-cyan-100 p-3.5 rounded-2xl"
-      >
-        <p className="text-xs font-semibold text-[#0088A8]">
-          {materi.title || 'Materi tanpa judul'}
-        </p>
+                      {/* Materi dari backend */}
+                      {materiPerSection.length === 0 ? (
+                        <div className="p-4 rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/20">
+                          <p className="text-xs text-gray-500">
+                            Belum ada materi pada bagian ini.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {materiPerSection.map((materi) => (
+                            <div
+                              key={materi.id}
+                              className="bg-[#E0F7FA]/40 border border-cyan-100 p-3.5 rounded-2xl"
+                            >
+                              <p className="text-xs font-semibold text-[#0088A8]">
+                                {materi.title || 'Materi tanpa judul'}
+                              </p>
 
-        {materi.description && (
-          <p className="text-xs text-gray-500 mt-1">
-            {materi.description}
-          </p>
-        )}
+                              {materi.description && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {materi.description}
+                                </p>
+                              )}
 
-        <p className="text-[11px] text-gray-400 mt-2">
-          Status: {materi.status || 'Belum tersedia'}
-        </p>
-      </div>
-    ))}
-  </div>
-)}
+                              <p className="text-[11px] text-gray-400 mt-2">
+                                Status: {materi.status || 'Belum tersedia'}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       {/* SUB-BAGIAN */}
                       {bab.subBagian.map((sub) => (
@@ -738,9 +797,7 @@ const [responseSection, responseMateri] = await Promise.all([
                           key={sub.id}
                           className="border border-gray-200 rounded-2xl p-4 space-y-3 bg-white"
                         >
-
                           <div className="flex items-center justify-between">
-
                             <div className="flex items-center gap-2">
                               <ChevronRight size={16} className="text-gray-400" />
 
@@ -803,7 +860,6 @@ const [responseSection, responseMateri] = await Promise.all([
 
                               {activePopover === `sub-${sub.id}` && (
                                 <div className="absolute right-0 top-7 bg-white border border-gray-100 rounded-xl shadow-xl p-1.5 w-28 z-50 space-y-1 text-xs">
-
                                   <button
                                     onClick={() => {
                                       handleStartEditSub(
@@ -838,7 +894,6 @@ const [responseSection, responseMateri] = await Promise.all([
                                   >
                                     Hapus
                                   </button>
-
                                 </div>
                               )}
                             </div>
@@ -847,23 +902,21 @@ const [responseSection, responseMateri] = await Promise.all([
                           <div className="border border-dashed border-cyan-200 rounded-xl p-2.5 text-center bg-cyan-50/20 hover:bg-cyan-50/50 transition">
                             <button
                               onClick={() => {
-  setSelectedSectionId(bab.id);
-  setShowModalAktivitas(true);
-}}
+                                setSelectedSectionId(bab.id);
+                                setShowModalAktivitas(true);
+                              }}
                               className="text-xs font-bold text-[#0088A8] flex items-center justify-center gap-2 w-full cursor-pointer"
                             >
                               <Plus size={16} />
                               Tambah Aktivitas atau Sumber
                             </button>
                           </div>
-
                         </div>
                       ))}
 
                       {/* FORM TAMBAH SUB-BAGIAN */}
                       {addingSubBabId === bab.id ? (
                         <div className="p-4 border border-cyan-200 rounded-2xl bg-cyan-50/20 space-y-2">
-
                           <label className="block text-xs font-bold text-[#17242E]">
                             Judul Sub-bagian Baru
                           </label>
@@ -894,21 +947,19 @@ const [responseSection, responseMateri] = await Promise.all([
                               Simpan Sub-bagian
                             </button>
                           </div>
-
                         </div>
                       ) : (
-
                         /* TOMBOL TAMBAH AKTIVITAS */
                         <div className="relative pt-1">
-
                           <button
-                            onClick={() =>
+                            onClick={() => {
+                              setSelectedSectionId(bab.id);
                               setActivePopover(
                                 activePopover === `tambah-opt-${bab.id}`
                                   ? null
                                   : `tambah-opt-${bab.id}`
-                              )
-                            }
+                              );
+                            }}
                             className="text-xs font-bold text-[#0088A8] flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-cyan-50 transition cursor-pointer"
                           >
                             <Plus size={16} />
@@ -917,9 +968,9 @@ const [responseSection, responseMateri] = await Promise.all([
 
                           {activePopover === `tambah-opt-${bab.id}` && (
                             <div className="absolute left-0 top-10 bg-white border border-gray-100 rounded-2xl shadow-2xl p-2 w-52 z-50 space-y-1">
-
                               <button
                                 onClick={() => {
+                                  setSelectedSectionId(bab.id);
                                   setShowModalAktivitas(true);
                                   setActivePopover(null);
                                 }}
@@ -939,12 +990,10 @@ const [responseSection, responseMateri] = await Promise.all([
                                 <FolderPlus size={14} className="text-[#0088A8]" />
                                 Tambah Sub-bagian
                               </button>
-
                             </div>
                           )}
                         </div>
                       )}
-
                     </div>
                   )}
                 </div>
@@ -955,10 +1004,8 @@ const [responseSection, responseMateri] = await Promise.all([
           {/* KOTAK TAMBAH BAGIAN BARU */}
           {!loadingAPI && !errorAPI && (
             <div className="pt-2">
-
               {isAddingBab ? (
                 <div className="bg-white p-5 rounded-3xl border border-cyan-300 shadow-sm space-y-3">
-
                   <label className="block text-xs font-bold text-[#17242E]">
                     Judul Bagian / Bab Baru
                   </label>
@@ -987,7 +1034,6 @@ const [responseSection, responseMateri] = await Promise.all([
                       Simpan Bab
                     </button>
                   </div>
-
                 </div>
               ) : (
                 <button
@@ -998,19 +1044,15 @@ const [responseSection, responseMateri] = await Promise.all([
                   Tambah Bagian Baru
                 </button>
               )}
-
             </div>
           )}
-
         </div>
       </main>
 
       {/* MODAL POPUP: PEMILIHAN AKTIVITAS ATAU SUMBER */}
       {showModalAktivitas && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-
           <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl relative">
-
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-bold text-[#17242E]">
                 Tambah Aktivitas atau Sumber
@@ -1025,7 +1067,6 @@ const [responseSection, responseMateri] = await Promise.all([
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
-
               {daftarAktivitas.map((item) => {
                 const IconComponent = item.icon;
                 const isSelected = pilihanAktivitas === item.id;
@@ -1050,16 +1091,14 @@ const [responseSection, responseMateri] = await Promise.all([
                   </div>
                 );
               })}
-
             </div>
 
             <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-
               <span className="text-xs text-gray-500 font-medium">
                 <span className="font-bold text-[#17242E]">
                   {pilihanAktivitas}
                 </span>{' '}
-                terpilih
+                terpilih (Section ID: {selectedSectionId})
               </span>
 
               <button
@@ -1078,12 +1117,10 @@ const [responseSection, responseMateri] = await Promise.all([
               >
                 Add
               </button>
-
             </div>
           </div>
         </div>
       )}
-
     </div>
   );
 };

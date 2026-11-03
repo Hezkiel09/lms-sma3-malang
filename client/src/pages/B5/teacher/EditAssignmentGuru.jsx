@@ -1,12 +1,22 @@
 import React, { useState } from 'react';
 import { 
   Home, Calendar as CalendarIcon, MessageSquare, LogOut, Search, Bell, 
-  BookOpen, FileText, ArrowLeft, UploadCloud, X, Bell as BellIcon, RefreshCw 
+  BookOpen, FileText, ArrowLeft, UploadCloud, X 
 } from 'lucide-react';
 import logoSmanti from '../../../assets/Logo.png';
 
-const EditAssignmentGuru = ({ onKembali }) => {
+const EditAssignmentGuru = ({ assignmentId, onKembali, onSaveSuccess }) => {
   const [judul, setJudul] = useState('Latihan Mandiri: Grafik Parabola');
+
+  const handleSimpanPerubahan = () => {
+    // Jika onSaveSuccess ada, arahkan kembali ke detail tugas membawa assignmentId
+    if (onSaveSuccess) {
+      onSaveSuccess(assignmentId || 'tugas-default');
+    } else {
+      alert('Perubahan tugas berhasil disimpan!');
+      onKembali();
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-white font-sans text-[#17242E] w-full">
@@ -115,10 +125,23 @@ const EditAssignmentGuru = ({ onKembali }) => {
             </div>
           </div>
 
+          {/* TOMBOL AKSI */}
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-            <button onClick={onKembali} className="px-6 py-2.5 rounded-xl bg-[#E0F7FA] text-[#0088A8] font-bold text-xs hover:bg-cyan-100 transition cursor-pointer">Batal</button>
-            <button onClick={() => { alert('Tugas berhasil diperbarui!'); onKembali(); }} className="px-6 py-2.5 rounded-xl bg-[#054C5A] text-white font-bold text-xs hover:bg-[#033742] transition cursor-pointer">Simpan Perubahan</button>
+            <button 
+              onClick={onKembali}
+              className="px-6 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-200 cursor-pointer transition"
+            >
+              Batal
+            </button>
+            
+            <button 
+              onClick={handleSimpanPerubahan}
+              className="px-7 py-2.5 bg-[#054C5A] text-white rounded-xl text-xs font-bold hover:bg-[#033742] cursor-pointer transition shadow-xs"
+            >
+              Simpan
+            </button>
           </div>
+
         </div>
       </main>
     </div>
