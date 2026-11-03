@@ -1,6 +1,8 @@
+import ProfileMenu from './ProfileMenu';
 import { NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, CalendarDays, MessageSquare, LogOut, Search, Bell } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, MessageSquare, LogOut, Search } from 'lucide-react';
 import { todayMock } from '../mocks/todayMock';
+import NotifMenu from './NotifMenu';
 
 const nav = [
   { to: '/siswa/beranda', label: 'Beranda', icon: LayoutDashboard, soon: true },
@@ -9,7 +11,7 @@ const nav = [
 ];
 
 export default function SiswaLayout() {
-  const student = todayMock.student; // nanti diganti dari data login
+  const student = todayMock.student; // nanti diganti dari data logi
 
   return (
     <div className="shell">
@@ -18,11 +20,11 @@ export default function SiswaLayout() {
           <div className="logo"><img src="/logo.svg" alt="SMANTI Connect" /></div>
           <nav className="nav">
             {nav.map(({ to, label, icon: Icon, soon }) =>
-            soon ? (
-            <a key={to} href="#" className="nav-item" onClick={(e) => e.preventDefault()}>
-                <Icon size={20} /> {label}
+              soon ? (
+                <a key={to} href="#" className="nav-item" onClick={(e) => e.preventDefault()}>
+                  <Icon size={20} /> {label}
                 </a>
-                ) : (
+              ) : (
                 <NavLink key={to} to={to} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                   <Icon size={20} /> {label}
                 </NavLink>
@@ -39,12 +41,10 @@ export default function SiswaLayout() {
             <Search size={20} />
             <input placeholder="Cari informasi" />
           </label>
+
           <div className="topbar-right">
-            <div className="bell"><Bell size={22} /><i /></div>
-            <div className="profile">
-              <img src="/avatar.png" alt="" />
-              <div><b>{student.name}</b><small>{student.class_label}</small></div>
-            </div>
+            <NotifMenu />
+            <ProfileMenu student={student} />
           </div>
         </header>
         <Outlet />
