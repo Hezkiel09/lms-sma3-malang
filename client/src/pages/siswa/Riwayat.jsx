@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, BookOpen, Check, TriangleAlert, X } from 'lucide-react';
 import PresensiTabs from '../../components/PresensiTabs';
 import { overviewMock } from '../../mocks/overviewMock';
@@ -152,7 +153,7 @@ function Subjects({ data }) {
               <div>
                 <b>{s.subject.name}</b>
                 <small>{s.teacher?.name}</small>
-                <a href="#" onClick={(e) => e.preventDefault()}>Lihat detail <ChevronRight size={12} /></a>
+                <Link to={`/siswa/presensi/riwayat/${s.subject.id}`}>Lihat detail <ChevronRight size={12} /></Link>
               </div>
             </div>
             <span className="c h">{s.hadir}</span>

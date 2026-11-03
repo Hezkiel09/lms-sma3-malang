@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import SiswaLayout from './components/SiswaLayout';
 import HariIni from './pages/siswa/HariIni';
 import Riwayat from './pages/siswa/Riwayat';
+import DetailMapel from './pages/siswa/DetailMapel';
 
 import GuruLayout from './components/GuruLayout';
 import PresensiGuru from './pages/guru/PresensiGuru';
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="/siswa" element={<SiswaLayout />}>
           <Route path="presensi" element={<HariIni />} />
           <Route path="presensi/riwayat" element={<Riwayat />} />
+          <Route path="presensi/riwayat/:subjectId" element={<DetailMapel />} />
         </Route>
 
         {/* ROUTE GURU */}
