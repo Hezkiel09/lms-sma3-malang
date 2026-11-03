@@ -7,6 +7,8 @@ import importRouter from './modules/b6/routes/question-import-routes.js';
 import optionRouter from './modules/b6/routes/question-options-routes.js';
 import attemptRouter from './modules/b6/routes/quiz-attempt-routes.js';
 import masterRouter from './modules/master/master.routes.js';
+import quizQuestionRouter from './modules/b6/routes/quiz-question-routes.js';
+import studentAnswerRouter from './modules/b6/routes/student-answer-routes.js';
 
 dotenv.config();
 
@@ -23,6 +25,8 @@ app.use('/api/v1/imports', importRouter);
 app.use('/api/v1/master', masterRouter);
 app.use('/api/v1/options', optionRouter);
 app.use('/api/v1/attempts', attemptRouter);
+app.use('/api/v1/academic', quizQuestionRouter);
+app.use('/api/v1/academic', studentAnswerRouter);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Server is healthy & Database connected!', data: [] });
