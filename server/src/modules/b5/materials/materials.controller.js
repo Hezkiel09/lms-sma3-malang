@@ -74,25 +74,33 @@ export const getMaterialsByCourseId = async (req, res) => {
 export const getMaterialById = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (!isValidUUID(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Format Material ID tidak valid.',
+      });
+    }
+
     const material = await materialsService.getMaterialByIdService(id);
 
     return res.status(200).json({
       success: true,
-      message: 'Berhasil mengambil detail materi',
+      message: 'Berhasil mengambil detail materi.',
       data: material,
     });
   } catch (error) {
-    if (error.message.includes('tidak ditemukan')) {
+    if (error.statusCode === 404 || error.message?.includes('tidak ditemukan')) {
       return res.status(404).json({
         success: false,
         message: error.message,
       });
     }
 
+    console.error('Error fetching material detail:', error);
     return res.status(500).json({
       success: false,
-      message: 'Gagal mengambil detail materi',
-      error: error.message,
+      message: 'Terjadi kesalahan pada server saat mengambil detail materi.',
     });
   }
 };
@@ -100,58 +108,77 @@ export const getMaterialById = async (req, res) => {
 /**
  * Controller untuk menambah materi baru (UC-02)
  * Endpoint: POST /api/v1/b5/materials
+ * Sementara belum memakai autentikasi karena fitur login belum dikerjakan.
  */
 export const createMaterial = async (req, res) => {
   try {
-    const { teacher_id, title, description, subject_id, class_ids, files } = req.body;
+    const { section_id, title, description } = req.body;
+    // Kompatibel dengan nilai radio lama di frontend ('publikasi').
+    const requestedStatus = req.body.status ?? 'draft';
+    const status = requestedStatus === 'publikasi' ? 'published' : requestedStatus;
 
-    // Validasi input minimal
-    if (!title) {
+    if (!section_id || !isValidUUID(section_id)) {
       return res.status(400).json({
         success: false,
-        message: 'Judul materi wajib diisi!',
+        message: 'Section ID wajib diisi dengan format UUID yang valid.',
       });
     }
 
-    if (!subject_id) {
+    if (typeof title !== 'string' || !title.trim()) {
       return res.status(400).json({
         success: false,
-        message: 'Mata pelajaran (subject_id) wajib dipilih!',
+        message: 'Judul materi wajib diisi.',
       });
     }
 
-    // TODO: Autentikasi & Otorisasi
-    // Saat ini teacher_id diambil dari body. Jika authMiddleware terintegrasi:
-    // teacher_id harus diverifikasi dari profil guru pengguna yang sedang login (bukan sembarang ID dari body).
-    if (!teacher_id) {
+    if (title.trim().length > 255) {
       return res.status(400).json({
         success: false,
-        message: 'ID Guru (teacher_id) wajib diisi!',
+        message: 'Judul materi maksimal 255 karakter.',
       });
     }
 
-    // TODO: Keputusan kolom 'status' (Publikasi Langsung vs Simpan Draf)
-    // Kolom 'status' belum tersedia di schema b5.materials.
+    if (description !== undefined && description !== null && typeof description !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Deskripsi materi harus berupa teks.',
+      });
+    }
+
+    if (!['draft', 'published'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Status materi hanya boleh bernilai 'draft' atau 'published'.",
+      });
+    }
 
     const newMaterial = await materialsService.createMaterialService({
-      teacher_id,
+      sectionId: section_id,
       title,
       description,
-      subject_id,
-      class_ids,
-      files,
+      status,
+      files: req.files || [],
     });
 
     return res.status(201).json({
       success: true,
-      message: 'Berhasil menambahkan materi baru',
+      message: status === 'published'
+        ? 'Materi berhasil dipublikasikan.'
+        : 'Materi berhasil disimpan sebagai draf.',
       data: newMaterial,
     });
   } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    console.error('Error creating material:', error);
     return res.status(500).json({
       success: false,
-      message: 'Gagal menambahkan materi baru',
-      error: error.message,
+      message: 'Terjadi kesalahan pada server saat menambahkan materi.',
     });
   }
 };

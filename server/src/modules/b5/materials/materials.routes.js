@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as materialsController from './materials.controller.js';
+import { parseMaterialUpload } from '../../../middleware/materialUploadMiddleware.js';
 
 const router = Router();
 
@@ -8,24 +9,17 @@ const router = Router();
  * Base Path: /api/v1/b5/materials
  */
 
-// UC-03: Mengambil daftar materi
+// Endpoint GET yang sudah tersedia tetap dipertahankan.
 router.get('/', materialsController.getAllMaterials);
-
-// UC-03: Mengambil detail materi berdasarkan ID
 router.get('/:id', materialsController.getMaterialById);
 
-// UC-02: Menambah materi baru
-// TODO: Pasang middleware autentikasi (misal authenticateUser) dan otorisasi guru
-// TODO: Pasang middleware upload file (misal Multer) ketika fitur lampiran file diintegrasikan
-router.post('/', materialsController.createMaterial);
+// UC-02 (sementara untuk pengembangan): belum memakai login/autentikasi.
+// teacher_id diturunkan dari Course berdasarkan section_id di service.
+router.post('/', parseMaterialUpload, materialsController.createMaterial);
 
-// UC-03: Memperbarui materi
-// TODO: Pasang middleware autentikasi dan otorisasi guru
-// TODO: Pasang middleware upload file jika mendukung pembaruan lampiran
+// UC-03: Endpoint edit dan delete belum diberi middleware Guru pada tahap ini.
+// Akan diamankan ketika implementasi UC-03 dikerjakan.
 router.put('/:id', materialsController.updateMaterial);
-
-// UC-03: Menghapus materi
-// TODO: Pasang middleware autentikasi dan otorisasi guru
 router.delete('/:id', materialsController.deleteMaterial);
 
 export default router;

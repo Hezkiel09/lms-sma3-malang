@@ -241,21 +241,38 @@ const KelolaCourseGuru = ({ onKembali }) => {
       setAddingSubBabId(null);
     }
   };
-
+  
   // PENGONDISIAN SUB-HALAMAN
+
+  // UC-02: Tambah Materi
   if (subHalaman === 'tambahMateri') {
     return (
       <TambahMateri
         onKembali={() => setSubHalaman(null)}
         sectionId={selectedSectionId}
-        onSaveSuccess={(newId) => {
-          setSelectedMaterialId(newId);
+        sectionTitle={
+          daftarBab.find((bab) => bab.id === selectedSectionId)?.judul
+        }
+        onSaveSuccess={(newMaterialId, newMaterial) => {
+          // Perbarui daftar materi tanpa mengambil ulang seluruh halaman.
+          if (newMaterial) {
+            setDaftarMateriAPI((previousMaterials) => [
+              newMaterial,
+              ...previousMaterials.filter(
+                (materi) => materi.id !== newMaterial.id
+              ),
+            ]);
+          }
+
+          // Gunakan ID asli dari database untuk membuka DetailFileGuru.
+          setSelectedMaterialId(newMaterialId);
           setSubHalaman('detailFile');
         }}
       />
     );
   }
 
+  // UC-03: Detail Materi
   if (subHalaman === 'detailFile') {
     return (
       <DetailFileGuru
@@ -263,6 +280,13 @@ const KelolaCourseGuru = ({ onKembali }) => {
         courseId={COURSE_ID}
         onKembali={() => setSubHalaman(null)}
         onDelete={() => {
+          setDaftarMateriAPI((previousMaterials) =>
+            previousMaterials.filter(
+              (materi) => materi.id !== selectedMaterialId
+            )
+          );
+
+          setSelectedMaterialId(null);
           setSubHalaman(null);
         }}
       />
@@ -282,6 +306,7 @@ const KelolaCourseGuru = ({ onKembali }) => {
     );
   }
 
+  // Assignment: Edit Tugas
   if (subHalaman === 'editAssignment') {
     return (
       <EditAssignmentGuru
@@ -295,6 +320,7 @@ const KelolaCourseGuru = ({ onKembali }) => {
     );
   }
 
+  // Assignment: Detail Tugas
   if (subHalaman === 'detailAssignment') {
     return (
       <DetailTugasGuru
@@ -305,56 +331,16 @@ const KelolaCourseGuru = ({ onKembali }) => {
     );
   }
 
-  //pengondisian file/materi
-  if (subHalaman === 'tambahMateri') {
-    return (
-      <TambahMateri
-        onKembali={() => setSubHalaman(null)}
-        sectionId={selectedSectionId}
-        onSaveSuccess={(newId) => {
-          setSelectedMaterialId(newId);
-          setSubHalaman('detailFile');
-        }}
-      />
-    );
-  }
-
-  if (subHalaman === 'detailFile') {
-    return (
-      <DetailFileGuru
-        materialId={selectedMaterialId}
-        courseId={COURSE_ID}
-        onKembali={() => setSubHalaman(null)}
-        onDelete={() => {
-          setSubHalaman(null);
-        }}
-      />
-    );
-  }
-
-  if (subHalaman === 'tambahFile') {
-    return (
-      <TambahFileGuru
-        onKembali={() => setSubHalaman(null)}
-      />
-    );
-  }
-
+  // File: Edit Materi
   if (subHalaman === 'editFile') {
     return (
       <EditFileGuru
+        materialId={selectedMaterialId}
         onKembali={() => setSubHalaman(null)}
       />
     );
   }
 
-  if (subHalaman === 'tambahFile') {
-    return (
-      <TambahFileGuru
-        onKembali={() => setSubHalaman(null)}
-      />
-    );
-  }
 
 
   // TAMPILAN HALAMAN TAMBAH LINK
@@ -767,15 +753,25 @@ const KelolaCourseGuru = ({ onKembali }) => {
                           </p>
                         </div>
                       ) : (
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           {materiPerSection.map((materi) => (
                             <div
                               key={materi.id}
-                              className="bg-[#E0F7FA]/40 border border-cyan-100 p-3.5 rounded-2xl"
+                              className="bg-white border border-cyan-100 p-3.5 rounded-2xl"
                             >
-                              <p className="text-xs font-semibold text-[#0088A8]">
-                                {materi.title || 'Materi tanpa judul'}
-                              </p>
+                              {/* Judul dan detail materi */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedMaterialId(materi.id);
+                                  setSubHalaman('detailFile');
+                                }}
+                                className="text-left w-full cursor-pointer"
+                              >
+                                <p className="text-xs font-semibold text-[#0088A8] hover:underline">
+                                  {materi.title || 'Materi tanpa judul'}
+                                </p>
+                              </button>
 
                               {materi.description && (
                                 <p className="text-xs text-gray-500 mt-1">
@@ -783,9 +779,50 @@ const KelolaCourseGuru = ({ onKembali }) => {
                                 </p>
                               )}
 
-                              <p className="text-[11px] text-gray-400 mt-2">
-                                Status: {materi.status || 'Belum tersedia'}
-                              </p>
+                              <div className="flex items-center justify-between mt-2">
+                                <p className="text-[11px] text-gray-400">
+                                  Status:{' '}
+                                  {materi.status === 'published'
+                                    ? 'Dipublikasikan'
+                                    : 'Draf'}
+                                </p>
+
+                                {materi.created_at && (
+                                  <p className="text-[11px] text-gray-400">
+                                    {new Date(materi.created_at).toLocaleDateString('id-ID')}
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Daftar lampiran */}
+                              {materi.material_files?.length > 0 && (
+                                <div className="mt-3 space-y-2">
+                                  {materi.material_files.map((file) => (
+                                    <a
+                                      key={file.id}
+                                      href={file.file_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center justify-between gap-3 p-3 rounded-xl bg-[#E0F7FA]/60 border border-cyan-100 hover:bg-[#E0F7FA] transition"
+                                    >
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <FileText
+                                          size={18}
+                                          className="text-[#0088A8] shrink-0"
+                                        />
+
+                                        <span className="text-xs font-medium text-[#17242E] truncate">
+                                          {file.file_name}
+                                        </span>
+                                      </div>
+
+                                      <span className="text-[10px] font-semibold text-[#0088A8] shrink-0">
+                                        Buka File
+                                      </span>
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -1109,8 +1146,10 @@ const KelolaCourseGuru = ({ onKembali }) => {
                     setSubHalaman('tambahAssignment');
                   } else if (pilihanAktivitas === 'Link (URL)') {
                     setSubHalaman('tambahLink');
-                  } else {
+                  } else if (pilihanAktivitas === 'File') {
                     setSubHalaman('tambahMateri');
+                  } else {
+                    alert(`Aktivitas ${pilihanAktivitas} belum tersedia.`);
                   }
                 }}
                 className="px-7 py-2.5 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
