@@ -8,23 +8,8 @@ import PengumumanPage from './pages/admin/Pengumuman';
 import LaporanPage from './pages/admin/Laporan';
 import SiswaPage from './pages/admin/Siswa';
 import GuruPage from './pages/admin/Guru';
+import ProfilPage from './pages/admin/Profil';
 import LoginPage from './pages/auth/Login';
-
-// Generic placeholder component for submenus that will be sliced later
-function PagePlaceholder({ title }) {
-  return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight sm:text-3xl">{title}</h1>
-        <p className="mt-1 text-sm text-slate-500">Halaman ini siap untuk di-slice berikutnya.</p>
-      </div>
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
-        <h3 className="text-base font-semibold text-slate-700">Area Slicing Halaman {title}</h3>
-        <p className="mt-1 text-sm text-slate-400">Silakan letakkan komponen untuk menu ini di sini.</p>
-      </div>
-    </div>
-  );
-}
 
 export default function App() {
   return (
@@ -42,7 +27,7 @@ export default function App() {
           <Route path="monitoring" element={<MonitoringPage />} />
           <Route path="pengumuman" element={<PengumumanPage />} />
           <Route path="laporan" element={<LaporanPage />} />
-          <Route path="profil" element={<PagePlaceholder title="Profil Admin" />} />
+          <Route path="profil" element={<ProfilPage />} />
           <Route path="siswa" element={<SiswaPage />} />
           <Route path="guru" element={<GuruPage />} />
           {/* Catch-all route inside admin */}

@@ -53,28 +53,28 @@ export const mockQuickActions = [
     label: 'Tambah siswa',
     code: 'TS',
     badgeBg: 'bg-cyan-100 text-cyan-700',
-    link: '/admin/siswa/tambah',
+    link: '/admin/siswa',
   },
   {
     id: 'aj',
     label: 'Atur jadwal',
     code: 'AJ',
     badgeBg: 'bg-blue-100 text-blue-700',
-    link: '/admin/jadwal',
+    link: '/admin/akademik',
   },
   {
     id: 'ip',
     label: 'Impor presensi',
     code: 'IP',
     badgeBg: 'bg-amber-100 text-amber-700',
-    link: '/admin/presensi/impor',
+    link: '/admin/monitoring',
   },
   {
     id: 'bp',
     label: 'Buat pengumuman',
     code: 'BP',
     badgeBg: 'bg-purple-100 text-purple-700',
-    link: '/admin/pengumuman/buat',
+    link: '/admin/pengumuman',
   },
 ];
 
