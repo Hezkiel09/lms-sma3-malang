@@ -55,18 +55,18 @@ export default function TambahSoalKuisPage() {
   const handleSimpanSoal = (e) => {
     e.preventDefault();
     alert(`Soal 41 (${jenisSoal}) berhasil disimpan ke daftar soal!`);
-    navigate('/guru/buat-kuis', { state: { addedQuestionNumber: 41 } });
+    navigate('/b6/buat-kuis', { state: { addedQuestionNumber: 41 } });
   };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* 1. Breadcrumbs */}
       <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
-        <Link to="/guru/beranda" className="hover:text-slate-600 transition-colors">
+        <Link to="/b6/beranda" className="hover:text-slate-600 transition-colors">
           Beranda
         </Link>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-        <Link to="/guru/buat-kuis" className="hover:text-slate-600 transition-colors">
+        <Link to="/b6/buat-kuis" className="hover:text-slate-600 transition-colors">
           Buat Kuis
         </Link>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
@@ -391,7 +391,7 @@ export default function TambahSoalKuisPage() {
           <div className="flex items-center justify-between pt-4 border-t border-slate-100">
             <button
               type="button"
-              onClick={() => navigate('/guru/buat-kuis')}
+              onClick={() => navigate('/b6/buat-kuis')}
               className="rounded-xl bg-[#e6f7f8] px-5 py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors"
             >
               Kembali

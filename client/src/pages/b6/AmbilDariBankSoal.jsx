@@ -47,18 +47,18 @@ export default function AmbilDariBankSoalPage() {
 
   const handleTambahkanKeKuis = () => {
     // Navigate to Buat Kuis with addedFromBank = true
-    navigate('/guru/buat-kuis', { state: { addedFromBank: true } });
+    navigate('/b6/buat-kuis', { state: { addedFromBank: true } });
   };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* 1. Breadcrumbs */}
       <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
-        <Link to="/guru/beranda" className="hover:text-slate-600">
+        <Link to="/b6/beranda" className="hover:text-slate-600">
           Beranda
         </Link>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-        <Link to="/guru/buat-kuis" className="hover:text-slate-600">
+        <Link to="/b6/buat-kuis" className="hover:text-slate-600">
           Buat Kuis
         </Link>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
@@ -77,7 +77,7 @@ export default function AmbilDariBankSoalPage() {
         </div>
         <div>
           <button
-            onClick={() => navigate('/guru/buat-kuis')}
+            onClick={() => navigate('/b6/buat-kuis')}
             className="rounded-xl bg-[#e6f7f8] px-4 py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors"
           >
             Kembali ke Kuis
@@ -298,7 +298,7 @@ export default function AmbilDariBankSoalPage() {
 
           <div className="flex items-center gap-2.5">
             <button
-              onClick={() => navigate('/guru/buat-kuis')}
+              onClick={() => navigate('/b6/buat-kuis')}
               className="rounded-xl bg-[#e6f7f8] px-4 py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors"
             >
               Batal
@@ -358,4 +358,3 @@ export default function AmbilDariBankSoalPage() {
     </div>
   );
 }
-

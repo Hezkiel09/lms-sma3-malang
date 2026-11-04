@@ -13,12 +13,12 @@ import LoginPage from './pages/auth/Login';
 
 // Guru Portal
 import GuruLayout from './layouts/GuruLayout';
-import BankSoalPage from './pages/guru/BankSoal';
-import BuatKuisPage from './pages/guru/BuatKuis';
-import ImportSoalExcelPage from './pages/guru/ImportSoalExcel';
-import AmbilDariBankSoalPage from './pages/guru/AmbilDariBankSoal';
-import TambahSoalKuisPage from './pages/guru/TambahSoalKuis';
-import RekapHasilPage from './pages/guru/RekapHasil';
+import BankSoalPage from './pages/b6/BankSoal';
+import BuatKuisPage from './pages/b6/BuatKuis';
+import ImportSoalExcelPage from './pages/b6/ImportSoalExcel';
+import AmbilDariBankSoalPage from './pages/b6/AmbilDariBankSoal';
+import TambahSoalKuisPage from './pages/b6/TambahSoalKuis';
+import RekapHasilPage from './pages/b6/RekapHasil';
 
 // Placeholder for remaining guru pages
 function GuruPlaceholder({ title }) {
@@ -44,8 +44,8 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
 
         {/* Guru Portal (Default: Buat Kuis & Bank Soal Sesuai Desain Foto) */}
-        <Route path="/guru" element={<GuruLayout />}>
-          <Route index element={<Navigate to="/guru/buat-kuis" replace />} />
+        <Route path="/b6" element={<GuruLayout />}>
+          <Route index element={<Navigate to="/b6/buat-kuis" replace />} />
           <Route path="beranda" element={<GuruPlaceholder title="Beranda Guru" />} />
           <Route path="bank-soal" element={<BankSoalPage />} />
           <Route path="buat-kuis" element={<BuatKuisPage />} />
@@ -56,7 +56,7 @@ export default function App() {
           <Route path="asesmen/rekap-hasil" element={<RekapHasilPage />} />
           <Route path="presensi" element={<GuruPlaceholder title="Presensi Guru" />} />
           <Route path="pesan" element={<GuruPlaceholder title="Pesan" />} />
-          <Route path="*" element={<Navigate to="/guru/buat-kuis" replace />} />
+          <Route path="*" element={<Navigate to="/b6/buat-kuis" replace />} />
         </Route>
 
         {/* Admin Portal */}
@@ -75,15 +75,15 @@ export default function App() {
         </Route>
 
         {/* Direct shortcuts */}
-        <Route path="/buat-kuis" element={<Navigate to="/guru/buat-kuis" replace />} />
-        <Route path="/bank-soal" element={<Navigate to="/guru/bank-soal" replace />} />
-        <Route path="/rekap-nilai" element={<Navigate to="/guru/rekap-nilai" replace />} />
-        <Route path="/rekap-hasil" element={<Navigate to="/guru/rekap-nilai" replace />} />
+        <Route path="/buat-kuis" element={<Navigate to="/b6/buat-kuis" replace />} />
+        <Route path="/bank-soal" element={<Navigate to="/b6/bank-soal" replace />} />
+        <Route path="/rekap-nilai" element={<Navigate to="/b6/rekap-nilai" replace />} />
+        <Route path="/rekap-hasil" element={<Navigate to="/b6/rekap-nilai" replace />} />
 
         {/* Root redirect directly to Buat Kuis */}
-        <Route path="/" element={<Navigate to="/guru/buat-kuis" replace />} />
+        <Route path="/" element={<Navigate to="/b6/buat-kuis" replace />} />
         {/* 404 fallback to Buat Kuis */}
-        <Route path="*" element={<Navigate to="/guru/buat-kuis" replace />} />
+        <Route path="*" element={<Navigate to="/b6/buat-kuis" replace />} />
       </Routes>
     </BrowserRouter>
   );

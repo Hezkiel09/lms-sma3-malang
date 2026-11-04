@@ -11,21 +11,21 @@ import {
 import logosmanti from '../../assets/logo smanti.png';
 
 const menuItems = [
-  { name: 'Beranda', path: '/guru/beranda', icon: Home },
+  { name: 'Beranda', path: '/b6/beranda', icon: Home },
   {
     name: 'Bank Soal',
-    path: '/guru/buat-kuis',
+    path: '/b6/bank-soal',
     icon: BookOpen,
-    relatedPaths: ['/guru/bank-soal', '/guru/buat-kuis'],
+    relatedPaths: ['/b6/bank-soal', '/b6/buat-kuis'],
   },
   {
     name: 'Rekap Nilai',
-    path: '/guru/rekap-nilai',
+    path: '/b6/rekap-nilai',
     icon: FileText,
-    relatedPaths: ['/guru/rekap-nilai', '/guru/asesmen/rekap-hasil'],
+    relatedPaths: ['/b6/rekap-nilai', '/b6/asesmen/rekap-hasil'],
   },
-  { name: 'Presensi', path: '/guru/presensi', icon: Calendar },
-  { name: 'Pesan', path: '/guru/pesan', icon: MessageSquare },
+  { name: 'Presensi', path: '/b6/presensi', icon: Calendar },
+  { name: 'Pesan', path: '/b6/pesan', icon: MessageSquare },
 ];
 
 export default function GuruSidebar({ isOpen, onClose }) {

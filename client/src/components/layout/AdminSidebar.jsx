@@ -104,7 +104,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
         {/* Bottom Switch to Guru & Keluar Button */}
         <div className="p-4 border-t border-slate-100 space-y-2">
           <NavLink
-            to="/guru/buat-kuis"
+            to="/b6/buat-kuis"
             className="flex items-center justify-center gap-2 rounded-xl bg-cyan-50/80 px-4 py-2 text-xs font-semibold text-[#008994] hover:bg-cyan-100/80 transition-colors"
           >
             <BookOpen className="h-4 w-4" />

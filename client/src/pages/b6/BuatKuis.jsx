@@ -171,7 +171,7 @@ export default function BuatKuisPage() {
           {/* 3 Tombol Aksi: Impor, Ambil dari Bank Soal, Tambah Soal */}
           <div className="flex flex-wrap items-center gap-2.5">
             <button
-              onClick={() => navigate('/guru/buat-kuis/import')}
+              onClick={() => navigate('/b6/buat-kuis/import')}
               className="flex items-center gap-2 rounded-xl bg-[#e6f7f8] px-4 py-2 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors"
             >
               <Upload className="h-4 w-4 stroke-[2.2]" />
@@ -179,14 +179,14 @@ export default function BuatKuisPage() {
             </button>
 
             <button
-              onClick={() => navigate('/guru/buat-kuis/ambil-bank-soal')}
+              onClick={() => navigate('/b6/buat-kuis/ambil-bank-soal')}
               className="rounded-xl bg-[#004d57] px-4 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] transition-colors"
             >
               Ambil dari Bank Soal
             </button>
 
             <button
-              onClick={() => navigate('/guru/buat-kuis/tambah-soal')}
+              onClick={() => navigate('/b6/buat-kuis/tambah-soal')}
               className="rounded-xl bg-[#004d57] px-4 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] transition-colors"
             >
               Tambah Soal

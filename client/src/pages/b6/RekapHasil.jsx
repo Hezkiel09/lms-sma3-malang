@@ -59,11 +59,11 @@ export default function RekapHasilPage() {
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* 1. Breadcrumbs */}
       <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
-        <Link to="/guru/beranda" className="hover:text-slate-600 transition-colors">
+        <Link to="/b6/beranda" className="hover:text-slate-600 transition-colors">
           Beranda
         </Link>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-        <Link to="/guru/buat-kuis" className="hover:text-slate-600 transition-colors">
+        <Link to="/b6/buat-kuis" className="hover:text-slate-600 transition-colors">
           Asesmen
         </Link>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
@@ -711,4 +711,3 @@ export default function RekapHasilPage() {
     </div>
   );
 }
-
