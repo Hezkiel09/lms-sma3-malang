@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import logoSmanti from '../../../assets/Logo.png';
 
+const BASE_URL = 'http://localhost:5000/api/v1/b5';
+
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const MAX_FILES = 5;
 const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.zip', '.ppt', '.pptx'];
@@ -15,10 +17,21 @@ const formatFileSize = (bytes) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-const TambahAssignmentGuru = ({ onKembali, onSaveSuccess }) => {
+const SUBMISSION_TYPES = ['pdf', 'doc', 'zip', 'pptx', 'video', 'jpg', 'catatan', 'png'];
+
+const TambahAssignmentGuru = ({ onKembali, onSaveSuccess, sectionId, courseId }) => {
   const [judul, setJudul] = useState('');
   const [instruksi, setInstruksi] = useState('');
-  
+
+  const [startDate, setStartDate] = useState('');
+  const [startTime, setStartTime] = useState('10:00');
+  const [deadlineDate, setDeadlineDate] = useState('');
+  const [deadlineTime, setDeadlineTime] = useState('23:59');
+  const [allowLate, setAllowLate] = useState(false);
+  const [submissionTypes, setSubmissionTypes] = useState(['pdf']);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+
   // State untuk Lampiran File Tugas
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -59,19 +72,73 @@ const TambahAssignmentGuru = ({ onKembali, onSaveSuccess }) => {
     setFileError(errors.join(' '));
   };
 
-  const handleSimpanTugas = () => {
+  const toggleSubmissionType = (type) => {
+    setSubmissionTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+    );
+  };
+
+  const handleSimpanTugas = async () => {
+    setSaveError('');
+
+    if (!sectionId) {
+      setSaveError('Konteks Section tujuan tidak ditemukan. Tambah tugas melalui tombol Tambah Aktivitas pada bab di halaman kelas.');
+      return;
+    }
     if (!judul.trim()) {
-      alert('Judul tugas wajib diisi!');
+      setSaveError('Judul tugas wajib diisi.');
+      return;
+    }
+    if (!startDate) {
+      setSaveError('Tanggal mulai wajib diisi.');
+      return;
+    }
+    if (!deadlineDate) {
+      setSaveError('Tanggal selesai wajib diisi.');
       return;
     }
 
-    const generatedAssignmentId = 'tugas-' + Date.now();
-    
-    if (onSaveSuccess) {
-      onSaveSuccess(generatedAssignmentId);
-    } else {
-      alert('Tugas berhasil disimpan!');
-      onKembali();
+    const formData = new FormData();
+    formData.append('section_id', sectionId);
+    if (courseId) formData.append('course_id', courseId);
+    formData.append('title', judul.trim());
+    if (instruksi.trim()) formData.append('instructions', instruksi.trim());
+    formData.append('start_date', startDate);
+    formData.append('start_time', startTime);
+    formData.append('deadline_date', deadlineDate);
+    formData.append('deadline_time', deadlineTime);
+    formData.append('submission_type', submissionTypes.length > 0 ? submissionTypes.join(',') : 'file');
+    formData.append('allow_late_submission', allowLate ? 'true' : 'false');
+
+    selectedFiles.forEach((file) => {
+      formData.append('files', file);
+    });
+
+    setIsSaving(true);
+    try {
+      const res = await fetch(`${BASE_URL}/assignments`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.message || 'Gagal menyimpan tugas.');
+      }
+
+      alert('Tugas berhasil dibuat!');
+      const newId = result.data?.id;
+      if (onSaveSuccess) {
+        onSaveSuccess(newId, result.data);
+      } else {
+        onKembali();
+      }
+    } catch (err) {
+      console.error('Error menyimpan tugas:', err);
+      setSaveError(err.message || 'Terjadi kesalahan saat menyimpan tugas.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -130,18 +197,28 @@ const TambahAssignmentGuru = ({ onKembali, onSaveSuccess }) => {
           <p className="text-xs text-[#71808D] mt-1">Isi detail di bawah ini untuk membuat tugas baru bagi siswa Anda.</p>
         </div>
 
+        {saveError && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-xs font-medium">
+            {saveError}
+          </div>
+        )}
+
         <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-2xs space-y-6">
+          {/* Judul Tugas */}
           <div>
-            <label className="block text-xs font-bold text-[#71808D] mb-2">Judul Tugas</label>
+            <label className="block text-xs font-bold text-[#71808D] mb-2">
+              Judul Tugas <span className="text-red-500">*</span>
+            </label>
             <input 
               type="text" 
-              placeholder="e.g., Mid-term Project: Advanced Thermodynamics" 
+              placeholder="e.g., Latihan Mandiri: Grafik Parabola" 
               value={judul} 
               onChange={(e) => setJudul(e.target.value)} 
               className="w-full px-4 py-3 bg-[#E0F7FA]/30 rounded-xl text-xs font-medium text-[#17242E] border border-cyan-100 focus:outline-none" 
             />
           </div>
 
+          {/* Instruksi */}
           <div>
             <label className="block text-xs font-bold text-[#71808D] mb-2">Instruksi</label>
             <div className="border border-cyan-100 rounded-xl overflow-hidden">
@@ -158,25 +235,71 @@ const TambahAssignmentGuru = ({ onKembali, onSaveSuccess }) => {
             </div>
           </div>
 
+          {/* Tanggal & Waktu */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
-              <label className="block text-[11px] font-bold text-[#71808D] mb-1">TANGGAL MULAI</label>
-              <input type="date" defaultValue="2026-01-20" className="w-full px-3 py-2 bg-[#E0F7FA]/30 rounded-xl text-xs text-[#17242E] border border-cyan-100 cursor-pointer" />
+              <label className="block text-[11px] font-bold text-[#71808D] mb-1">
+                TANGGAL MULAI <span className="text-red-500">*</span>
+              </label>
+              <input 
+                type="date" 
+                value={startDate} 
+                onChange={(e) => setStartDate(e.target.value)} 
+                className="w-full px-3 py-2 bg-[#E0F7FA]/30 rounded-xl text-xs text-[#17242E] border border-cyan-100 cursor-pointer" 
+              />
             </div>
             <div>
               <label className="block text-[11px] font-bold text-[#71808D] mb-1">WAKTU MULAI</label>
-              <input type="time" defaultValue="10:00" className="w-full px-3 py-2 bg-[#E0F7FA]/30 rounded-xl text-xs text-[#17242E] border border-cyan-100 cursor-pointer" />
+              <input 
+                type="time" 
+                value={startTime} 
+                onChange={(e) => setStartTime(e.target.value)} 
+                className="w-full px-3 py-2 bg-[#E0F7FA]/30 rounded-xl text-xs text-[#17242E] border border-cyan-100 cursor-pointer" 
+              />
             </div>
             <div>
-              <label className="block text-[11px] font-bold text-[#71808D] mb-1">TANGGAL SELESAI</label>
-              <input type="date" defaultValue="2026-01-27" className="w-full px-3 py-2 bg-[#E0F7FA]/30 rounded-xl text-xs text-[#17242E] border border-cyan-100 cursor-pointer" />
+              <label className="block text-[11px] font-bold text-[#71808D] mb-1">
+                TANGGAL SELESAI (DEADLINE) <span className="text-red-500">*</span>
+              </label>
+              <input 
+                type="date" 
+                value={deadlineDate} 
+                onChange={(e) => setDeadlineDate(e.target.value)} 
+                className="w-full px-3 py-2 bg-[#E0F7FA]/30 rounded-xl text-xs text-[#17242E] border border-cyan-100 cursor-pointer" 
+              />
             </div>
             <div>
               <label className="block text-[11px] font-bold text-[#71808D] mb-1">WAKTU SELESAI</label>
-              <input type="time" defaultValue="23:59" className="w-full px-3 py-2 bg-[#E0F7FA]/30 rounded-xl text-xs text-[#17242E] border border-cyan-100 cursor-pointer" />
+              <input 
+                type="time" 
+                value={deadlineTime} 
+                onChange={(e) => setDeadlineTime(e.target.value)} 
+                className="w-full px-3 py-2 bg-[#E0F7FA]/30 rounded-xl text-xs text-[#17242E] border border-cyan-100 cursor-pointer" 
+              />
             </div>
           </div>
 
+          {/* Izinkan Pengumpulan Terlambat */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setAllowLate((v) => !v)}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer ${
+                allowLate ? 'bg-[#0088A8]' : 'bg-gray-200'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  allowLate ? 'translate-x-4' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+            <label className="text-xs font-semibold text-[#17242E] cursor-pointer select-none" onClick={() => setAllowLate((v) => !v)}>
+              Izinkan Pengumpulan Terlambat
+            </label>
+          </div>
+
+          {/* Lampiran */}
           <div>
             <label className="block text-xs font-bold text-[#71808D] mb-2">Lampiran (Opsional)</label>
             
@@ -206,7 +329,6 @@ const TambahAssignmentGuru = ({ onKembali, onSaveSuccess }) => {
               <p className="text-[10px] text-cyan-600 mt-1">PDF, DOC, ZIP or PPTX (Maks 10MB)</p>
             </div>
 
-            {/* DAFTAR FILE LAMPIRAN TERPILIH */}
             {selectedFiles.length > 0 && (
               <div className="mt-3 space-y-2">
                 {selectedFiles.map((file, idx) => (
@@ -230,23 +352,28 @@ const TambahAssignmentGuru = ({ onKembali, onSaveSuccess }) => {
             {fileError && <p className="text-xs text-red-600 mt-1">{fileError}</p>}
           </div>
 
+          {/* Jenis Pengumpulan */}
           <div>
             <label className="block text-xs font-bold text-[#71808D] mb-2">Jenis Pengumpulan</label>
             <div className="grid grid-cols-2 gap-3 text-xs text-[#17242E] font-medium">
-              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" defaultChecked className="accent-[#0088A8]" /> PDF</label>
-              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" className="accent-[#0088A8]" /> DOC</label>
-              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" className="accent-[#0088A8]" /> ZIP</label>
-              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" className="accent-[#0088A8]" /> PPTX</label>
-              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" className="accent-[#0088A8]" /> Video</label>
-              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" className="accent-[#0088A8]" /> JPG</label>
-              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" className="accent-[#0088A8]" /> Catatan</label>
-              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" className="accent-[#0088A8]" /> PNG</label>
+              {SUBMISSION_TYPES.map((type) => (
+                <label key={type} className="flex items-center gap-2 cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={submissionTypes.includes(type)} 
+                    onChange={() => toggleSubmissionType(type)} 
+                    className="accent-[#0088A8]" 
+                  />
+                  {type.toUpperCase()}
+                </label>
+              ))}
             </div>
           </div>
 
-          {/* TOMBOL AKSI */}
+          {/* Tombol Aksi */}
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
             <button 
+              type="button"
               onClick={onKembali}
               className="px-6 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-200 cursor-pointer transition"
             >
@@ -254,10 +381,12 @@ const TambahAssignmentGuru = ({ onKembali, onSaveSuccess }) => {
             </button>
             
             <button 
+              type="button"
               onClick={handleSimpanTugas}
-              className="px-7 py-2.5 bg-[#054C5A] text-white rounded-xl text-xs font-bold hover:bg-[#033742] cursor-pointer transition shadow-xs"
+              disabled={isSaving}
+              className="px-7 py-2.5 bg-[#054C5A] text-white rounded-xl text-xs font-bold hover:bg-[#033742] cursor-pointer transition shadow-xs disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Simpan
+              {isSaving ? 'Menyimpan...' : 'Simpan Tugas'}
             </button>
           </div>
 

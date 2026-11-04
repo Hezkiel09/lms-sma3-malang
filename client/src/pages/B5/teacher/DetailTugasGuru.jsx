@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FiGrid,
   FiBookOpen,
@@ -260,6 +260,35 @@ const StatusBadge = ({ status }) => {
   );
 };
 
+const formatDeadlineIndo = (dateStr) => {
+  if (!dateStr) return "-";
+  if (typeof dateStr === "string" && dateStr.includes("WIB")) {
+    return dateStr;
+  }
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+
+    const dateFormatted = d.toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: "Asia/Jakarta",
+    });
+
+    const timeFormatted = d.toLocaleTimeString("id-ID", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "Asia/Jakarta",
+    }).replace(":", ".");
+
+    return `${dateFormatted}, ${timeFormatted} WIB`;
+  } catch (err) {
+    return dateStr;
+  }
+};
+
 // ==========================================
 // HALAMAN DETAIL TUGAS GURU
 // ==========================================
@@ -273,10 +302,41 @@ const DetailTugasGuru = ({
   onViewSubmission,
   onGrade,
 }) => {
-  const [assignment] = useState(dummyAssignment);
+  const [assignment, setAssignment] = useState(null);
   const [students] = useState(dummyStudents);
   const [filter, setFilter] = useState("Semua");
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!assignmentId) {
+      setAssignment(dummyAssignment);
+      setLoading(false);
+      return;
+    }
+
+    const fetchDetail = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const res = await fetch(`http://localhost:5000/api/v1/b5/assignments/${assignmentId}`);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.message || `Gagal memuat tugas (HTTP ${res.status})`);
+        }
+        const result = await res.json();
+        setAssignment(result.data);
+      } catch (err) {
+        console.error("Error fetching assignment:", err);
+        setError(err.message || "Gagal memuat tugas.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDetail();
+  }, [assignmentId]);
 
   // ========================================
   // TOMBOL KEMBALI
@@ -343,6 +403,30 @@ const DetailTugasGuru = ({
   // ========================================
   // TAMPILAN UTAMA
   // ========================================
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white font-sans text-xs text-gray-500">
+        Memuat detail tugas...
+      </div>
+    );
+  }
+
+  if (error || !assignment) {
+    return (
+      <div className="min-h-screen bg-white p-8 font-sans">
+        <button
+          onClick={handleBack}
+          className="mb-4 flex cursor-pointer items-center gap-2 rounded-xl p-2 text-xs font-semibold text-gray-600 hover:bg-gray-100"
+        >
+          <FiArrowLeft size={16} /> Kembali
+        </button>
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-medium text-red-600">
+          {error || 'Data tugas tidak ditemukan.'}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-white font-sans text-[#172033]">
@@ -473,7 +557,7 @@ const DetailTugasGuru = ({
                   TENGGAT
                 </span>
                 <strong className="text-xs">
-                  {assignment.deadline}
+                  {formatDeadlineIndo(assignment.deadline_formatted || assignment.deadline)}
                 </strong>
               </div>
             </div>

@@ -16,10 +16,14 @@ import bannerGuruImg from '../../../assets/banner.png';
 import DaftarKelas from './DaftarKelas';
 import DetailCourseGuru from './DetailCourseGuru';
 import KelolaCourseGuru from './KelolaCourseGuru';
-import EditAssignmentGuru from './EditAssignmentGuru'; // Pastikan path ini sesuai dengan letak file EditAssignmentGuru
+import EditAssignmentGuru from './EditAssignmentGuru';
+import DetailFileGuru from './DetailFileGuru';
+import DetailTugasGuru from './DetailTugasGuru'; // Pastikan path ini sesuai dengan letak file EditAssignmentGuru
 
 const DashboardGuru = () => {
   const [halamanAktif, setHalamanAktif] = useState('beranda');
+  const [selectedMaterialId, setSelectedMaterialId] = useState(null);
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState(null);
 
   // Sinkronisasi URL browser secara aman tanpa merusak fungsi state
   const ubahHalaman = (halaman, urlPath) => {
@@ -33,6 +37,16 @@ const DashboardGuru = () => {
       else if (window.location.pathname === '/kelas/detail') setHalamanAktif('detailCourse');
       else if (window.location.pathname === '/kelas/kelola') setHalamanAktif('kelolaCourse');
       else if (window.location.pathname === '/kelas/edit-assignment') setHalamanAktif('editAssignment');
+      else if (window.location.pathname.startsWith('/kelas/detail/tugas/')) {
+        const id = window.location.pathname.replace('/kelas/detail/tugas/', '');
+        setSelectedAssignmentId(id);
+        setHalamanAktif('detailAssignment');
+      }
+      else if (window.location.pathname.startsWith('/kelas/detail/file/')) {
+        const id = window.location.pathname.replace('/kelas/detail/file/', '');
+        setSelectedMaterialId(id);
+        setHalamanAktif('detailFile');
+      }
       else setHalamanAktif('beranda');
     };
     window.addEventListener('popstate', handlePopState);
@@ -56,6 +70,37 @@ const DashboardGuru = () => {
         onKembali={() => ubahHalaman('kelas10', '/kelas')}
         onKeModeEdit={() => ubahHalaman('kelolaCourse', '/kelas/kelola')}
         onKeEditTugas={() => ubahHalaman('editAssignment', '/kelas/edit-assignment')}
+        onPilihMateri={(id) => {
+          setSelectedMaterialId(id);
+          ubahHalaman('detailFile', `/kelas/detail/file/${id}`);
+        }}
+        onPilihTugas={(id) => {
+          setSelectedAssignmentId(id);
+          ubahHalaman('detailAssignment', `/kelas/detail/tugas/${id}`);
+        }}
+      />
+    );
+  }
+
+  // Render Halaman Detail File / Materi
+  if (halamanAktif === 'detailFile') {
+    return (
+      <DetailFileGuru 
+        materialId={selectedMaterialId}
+        courseId="bf720e90-1886-4c01-9868-249181f900dc"
+        onKembali={() => ubahHalaman('detailCourse', '/kelas/detail')}
+        onDelete={() => ubahHalaman('detailCourse', '/kelas/detail')}
+      />
+    );
+  }
+
+  // Render Halaman Detail Assignment / Tugas
+  if (halamanAktif === 'detailAssignment') {
+    return (
+      <DetailTugasGuru 
+        assignmentId={selectedAssignmentId}
+        courseId="bf720e90-1886-4c01-9868-249181f900dc"
+        onKembali={() => ubahHalaman('detailCourse', '/kelas/detail')}
       />
     );
   }
@@ -73,7 +118,12 @@ const DashboardGuru = () => {
   if (halamanAktif === 'editAssignment') {
     return (
       <EditAssignmentGuru 
+        assignmentId={selectedAssignmentId}
         onKembali={() => ubahHalaman('detailCourse', '/kelas/detail')}
+        onSaveSuccess={(id) => {
+          setSelectedAssignmentId(id);
+          ubahHalaman('detailAssignment', `/kelas/detail/tugas/${id}`);
+        }}
       />
     );
   }

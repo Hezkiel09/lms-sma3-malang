@@ -401,3 +401,234 @@ export const getAssignmentsBySectionId = async (req, res) => {
     });
   }
 };
+
+
+/**
+ * Controller untuk memperbarui tugas dan mengelola lampirannya (UC-05).
+ * Endpoint: PUT /api/v1/b5/assignments/:id
+ */
+export const updateAssignment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidUUID(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Format Assignment ID tidak valid.',
+      });
+    }
+
+    const {
+      title,
+      instructions,
+      description,
+      startDate: rawStartDate,
+      start_date: rawStartDateAlt,
+      startTime: rawStartTime,
+      start_time: rawStartTimeAlt,
+      start_at: rawStartAt,
+      deadlineDate: rawDeadlineDate,
+      deadline_date: rawDeadlineDateAlt,
+      deadlineTime: rawDeadlineTime,
+      deadline_time: rawDeadlineTimeAlt,
+      deadline: rawDeadline,
+      submissionType,
+      submission_type,
+      allowLateSubmission,
+      allow_late_submission,
+      notifyStudents,
+      notify_students,
+      deletedFileIds: rawDeletedFileIds,
+    } = req.body;
+
+    if (title !== undefined) {
+      if (typeof title !== 'string' || !title.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Judul tugas tidak boleh kosong.',
+        });
+      }
+      if (title.trim().length > 255) {
+        return res.status(400).json({
+          success: false,
+          message: 'Judul tugas maksimal 255 karakter.',
+        });
+      }
+    }
+
+    // Parse tanggal mulai jika dikirim
+    const startDateInput = rawStartDate ?? rawStartDateAlt ?? rawStartAt;
+    const startTimeInput = rawStartTime ?? rawStartTimeAlt;
+    let parsedStartDate = undefined;
+    if (startDateInput) {
+      parsedStartDate = parseDateTimeInput(startDateInput, startTimeInput, '00:00');
+      if (!parsedStartDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'Format tanggal/waktu mulai tugas tidak valid.',
+        });
+      }
+    }
+
+    // Parse deadline jika dikirim
+    const deadlineDateInput = rawDeadlineDate ?? rawDeadlineDateAlt ?? rawDeadline;
+    const deadlineTimeInput = rawDeadlineTime ?? rawDeadlineTimeAlt;
+    let parsedDeadlineDate = undefined;
+    if (deadlineDateInput) {
+      parsedDeadlineDate = parseDateTimeInput(deadlineDateInput, deadlineTimeInput, '23:59');
+      if (!parsedDeadlineDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'Format tanggal/waktu deadline tugas tidak valid.',
+        });
+      }
+    }
+
+    // Parse deletedFileIds
+    let deletedFileIds = [];
+    if (rawDeletedFileIds) {
+      if (Array.isArray(rawDeletedFileIds)) {
+        deletedFileIds = rawDeletedFileIds;
+      } else if (typeof rawDeletedFileIds === 'string') {
+        try {
+          const parsed = JSON.parse(rawDeletedFileIds);
+          if (Array.isArray(parsed)) deletedFileIds = parsed;
+        } catch {
+          deletedFileIds = [rawDeletedFileIds];
+        }
+      }
+    }
+
+    const allowLate = allowLateSubmission !== undefined ? parseBooleanInput(allowLateSubmission) : (allow_late_submission !== undefined ? parseBooleanInput(allow_late_submission) : undefined);
+    const notify = notifyStudents !== undefined ? parseBooleanInput(notifyStudents) : (notify_students !== undefined ? parseBooleanInput(notify_students) : undefined);
+
+    const updatedAssignment = await assignmentsService.updateAssignmentService(id, {
+      title,
+      instructions: instructions ?? description,
+      description: description ?? instructions,
+      startDate: parsedStartDate,
+      deadlineDate: parsedDeadlineDate,
+      submissionType: submissionType ?? submission_type,
+      allowLateSubmission: allowLate,
+      notifyStudents: notify,
+      deletedFileIds,
+      files: req.files || [],
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Tugas berhasil diperbarui.',
+      data: updatedAssignment,
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    if (error.message?.includes('tidak ditemukan')) {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    console.error('Error updating assignment:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan pada server saat memperbarui tugas.',
+    });
+  }
+};
+
+/**
+ * Controller untuk menghapus seluruh tugas beserta lampirannya (UC-05).
+ * Endpoint: DELETE /api/v1/b5/assignments/:id
+ */
+export const deleteAssignment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidUUID(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Format Assignment ID tidak valid.',
+      });
+    }
+
+    const deleted = await assignmentsService.deleteAssignmentService(id);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Tugas beserta seluruh lampirannya berhasil dihapus.',
+      data: deleted,
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    if (error.message?.includes('tidak ditemukan')) {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    console.error('Error deleting assignment:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan pada server saat menghapus tugas.',
+    });
+  }
+};
+
+/**
+ * Controller untuk menghapus satu lampiran tugas (UC-05).
+ * Endpoint: DELETE /api/v1/b5/assignments/:id/files/:fileId
+ */
+export const deleteAssignmentFile = async (req, res) => {
+  try {
+    const { id, fileId } = req.params;
+
+    if (!isValidUUID(id) || !isValidUUID(fileId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Format ID tidak valid.',
+      });
+    }
+
+    const deleted = await assignmentsService.deleteAssignmentFileService(id, fileId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Lampiran berhasil dihapus.',
+      data: deleted,
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    if (error.message?.includes('tidak ditemukan')) {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    console.error('Error deleting assignment file:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan pada server saat menghapus lampiran.',
+    });
+  }
+};

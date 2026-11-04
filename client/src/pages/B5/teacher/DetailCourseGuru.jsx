@@ -24,9 +24,10 @@ import TabNilaiGuru from './TabNilaiGuru';
 
 const COURSE_ID = 'bf720e90-1886-4c01-9868-249181f900dc';
 
-const DetailCourseGuru = ({ onKembali, onKeModeEdit, onKeEditTugas, onPilihMateri }) => {
+const DetailCourseGuru = ({ onKembali, onKeModeEdit, onKeEditTugas, onPilihMateri, onPilihTugas }) => {
   const [daftarBab, setDaftarBab] = useState([]);
   const [daftarMateri, setDaftarMateri] = useState([]);
+  const [daftarTugas, setDaftarTugas] = useState([]);
   const [loadingAPI, setLoadingAPI] = useState(true);
   const [errorAPI, setErrorAPI] = useState('');
 
@@ -47,9 +48,10 @@ useEffect(() => {
       setLoadingAPI(true);
       setErrorAPI('');
 
-      const [responseSection, responseMateri] = await Promise.all([
+      const [responseSection, responseMateri, responseTugas] = await Promise.all([
         fetch(`http://localhost:5000/api/v1/b5/courses/${COURSE_ID}/sections`),
-        fetch(`http://localhost:5000/api/v1/b5/courses/${COURSE_ID}/materials`)
+        fetch(`http://localhost:5000/api/v1/b5/courses/${COURSE_ID}/materials`),
+        fetch(`http://localhost:5000/api/v1/b5/courses/${COURSE_ID}/assignments`)
       ]);
 
       if (!responseSection.ok || !responseMateri.ok) {
@@ -74,6 +76,13 @@ useEffect(() => {
         )
     );
       setDaftarMateri(hasilMateri.data);
+
+      if (responseTugas && responseTugas.ok) {
+        const hasilTugas = await responseTugas.json();
+        if (Array.isArray(hasilTugas.data)) {
+          setDaftarTugas(hasilTugas.data);
+        }
+      }
     } catch (error) {
       console.error('Error mengambil data:', error);
       setErrorAPI(error.message);
@@ -247,6 +256,9 @@ useEffect(() => {
         const materiPerSection = daftarMateri.filter(
           (materi) => materi.section_id === bab.id
         );
+        const tugasPerSection = daftarTugas.filter(
+          (tugas) => tugas.section_id === bab.id
+        );
 
         return (
           <div
@@ -270,24 +282,27 @@ useEffect(() => {
               </div>
 
               <span className="text-[11px] text-[#71808D]">
-                {materiPerSection.length} materi
+                {materiPerSection.length} materi • {tugasPerSection.length} tugas
               </span>
             </div>
 
             {openBab[bab.id] && (
               <div className="p-6 space-y-4">
 
-                {materiPerSection.length === 0 ? (
+                {materiPerSection.length === 0 && tugasPerSection.length === 0 ? (
                   <p className="text-xs text-gray-500">
-                    Belum ada materi pada bagian ini.
+                    Belum ada materi atau tugas pada bagian ini.
                   </p>
-                ) : (
-                  materiPerSection.map((materi) => (
+                ) : null}
+
+                {materiPerSection.map((materi) => (
                     <div
                       key={materi.id}
                       onClick={() => {
                         if (onPilihMateri) {
                           onPilihMateri(materi.id);
+                        } else {
+                          window.location.href = `/kelas/detail/file/${materi.id}`;
                         }
                       }}
                       className="bg-[#E0F7FA]/40 border border-cyan-100 p-3.5 rounded-2xl hover:border-[#0088A8] hover:bg-cyan-50/40 transition cursor-pointer"
@@ -314,8 +329,49 @@ useEffect(() => {
                         </div>
                       </div>
                     </div>
-                  ))
-                )}
+                  ))}
+
+                {/* Daftar Tugas per Section */}
+                {tugasPerSection.map((tugas) => (
+                  <div
+                    key={tugas.id}
+                    onClick={() => {
+                      if (onPilihTugas) {
+                        onPilihTugas(tugas.id);
+                      } else {
+                        window.location.href = `/kelas/detail/tugas/${tugas.id}`;
+                      }
+                    }}
+                    className="bg-[#E0F7FA]/40 border border-cyan-100 p-3.5 rounded-2xl hover:border-[#0088A8] hover:bg-cyan-50/40 transition cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-[#054C5A] text-white flex items-center justify-center shrink-0">
+                        <ClipboardList size={20} />
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] font-bold uppercase tracking-wider bg-cyan-100 text-[#006064] px-1.5 py-0.5 rounded">
+                            TUGAS
+                          </span>
+                          <p className="font-bold text-xs text-[#17242E]">
+                            {tugas.title || 'Tugas tanpa judul'}
+                          </p>
+                        </div>
+
+                        {tugas.instructions && (
+                          <p className="text-[10px] text-[#71808D] mt-1 line-clamp-1">
+                            {tugas.instructions}
+                          </p>
+                        )}
+
+                        <p className="text-[10px] text-[#71808D] mt-1">
+                          Tenggat: <span className="font-semibold text-cyan-800">{tugas.deadline_formatted || tugas.deadline}</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
 
               </div>
             )}

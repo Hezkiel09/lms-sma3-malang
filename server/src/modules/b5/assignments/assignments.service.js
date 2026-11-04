@@ -38,10 +38,11 @@ const formatDateTimeIndo = (dateStr) => {
   if (!dateStr) return '';
 
   const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return String(dateStr);
 
   const dateFormatted = d.toLocaleDateString('id-ID', {
     day: 'numeric',
-    month: 'short',
+    month: 'long',
     year: 'numeric',
     timeZone: 'Asia/Jakarta',
   });
@@ -51,9 +52,9 @@ const formatDateTimeIndo = (dateStr) => {
     minute: '2-digit',
     hour12: false,
     timeZone: 'Asia/Jakarta',
-  }).replace('.', ':');
+  }).replace(':', '.');
 
-  return `${dateFormatted}, ${timeFormatted}`;
+  return `${dateFormatted}, ${timeFormatted} WIB`;
 };
 
 /**
@@ -472,6 +473,10 @@ export const getAssignmentByIdService = async (id) => {
     section: sectionResult.data || null,
     publishedAt: formatDateIndo(assignment.created_at),
     deadline_formatted: formatDateTimeIndo(assignment.deadline),
+    deadline: assignment.deadline,
+    deadline_raw: assignment.deadline,
+    start_date: assignment.start_at,
+    start_date_formatted: formatDateTimeIndo(assignment.start_at),
     start_at_wib: formatDateTimeIndo(assignment.start_at),
     instruction: assignment.instructions,
     subject: subjectResult.data?.name || courseResult.data?.subject_name || 'Mata Pelajaran',
@@ -495,7 +500,8 @@ export const getAssignmentByIdService = async (id) => {
       : null,
     attachmentUrl: primaryFile?.file_url || null,
 
-    assignment_files: assignmentFiles,
+    assignment_files: assignmentFiles.map((f) => ({ ...f, signed_url: f.file_url })),
+    files: assignmentFiles.map((f) => ({ ...f, signed_url: f.file_url })),
 
     submission_summary: {
       total_submitted: submittedCount,
@@ -656,4 +662,244 @@ export const getAssignmentsBySectionIdService = async (
       ),
     }))
   );
+};
+
+/**
+ * Service untuk memperbarui data tugas (UC-05), menghapus lampiran tertentu, dan mengunggah lampiran baru.
+ */
+export const updateAssignmentService = async (
+  id,
+  {
+    title,
+    instructions,
+    description,
+    startDate,
+    deadlineDate,
+    submissionType,
+    allowLateSubmission,
+    notifyStudents,
+    deletedFileIds = [],
+    files = [],
+  }
+) => {
+  // 1. Pastikan tugas tersedia
+  const { data: existingAssignment, error: findError } = await supabaseAdmin
+    .schema('b5')
+    .from('assignments')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (findError) throw findError;
+  if (!existingAssignment) {
+    const error = new Error('Tugas tidak ditemukan.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // 2. Siapkan data update
+  const updatePayload = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (title !== undefined && title !== null) updatePayload.title = title.trim();
+  if (instructions !== undefined) updatePayload.instructions = instructions ? instructions.trim() : null;
+  if (description !== undefined) updatePayload.description = description ? description.trim() : null;
+  if (startDate instanceof Date && !isNaN(startDate.getTime())) {
+    updatePayload.start_at = startDate.toISOString();
+  }
+  if (deadlineDate instanceof Date && !isNaN(deadlineDate.getTime())) {
+    updatePayload.deadline = deadlineDate.toISOString();
+  }
+  if (submissionType !== undefined && submissionType !== null) {
+    updatePayload.submission_type = String(submissionType).toLowerCase().trim();
+  }
+  if (allowLateSubmission !== undefined) {
+    updatePayload.allow_late_submission = Boolean(allowLateSubmission);
+  }
+  if (notifyStudents !== undefined) {
+    updatePayload.notify_students = Boolean(notifyStudents);
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .schema('b5')
+    .from('assignments')
+    .update(updatePayload)
+    .eq('id', id);
+
+  if (updateError) throw updateError;
+
+  // 3. Hapus lampiran yang diminta di deletedFileIds
+  if (Array.isArray(deletedFileIds) && deletedFileIds.length > 0) {
+    for (const fileId of deletedFileIds) {
+      if (!fileId) continue;
+      const { data: fileRow } = await supabaseAdmin
+        .schema('b5')
+        .from('assignment_files')
+        .select('id, file_url')
+        .eq('id', fileId)
+        .eq('assignment_id', id)
+        .maybeSingle();
+
+      if (fileRow) {
+        if (fileRow.file_url && ASSIGNMENTS_BUCKET) {
+          const { error: storageErr } = await supabaseAdmin.storage
+            .from(ASSIGNMENTS_BUCKET)
+            .remove([fileRow.file_url]);
+          if (storageErr) console.warn('Gagal menghapus file dari storage:', storageErr.message);
+        }
+        await supabaseAdmin
+          .schema('b5')
+          .from('assignment_files')
+          .delete()
+          .eq('id', fileId)
+          .eq('assignment_id', id);
+      }
+    }
+  }
+
+  // 4. Unggah lampiran baru jika ada
+  if (Array.isArray(files) && files.length > 0) {
+    const teacherId = existingAssignment.teacher_id || 'general';
+    for (const file of files) {
+      if (!file || !file.buffer) continue;
+      const safeFileName = sanitizeStorageFileName(file.originalname);
+      const storagePath = `${teacherId}/${id}/${randomUUID()}-${safeFileName}`;
+
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from(ASSIGNMENTS_BUCKET)
+        .upload(storagePath, file.buffer, {
+          contentType: file.mimetype || 'application/octet-stream',
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error('Upload lampiran tugas baru gagal:', uploadError);
+        continue;
+      }
+
+      await supabaseAdmin
+        .schema('b5')
+        .from('assignment_files')
+        .insert({
+          assignment_id: id,
+          file_name: file.originalname,
+          file_url: storagePath,
+          file_type: file.mimetype || null,
+          file_size: file.size ?? file.buffer.length,
+        });
+    }
+  }
+
+  // 5. Kembalikan detail tugas yang telah diperbarui
+  return getAssignmentByIdService(id);
+};
+
+/**
+ * Service untuk menghapus seluruh tugas beserta file lampirannya (UC-05).
+ */
+export const deleteAssignmentService = async (id) => {
+  // 1. Verifikasi tugas tersedia
+  const { data: existingAssignment, error: findError } = await supabaseAdmin
+    .schema('b5')
+    .from('assignments')
+    .select('id, title, course_id, section_id')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (findError) throw findError;
+  if (!existingAssignment) {
+    const error = new Error('Tugas tidak ditemukan.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // 2. Ambil seluruh lampiran milik tugas ini
+  const { data: files } = await supabaseAdmin
+    .schema('b5')
+    .from('assignment_files')
+    .select('id, file_url')
+    .eq('assignment_id', id);
+
+  // 3. Hapus file fisik dari Supabase Storage
+  const storagePaths = (files || []).map((f) => f.file_url).filter(Boolean);
+  if (storagePaths.length > 0 && ASSIGNMENTS_BUCKET) {
+    const { error: storageError } = await supabaseAdmin.storage
+      .from(ASSIGNMENTS_BUCKET)
+      .remove(storagePaths);
+
+    if (storageError) {
+      console.warn('Gagal menghapus file tugas dari storage (dilanjutkan):', storageError.message);
+    }
+  }
+
+  // 4. Hapus metadata lampiran di b5.assignment_files
+  await supabaseAdmin
+    .schema('b5')
+    .from('assignment_files')
+    .delete()
+    .eq('assignment_id', id);
+
+  // 5. Bersihkan data submission jika ada relasi
+  try {
+    await supabaseAdmin
+      .schema('b5')
+      .from('submissions')
+      .delete()
+      .eq('assignment_id', id);
+  } catch (subErr) {
+    console.warn('Pembersihan submission tidak diperlukan atau dilewati:', subErr.message);
+  }
+
+  // 6. Hapus record utama di b5.assignments
+  const { data: deletedAssignment, error: deleteError } = await supabaseAdmin
+    .schema('b5')
+    .from('assignments')
+    .delete()
+    .eq('id', id)
+    .select('id, title, section_id, course_id')
+    .maybeSingle();
+
+  if (deleteError) throw deleteError;
+
+  return deletedAssignment || existingAssignment;
+};
+
+/**
+ * Service untuk menghapus satu file lampiran tugas (UC-05).
+ */
+export const deleteAssignmentFileService = async (assignmentId, fileId) => {
+  const { data: fileRow, error: findError } = await supabaseAdmin
+    .schema('b5')
+    .from('assignment_files')
+    .select('id, file_url, file_name')
+    .eq('id', fileId)
+    .eq('assignment_id', assignmentId)
+    .maybeSingle();
+
+  if (findError) throw findError;
+  if (!fileRow) {
+    const error = new Error('Lampiran tidak ditemukan pada tugas ini.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (fileRow.file_url && ASSIGNMENTS_BUCKET) {
+    const { error: storageErr } = await supabaseAdmin.storage
+      .from(ASSIGNMENTS_BUCKET)
+      .remove([fileRow.file_url]);
+    if (storageErr) console.warn('Gagal menghapus file dari storage:', storageErr.message);
+  }
+
+  const { error: deleteError } = await supabaseAdmin
+    .schema('b5')
+    .from('assignment_files')
+    .delete()
+    .eq('id', fileId)
+    .eq('assignment_id', assignmentId);
+
+  if (deleteError) throw deleteError;
+
+  return { id: fileId, file_name: fileRow.file_name };
 };

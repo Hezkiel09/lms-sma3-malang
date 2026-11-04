@@ -5,7 +5,7 @@ import { parseAssignmentUpload } from '../../../middleware/assignmentUploadMiddl
 const router = Router();
 
 /**
- * Rute Tugas (UC-04 & UC-06)
+ * Rute Tugas (UC-04, UC-05 & UC-06)
  * Base Path: /api/v1/b5/assignments
  */
 
@@ -18,5 +18,18 @@ router.post(
   parseAssignmentUpload,
   assignmentsController.createAssignment
 );
+
+// UC-05: Memperbarui tugas dan lampirannya
+router.put(
+  '/:id',
+  parseAssignmentUpload,
+  assignmentsController.updateAssignment
+);
+
+// UC-05: Menghapus satu lampiran tugas
+router.delete('/:id/files/:fileId', assignmentsController.deleteAssignmentFile);
+
+// UC-05: Menghapus seluruh tugas beserta seluruh lampirannya
+router.delete('/:id', assignmentsController.deleteAssignment);
 
 export default router;

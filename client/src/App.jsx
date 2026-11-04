@@ -5,6 +5,7 @@ import DaftarKelas from './pages/B5/teacher/DaftarKelas';
 import DetailCourseGuru from './pages/B5/teacher/DetailCourseGuru';
 import KelolaCourseGuru from './pages/B5/teacher/KelolaCourseGuru';
 import DetailFileGuru from './pages/B5/teacher/DetailFileGuru';
+import DetailTugasGuru from './pages/B5/teacher/DetailTugasGuru';
 
 const COURSE_ID = 'bf720e90-1886-4c01-9868-249181f900dc';
 
@@ -30,8 +31,10 @@ function App() {
             onKembali={() => navigate('/dashboard')}
             onKeModeEdit={() => navigate('/kelas/kelola')}
             onPilihMateri={(materialId) => {
-              // Pindah halaman dengan membawa ID materi menggunakan state router
               navigate(`/kelas/detail/file/${materialId}`);
+            }}
+            onPilihTugas={(assignmentId) => {
+              navigate(`/kelas/detail/tugas/${assignmentId}`);
             }}
           />
         } 
@@ -42,6 +45,16 @@ function App() {
         path="/kelas/detail/file/:materialId" 
         element={
           <DetailFileGuruWrapper 
+            onKembali={() => navigate('/kelas/detail')}
+          />
+        } 
+      />
+
+      {/* Halaman Detail Tugas Spesifik */}
+      <Route 
+        path="/kelas/detail/tugas/:assignmentId" 
+        element={
+          <DetailTugasGuruWrapper 
             onKembali={() => navigate('/kelas/detail')}
           />
         } 
@@ -70,6 +83,17 @@ function DetailFileGuruWrapper({ onKembali }) {
       courseId={COURSE_ID}
       onKembali={onKembali}
       onDelete={onKembali}
+    />
+  );
+}
+
+function DetailTugasGuruWrapper({ onKembali }) {
+  const { assignmentId } = useParams();
+  return (
+    <DetailTugasGuru 
+      assignmentId={assignmentId}
+      courseId={COURSE_ID}
+      onKembali={onKembali}
     />
   );
 }

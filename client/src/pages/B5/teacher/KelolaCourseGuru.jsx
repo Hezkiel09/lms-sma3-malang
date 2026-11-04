@@ -43,6 +43,7 @@ const KelolaCourseGuru = ({ onKembali }) => {
   const [loadingAPI, setLoadingAPI] = useState(true);
   const [errorAPI, setErrorAPI] = useState('');
   const [daftarMateriAPI, setDaftarMateriAPI] = useState([]);
+  const [daftarTugasAPI, setDaftarTugasAPI] = useState([]);
 
   // State halaman
   const [subHalaman, setSubHalaman] = useState(null);
@@ -50,6 +51,7 @@ const KelolaCourseGuru = ({ onKembali }) => {
   const [pilihanAktivitas, setPilihanAktivitas] = useState('Tugas');
   const [activePopover, setActivePopover] = useState(null);
   const [activeMaterialPopover, setActiveMaterialPopover] = useState(null);
+  const [activeAssignmentPopover, setActiveAssignmentPopover] = useState(null);
 
   const [selectedMaterialId, setSelectedMaterialId] = useState(null);
   const [selectedAssignmentId, setSelectedAssignmentId] = useState(null);
@@ -70,12 +72,15 @@ const KelolaCourseGuru = ({ onKembali }) => {
         setLoadingAPI(true);
         setErrorAPI('');
 
-        const [responseSection, responseMateri] = await Promise.all([
+        const [responseSection, responseMateri, responseTugas] = await Promise.all([
           fetch(
             `http://localhost:5000/api/v1/b5/courses/${COURSE_ID}/sections`
           ),
           fetch(
             `http://localhost:5000/api/v1/b5/courses/${COURSE_ID}/materials`
+          ),
+          fetch(
+            `http://localhost:5000/api/v1/b5/courses/${COURSE_ID}/assignments`
           )
         ]);
 
@@ -107,6 +112,13 @@ const KelolaCourseGuru = ({ onKembali }) => {
         // Menyimpan data Materi dari backend
         setDaftarMateriAPI(hasilMateri.data);
 
+        if (responseTugas && responseTugas.ok) {
+          const hasilTugas = await responseTugas.json();
+          if (Array.isArray(hasilTugas.data)) {
+            setDaftarTugasAPI(hasilTugas.data);
+          }
+        }
+
       } catch (error) {
         console.error('Error mengambil data:', error);
         setErrorAPI(error.message);
@@ -117,6 +129,30 @@ const KelolaCourseGuru = ({ onKembali }) => {
 
     fetchData();
   }, []);
+
+  // Fungsi sinkronisasi daftar tugas terbaru dari backend
+  const fetchTugas = async () => {
+    try {
+      const responseTugas = await fetch(
+        `http://localhost:5000/api/v1/b5/courses/${COURSE_ID}/assignments`
+      );
+      if (responseTugas && responseTugas.ok) {
+        const hasilTugas = await responseTugas.json();
+        if (Array.isArray(hasilTugas.data)) {
+          setDaftarTugasAPI(hasilTugas.data);
+        }
+      }
+    } catch (err) {
+      console.error('Error mengambil daftar tugas:', err);
+    }
+  };
+
+  // Sinkronisasi otomatis saat kembali ke halaman utama Course
+  useEffect(() => {
+    if (subHalaman === null) {
+      fetchTugas();
+    }
+  }, [subHalaman]);
 
   // State Form Tambah Bab Utama
   const [isAddingBab, setIsAddingBab] = useState(false);
@@ -296,8 +332,20 @@ const KelolaCourseGuru = ({ onKembali }) => {
   if (subHalaman === 'tambahAssignment') {
     return (
       <TambahAssignmentGuru
-        onKembali={() => setSubHalaman(null)}
-        onSaveSuccess={(newId) => {
+        onKembali={() => {
+          fetchTugas();
+          setSubHalaman(null);
+        }}
+        sectionId={selectedSectionId}
+        courseId={COURSE_ID}
+        onSaveSuccess={(newId, newAssignment) => {
+          if (newAssignment) {
+            setDaftarTugasAPI((prev) => [
+              newAssignment,
+              ...prev.filter((t) => t.id !== newAssignment.id),
+            ]);
+          }
+          fetchTugas();
           setSelectedAssignmentId(newId);
           setSubHalaman('detailAssignment');
         }}
@@ -310,8 +358,17 @@ const KelolaCourseGuru = ({ onKembali }) => {
     return (
       <EditAssignmentGuru
         assignmentId={selectedAssignmentId}
-        onKembali={() => setSubHalaman(null)}
-        onSaveSuccess={(id) => {
+        onKembali={() => {
+          fetchTugas();
+          setSubHalaman(null);
+        }}
+        onSaveSuccess={(id, updatedData) => {
+          if (updatedData) {
+            setDaftarTugasAPI((prev) =>
+              prev.map((t) => (t.id === id ? { ...t, ...updatedData } : t))
+            );
+          }
+          fetchTugas();
           setSelectedAssignmentId(id);
           setSubHalaman('detailAssignment');
         }}
@@ -325,7 +382,10 @@ const KelolaCourseGuru = ({ onKembali }) => {
       <DetailTugasGuru
         assignmentId={selectedAssignmentId}
         courseId={COURSE_ID}
-        onKembali={() => setSubHalaman(null)}
+        onKembali={() => {
+          fetchTugas();
+          setSubHalaman(null);
+        }}
       />
     );
   }
@@ -336,7 +396,12 @@ const KelolaCourseGuru = ({ onKembali }) => {
       <EditFileGuru
         materialId={selectedMaterialId}
         onKembali={() => setSubHalaman(null)}
-        onSaveSuccess={(id) => {
+        onSaveSuccess={(id, updatedData) => {
+          if (updatedData) {
+            setDaftarMateriAPI((prev) =>
+              prev.map((m) => (m.id === id ? { ...m, ...updatedData } : m))
+            );
+          }
           setSelectedMaterialId(id);
           setSubHalaman('detailFile');
         }}
@@ -370,7 +435,7 @@ const KelolaCourseGuru = ({ onKembali }) => {
           </div>
         </aside>
 
-        <main className="flex-1 p-7 overflow-y-auto w-full bg-white rounded-tl-[32px] rounded-bl-[32px] shadow-[0_0_30px_rgba(0,136,168,0.12)] border-l border-[#DDF6F9]">
+        <main onClick={() => { setActiveMaterialPopover(null); setActiveAssignmentPopover(null); }} className="flex-1 p-7 overflow-y-auto w-full bg-white rounded-tl-[32px] rounded-bl-[32px] shadow-[0_0_30px_rgba(0,136,168,0.12)] border-l border-[#DDF6F9]">
           <div className="mb-4">
             <p className="text-[11px] text-[#71808D]">
               BERANDA &nbsp;/&nbsp; KELAS 10 &nbsp;/&nbsp;
@@ -638,6 +703,9 @@ const KelolaCourseGuru = ({ onKembali }) => {
               const materiPerSection = daftarMateriAPI.filter(
                 (materi) => materi.section_id === bab.id
               );
+              const tugasPerSection = daftarTugasAPI.filter(
+                (tugas) => tugas.section_id === bab.id
+              );
 
               return (
                 <div
@@ -752,13 +820,15 @@ const KelolaCourseGuru = ({ onKembali }) => {
                       </div>
 
                       {/* Materi dari backend - Selaras dengan Mode View */}
-                      {materiPerSection.length === 0 ? (
+                      {materiPerSection.length === 0 && tugasPerSection.length === 0 ? (
                         <div className="p-4 rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/20">
                           <p className="text-xs text-gray-500">
-                            Belum ada materi pada bagian ini.
+                            Belum ada materi atau tugas pada bagian ini.
                           </p>
                         </div>
-                      ) : (
+                      ) : null}
+
+                      {materiPerSection.length > 0 && (
                         <div className="space-y-4">
                           {materiPerSection.map((materi) => (
                             <div
@@ -835,14 +905,139 @@ const KelolaCourseGuru = ({ onKembali }) => {
                                       </button>
                                       <button
                                         type="button"
-                                        onClick={(e) => {
+                                        onClick={async (e) => {
                                           e.stopPropagation();
                                           if (confirm('Apakah Anda yakin ingin menghapus materi ini?')) {
-                                            setDaftarMateriAPI((prev) =>
-                                              prev.filter((item) => item.id !== materi.id)
-                                            );
+                                            try {
+                                              const res = await fetch(
+                                                `http://localhost:5000/api/v1/b5/materials/${materi.id}`,
+                                                { method: 'DELETE' }
+                                              );
+                                              if (!res.ok) {
+                                                const errData = await res.json().catch(() => ({}));
+                                                throw new Error(errData.message || 'Gagal menghapus materi.');
+                                              }
+                                              setDaftarMateriAPI((prev) =>
+                                                prev.filter((item) => item.id !== materi.id)
+                                              );
+                                            } catch (err) {
+                                              alert('Gagal menghapus materi: ' + err.message);
+                                            }
                                           }
                                           setActiveMaterialPopover(null);
+                                        }}
+                                        className="w-full text-left px-3 py-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"
+                                      >
+                                        Hapus
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Tugas dari backend */}
+                      {tugasPerSection.length > 0 && (
+                        <div className="space-y-4">
+                          {tugasPerSection.map((tugas) => (
+                            <div
+                              key={tugas.id}
+                              onClick={() => {
+                                setSelectedAssignmentId(tugas.id);
+                                setSubHalaman('detailAssignment');
+                              }}
+                              className="bg-[#E0F7FA]/40 border border-cyan-100 p-3.5 rounded-2xl hover:border-[#0088A8] hover:bg-cyan-50/40 transition cursor-pointer relative"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-center gap-3 min-w-0 pr-8">
+                                  <div className="w-10 h-10 rounded-xl bg-[#054C5A] text-white flex items-center justify-center shrink-0">
+                                    <ClipboardList size={20} />
+                                  </div>
+
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[9px] font-bold uppercase tracking-wider bg-cyan-100 text-[#006064] px-1.5 py-0.5 rounded">
+                                        TUGAS
+                                      </span>
+                                      <p className="font-bold text-xs text-[#17242E] truncate">
+                                        {tugas.title || 'Tugas tanpa judul'}
+                                      </p>
+                                    </div>
+
+                                    {tugas.instructions && (
+                                      <p className="text-[10px] text-[#71808D] mt-1 line-clamp-1">
+                                        {tugas.instructions}
+                                      </p>
+                                    )}
+
+                                    <div className="flex items-center gap-2 mt-1 text-[10px] text-[#71808D]">
+                                      <span>
+                                        Tenggat: <span className="font-semibold text-cyan-800">{tugas.deadline_formatted || tugas.deadline}</span>
+                                      </span>
+                                      {tugas.submission_type && (
+                                        <>
+                                          <span>•</span>
+                                          <span className="uppercase font-medium">{tugas.submission_type}</span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="absolute right-3 top-3" onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveAssignmentPopover(
+                                        activeAssignmentPopover === tugas.id ? null : tugas.id
+                                      );
+                                    }}
+                                    className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg cursor-pointer bg-white shadow-2xs border border-gray-100"
+                                    title="Menu Tugas"
+                                  >
+                                    <MoreHorizontal size={16} />
+                                  </button>
+
+                                  {activeAssignmentPopover === tugas.id && (
+                                    <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-xl shadow-xl p-1.5 w-28 z-50 space-y-1 text-xs font-medium">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedAssignmentId(tugas.id);
+                                          setSubHalaman('editAssignment');
+                                          setActiveAssignmentPopover(null);
+                                        }}
+                                        className="w-full text-left px-3 py-1.5 text-[#17242E] hover:bg-cyan-50 rounded-lg cursor-pointer"
+                                      >
+                                        Edit
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          if (confirm('Apakah Anda yakin ingin menghapus tugas ini beserta seluruh lampirannya?')) {
+                                            try {
+                                              const res = await fetch(
+                                                `http://localhost:5000/api/v1/b5/assignments/${tugas.id}`,
+                                                { method: 'DELETE' }
+                                              );
+                                              if (!res.ok) {
+                                                const errData = await res.json().catch(() => ({}));
+                                                throw new Error(errData.message || 'Gagal menghapus tugas.');
+                                              }
+                                              setDaftarTugasAPI((prev) =>
+                                                prev.filter((item) => item.id !== tugas.id)
+                                              );
+                                            } catch (err) {
+                                              alert('Gagal menghapus tugas: ' + err.message);
+                                            }
+                                          }
+                                          setActiveAssignmentPopover(null);
                                         }}
                                         className="w-full text-left px-3 py-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"
                                       >

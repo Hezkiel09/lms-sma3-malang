@@ -631,6 +631,12 @@ export const deleteMaterialFileService = async (materialId, fileId) => {
   }
 
   // 2. Hapus file fisik dari Supabase Storage terlebih dahulu
+  if (existingFile.file_url && !MATERIALS_BUCKET) {
+    const error = new Error('Bucket Storage materi belum dikonfigurasi.');
+    error.statusCode = 500;
+    throw error;
+  }
+
   if (MATERIALS_BUCKET && existingFile.file_url) {
     const { error: storageError } = await supabaseAdmin.storage
       .from(MATERIALS_BUCKET)
@@ -691,16 +697,21 @@ export const deleteMaterialService = async (id) => {
 
   // 3. Hapus seluruh file fisik terkait dari Supabase Storage
   const storagePaths = (files || []).map((f) => f.file_url).filter(Boolean);
-  if (MATERIALS_BUCKET && storagePaths.length > 0) {
+  if (storagePaths.length > 0 && !MATERIALS_BUCKET) {
+    const error = new Error('Bucket Storage materi belum dikonfigurasi.');
+    error.statusCode = 500;
+    throw error;
+  }
+
+  if (storagePaths.length > 0) {
     const { error: storageError } = await supabaseAdmin.storage
       .from(MATERIALS_BUCKET)
       .remove(storagePaths);
 
     if (storageError) {
-      console.error('Gagal menghapus file-file dari storage:', storageError);
-      const error = new Error('Gagal menghapus file fisik materi dari storage.');
-      error.statusCode = 500;
-      throw error;
+      // Log error tapi jangan blokir penghapusan DB - file storage bisa sudah tidak ada
+      // atau orphaned, tetapi record DB tetap harus dihapus untuk konsistensi.
+      console.warn('Gagal menghapus file dari storage (dilanjutkan):', storageError.message);
     }
   }
 
@@ -709,7 +720,7 @@ export const deleteMaterialService = async (id) => {
     .schema('b5')
     .from('material_files')
     .delete()
-    .eq('id', id);
+    .eq('material_id', id);
 
   if (deleteFilesError) throw deleteFilesError;
 
@@ -718,7 +729,7 @@ export const deleteMaterialService = async (id) => {
     .schema('b5')
     .from('material_classes')
     .delete()
-    .eq('id', id);
+    .eq('material_id', id);
 
   if (deleteClassesError) throw deleteClassesError;
 
@@ -733,7 +744,13 @@ export const deleteMaterialService = async (id) => {
 
   if (deleteMaterialError) throw deleteMaterialError;
 
-  return deletedMaterial || { id, title: existingMaterial.title };
+  if (!deletedMaterial) {
+    const error = new Error('Materi tidak ditemukan saat proses penghapusan.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return deletedMaterial;
 };
 
 /**

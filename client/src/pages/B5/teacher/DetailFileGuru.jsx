@@ -33,6 +33,24 @@ const DetailFileGuru = ({ materialId, courseId, onKembali, onDelete }) => {
     }
   };
 
+  const handleDelete = async () => {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus materi ini?')) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/b5/materials/${materialId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || 'Gagal menghapus materi.');
+      }
+      alert('Materi berhasil dihapus.');
+      if (onDelete) onDelete();
+      else if (onKembali) onKembali();
+    } catch (err) {
+      alert('Gagal menghapus materi: ' + err.message);
+    }
+  };
+
   useEffect(() => {
     fetchMaterialDetail();
   }, [materialId]);
@@ -79,7 +97,7 @@ const DetailFileGuru = ({ materialId, courseId, onKembali, onDelete }) => {
           </div>
 
           <button 
-            onClick={onDelete}
+            onClick={handleDelete}
             className="flex items-center gap-2 px-4 py-2 bg-[#FFF0F0] hover:bg-red-100 text-[#E53935] rounded-xl text-xs font-bold transition cursor-pointer shadow-xs"
           >
             <Trash2 size={16} /> Hapus

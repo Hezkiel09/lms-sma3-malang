@@ -1,298 +1,538 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  ArrowLeft, Trash2, FileText, Download, 
-  Calendar, BookOpen, User, CheckCircle, ChevronLeft, ChevronRight, Layers 
+import React, { useRef, useState, useEffect } from 'react';
+import {
+  Home,
+  Calendar as CalendarIcon,
+  MessageSquare,
+  LogOut,
+  Search,
+  Bell,
+  BookOpen,
+  FileText,
+  CloudUpload,
+  ArrowLeft,
+  X,
+  File as FileIcon,
+  Trash2,
+  Save,
+  CheckCircle,
 } from 'lucide-react';
+import logoSmanti from '../../../assets/Logo.png';
 
-const DetailFileGuru = ({ materialId, courseId, onKembali, onDelete }) => {
-  const [material, setMaterial] = useState(null);
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_FILES = 5;
+const ALLOWED_EXTENSIONS = [
+  '.pdf', '.doc', '.docx', '.zip', '.ppt', '.pptx',
+];
+
+const formatFileSize = (bytes) => {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB';
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const EditFileGuru = ({ materialId, onKembali, onSaveSuccess }) => {
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [loadError, setLoadError] = useState('');
 
+  const [judul, setJudul] = useState('');
+  const [deskripsi, setDeskripsi] = useState('');
+  const [statusPublikasi, setStatusPublikasi] = useState('published');
+  const [sectionTitle, setSectionTitle] = useState('');
+
+  // Lampiran yang sudah tersimpan di database
+  const [existingFiles, setExistingFiles] = useState([]);
+  // Lampiran baru yang akan diunggah
+  const [newFiles, setNewFiles] = useState([]);
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingFileId, setDeletingFileId] = useState(null);
+  const [formError, setFormError] = useState('');
+  const [fileError, setFileError] = useState('');
+
+  const fileInputRef = useRef(null);
+
+  // Ambil data materi saat ini dari backend
   useEffect(() => {
-    const fetchMaterialDetail = async () => {
+    const fetchMaterial = async () => {
+      if (!materialId) {
+        setLoadError('Material ID tidak valid.');
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
-        setError(null);
+        setLoadError('');
 
-        const response = await fetch(`http://localhost:5000/api/v1/b5/materials/${materialId}`);
-        
-        if (!response.ok) {
-          throw new Error('Gagal memuat detail materi dari server');
+        const res = await fetch(`${API_BASE_URL}/api/v1/b5/materials/${materialId}`);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.message || `Gagal mengambil data materi (HTTP ${res.status})`);
         }
-        
-        const result = await response.json();
-        setMaterial(result.data);
-      } catch (err) {
-        console.error('Error fetching detail materi:', err);
-        // Fallback data dummy jika API belum merespons penuh agar tampilan Figma langsung terlihat
-        setMaterial({
-          title: "Persamaan Garis Lurus",
-          created_at: "12 Okt 2026",
-          category: "Matematika",
-          targetClass: "X-A",
-          description: `Materi ini membahas konsep dasar persamaan garis lurus, gradien, dan grafiknya. Peserta didik akan memahami cara menentukan gradien dari dua titik, menulis bentuk umum persamaan garis lurus, serta mengenali hubungan antara gradien, kemiringan, dan posisi garis pada bidang koordinat.
 
-Melalui materi ini, peserta didik juga akan belajar menggambar grafik garis lurus dari persamaan yang diberikan serta menerapkan konsep tersebut untuk menyelesaikan masalah sehari-hari yang terkait dengan perubahan posisi, kecepatan, atau keterhubungan antar titik.`,
-          objectives: [
-            "Menentukan gradien dan persamaan garis lurus dari titik atau grafik yang diketahui.",
-            "Menggambar grafik garis lurus dan menerapkannya untuk menyelesaikan masalah sehari-hari."
-          ],
-          fileName: "Garis Lurus.pdf",
-          fileSize: "2.4 MB",
-          file_url: "#",
-          subject: "Matematika",
-          status: "Published",
-          author: {
-            name: "Karina",
-            role: "Guru Matematika"
-          }
-        });
+        const result = await res.json();
+        const data = result.data;
+
+        if (data) {
+          setJudul(data.title || '');
+          setDeskripsi(data.description || '');
+          setStatusPublikasi(data.status || 'published');
+          setExistingFiles(data.material_files || []);
+          setSectionTitle(data.section?.title || '');
+        }
+      } catch (err) {
+        console.error('Error fetching material for edit:', err);
+        setLoadError(err.message || 'Gagal memuat materi.');
       } finally {
         setLoading(false);
       }
     };
 
-    if (materialId) {
-      fetchMaterialDetail();
-    }
+    fetchMaterial();
   }, [materialId]);
+
+  // Validasi dan tambah file baru
+  const handleAddFiles = (fileList) => {
+    const incomingFiles = Array.from(fileList || []);
+    if (incomingFiles.length === 0) return;
+
+    const validFiles = [];
+    const errors = [];
+
+    incomingFiles.forEach((file) => {
+      const extension = `.${file.name.split('.').pop()}`.toLowerCase();
+      if (!ALLOWED_EXTENSIONS.includes(extension)) {
+        errors.push(`${file.name}: format file tidak didukung.`);
+        return;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        errors.push(`${file.name}: ukuran file melebihi 10 MB.`);
+        return;
+      }
+      validFiles.push(file);
+    });
+
+    const totalAllowed = MAX_FILES - existingFiles.length;
+    const mergedFiles = [...newFiles];
+
+    validFiles.forEach((file) => {
+      const alreadyAdded = mergedFiles.some(
+        (f) => f.name === file.name && f.size === file.size
+      );
+      if (!alreadyAdded) {
+        mergedFiles.push(file);
+      }
+    });
+
+    if (mergedFiles.length > totalAllowed) {
+      errors.push(`Maksimal total lampiran adalah ${MAX_FILES} file.`);
+    }
+
+    setNewFiles(mergedFiles.slice(0, Math.max(0, totalAllowed)));
+    setFileError(errors.join(' '));
+  };
+
+  // Hapus lampiran yang sudah tersimpan di database
+  const handleDeleteExistingFile = async (fileId, fileName) => {
+    if (!window.confirm(`Hapus lampiran "${fileName}"?`)) return;
+
+    try {
+      setDeletingFileId(fileId);
+      const res = await fetch(
+        `${API_BASE_URL}/api/v1/b5/materials/${materialId}/files/${fileId}`,
+        { method: 'DELETE' }
+      );
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || 'Gagal menghapus lampiran');
+      }
+
+      setExistingFiles((prev) => prev.filter((f) => f.id !== fileId));
+    } catch (err) {
+      alert('Gagal menghapus lampiran: ' + err.message);
+    } finally {
+      setDeletingFileId(null);
+    }
+  };
+
+  // Submit form perubahan materi
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setFormError('');
+
+    if (!judul.trim()) {
+      setFormError('Judul materi wajib diisi.');
+      return;
+    }
+    if (judul.trim().length > 255) {
+      setFormError('Judul materi maksimal 255 karakter.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('title', judul.trim());
+    formData.append('description', deskripsi.trim());
+    formData.append('status', statusPublikasi);
+
+    newFiles.forEach((file) => {
+      formData.append('files', file);
+    });
+
+    try {
+      setIsSubmitting(true);
+      const res = await fetch(`${API_BASE_URL}/api/v1/b5/materials/${materialId}`, {
+        method: 'PUT',
+        body: formData,
+      });
+
+      const result = await res.json().catch(() => null);
+
+      if (!res.ok || !result?.success) {
+        throw new Error(result?.message || `Gagal memperbarui materi (HTTP ${res.status}).`);
+      }
+
+      alert('Materi berhasil diperbarui!');
+      if (onSaveSuccess) {
+        onSaveSuccess(materialId, result.data);
+      } else if (onKembali) {
+        onKembali();
+      }
+    } catch (err) {
+      console.error('Error updating material:', err);
+      setFormError(err.message || 'Terjadi kesalahan saat memperbarui materi.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-white">
-        <p className="text-gray-500 font-medium text-xs">Memuat detail materi...</p>
+      <div className="flex justify-center items-center h-screen bg-white font-sans text-gray-500 text-xs">
+        Memuat data materi untuk diedit...
       </div>
     );
   }
 
-  if (error && !material) {
+  if (loadError) {
     return (
-      <div className="p-8 bg-white min-h-screen">
-        <button onClick={onKembali} className="p-2 hover:bg-gray-100 rounded-xl transition text-gray-600 mb-4 flex items-center gap-2 cursor-pointer">
-          <ArrowLeft size={18} /> Kembali
+      <div className="p-8 bg-white min-h-screen font-sans">
+        <button
+          onClick={onKembali}
+          className="p-2 hover:bg-gray-100 rounded-xl transition text-gray-600 mb-4 flex items-center gap-2 cursor-pointer text-xs font-semibold"
+        >
+          <ArrowLeft size={16} /> Kembali
         </button>
         <div className="p-4 bg-red-50 border border-red-200 text-red-600 rounded-2xl text-xs font-medium">
-          {error}
+          {loadError}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-8 bg-white min-h-screen font-sans text-[#17242E]">
-      
-      {/* BREADCRUMB & HEADER */}
-      <div className="mb-6">
-        <p className="text-[11px] text-[#71808D] mb-2 font-medium tracking-wide">
-          BERANDA &nbsp;/&nbsp; KELAS 10 &nbsp;/&nbsp; MATERI &nbsp;/&nbsp; <span className="text-[#17242E] font-bold">DETAIL MATERI</span>
-        </p>
-
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={onKembali}
-              className="p-2 rounded-xl bg-[#F8FAFC] border border-gray-200 text-[#71808D] hover:bg-cyan-50 hover:text-[#0088A8] transition cursor-pointer shadow-2xs"
-            >
-              <ArrowLeft size={18} />
-            </button>
-            <h1 className="text-2xl font-bold text-[#17242E]">{material?.title}</h1>
+    <div className="flex min-h-screen bg-white font-sans text-[#17242E] w-full relative">
+      {/* SIDEBAR */}
+      <aside className="w-80 bg-white p-6 flex flex-col justify-between border-r border-gray-100 min-h-screen shrink-0 sticky top-0 h-screen">
+        <div>
+          <div className="mt-4 mb-8 pl-2">
+            <img src={logoSmanti} alt="SMANTI Connect" className="h-10 object-contain" />
           </div>
 
-          <button 
-            onClick={onDelete}
-            className="flex items-center gap-2 px-4 py-2 bg-[#FFF0F0] hover:bg-red-100 text-[#E53935] rounded-xl text-xs font-bold transition cursor-pointer shadow-xs"
-          >
-            <Trash2 size={16} /> Hapus
-          </button>
+          <nav className="space-y-0">
+            <button
+              onClick={onKembali}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#E0F7FA] text-[#007A99] font-bold text-sm w-full text-left cursor-pointer"
+            >
+              <Home size={24} className="text-[#0088A8]" />
+              <span>Beranda</span>
+            </button>
+            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#71808D] hover:bg-gray-50 transition text-sm">
+              <BookOpen size={24} />
+              <span>Bank Soal</span>
+            </a>
+            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#71808D] hover:bg-gray-50 transition text-sm">
+              <FileText size={24} />
+              <span>Rekap Nilai</span>
+            </a>
+            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#71808D] hover:bg-gray-50 transition text-sm">
+              <CalendarIcon size={24} />
+              <span>Presensi</span>
+            </a>
+            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#71808D] hover:bg-gray-50 transition text-sm">
+              <MessageSquare size={24} />
+              <span>Pesan</span>
+            </a>
+          </nav>
         </div>
 
-        {/* SUB-INFO META */}
-        <div className="flex items-center gap-4 mt-3 text-xs text-[#71808D]">
-          <span className="flex items-center gap-1.5"><Calendar size={14} className="text-cyan-600" /> {material?.created_at ? new Date(material.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '12 Okt 2026'}</span>
-          <span>•</span>
-          <span className="flex items-center gap-1.5"><Layers size={14} className="text-cyan-600" /> {material?.targetClass || 'X-A'}</span>
-          <span>•</span>
-          <span className="flex items-center gap-1.5"><BookOpen size={14} className="text-cyan-600" /> {material?.subject || 'Matematika'}</span>
-        </div>
-      </div>
+        <button className="flex items-center justify-between w-full px-4 py-3 rounded-xl bg-[#FFF0F0] text-[#E53935] font-semibold text-sm hover:bg-red-100 transition cursor-pointer">
+          <span>Keluar</span>
+          <LogOut size={22} />
+        </button>
+      </aside>
 
-      {/* MAIN LAYOUT GRID (Kiri: Konten & Pratinjau, Kanan: Sidebar Informasi) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* KOLOM KIRI (2 Span) */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          {/* CARD DESKRIPSI MATERI */}
-          <div className="bg-white p-7 rounded-3xl border border-gray-200 shadow-2xs space-y-4">
-            <h2 className="text-sm font-bold text-[#17242E]">Deskripsi Materi</h2>
-            <div className="text-[#17242E] text-xs leading-relaxed whitespace-pre-line">
-              {material?.description}
+      {/* MAIN CONTENT AREA */}
+      <main className="flex-1 p-7 overflow-y-auto w-full bg-white rounded-tl-[32px] rounded-bl-[32px] shadow-[0_0_30px_rgba(0,136,168,0.12)] border-l border-[#DDF6F9]">
+        {/* TOPBAR */}
+        <header className="flex justify-between items-center mb-6 w-full">
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-600" size={20} />
+            <input
+              type="text"
+              placeholder="Cari informasi..."
+              className="w-full pl-11 pr-4 py-2 bg-white rounded-full text-sm border border-cyan-100 shadow-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 placeholder-gray-400"
+            />
+          </div>
+
+          <div className="flex items-center gap-4 shrink-0">
+            <button className="p-2 bg-[#E0F7FA] rounded-full text-[#0088A8] relative shadow-xs hover:bg-cyan-100 transition cursor-pointer">
+              <Bell size={18} />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-[#00A8CC] rounded-full"></span>
+            </button>
+            <div className="flex items-center gap-3">
+              <img
+                src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=80"
+                alt="Karina"
+                className="w-9 h-9 rounded-full object-cover border border-cyan-200"
+              />
+              <div className="text-xs">
+                <p className="font-bold text-[#17242E] leading-tight">Karina</p>
+                <p className="text-[#71808D] text-[11px]">Guru</p>
+              </div>
             </div>
+          </div>
+        </header>
 
-            {material?.objectives && material.objectives.length > 0 && (
-              <div className="pt-2">
-                <p className="text-xs font-bold text-[#17242E] mb-2">Tujuan :</p>
-                <ol className="list-decimal list-inside text-xs text-[#17242E] space-y-1">
-                  {material.objectives.map((obj, idx) => (
-                    <li key={idx}>{obj}</li>
-                  ))}
-                </ol>
+        {/* BREADCRUMB */}
+        <div className="mb-4 flex items-center gap-3">
+          <button
+            onClick={onKembali}
+            className="p-2 rounded-xl bg-[#F8FAFC] border border-gray-200 text-[#71808D] hover:bg-cyan-50 hover:text-[#0088A8] transition cursor-pointer shadow-2xs"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <p className="text-[11px] text-[#71808D]">
+            BERANDA &nbsp;/&nbsp; KELAS 10 &nbsp;/&nbsp; MATERI &nbsp;/&nbsp;{' '}
+            <span className="font-bold text-[#17242E]">EDIT MATERI</span>
+          </p>
+        </div>
+
+        {/* HEADER TITLE */}
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-[#17242E]">Edit Materi</h2>
+          <p className="text-xs text-[#71808D] mt-1">
+            Perbarui informasi materi pembelajaran {sectionTitle ? `untuk bagian ${sectionTitle}` : ''}.
+          </p>
+        </div>
+
+        {formError && (
+          <div className="mb-6 p-4 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-600 font-medium">
+            {formError}
+          </div>
+        )}
+
+        {/* FORM EDIT */}
+        <form onSubmit={handleSubmit} className="space-y-6 w-full max-w-4xl">
+          {/* JUDUL */}
+          <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-2xs space-y-2">
+            <label className="block text-xs font-bold text-[#17242E]">
+              Judul Materi <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={judul}
+              onChange={(e) => setJudul(e.target.value)}
+              placeholder="Contoh: Bab 4 Persamaan Garis Lurus"
+              className="w-full px-4 py-3 rounded-2xl border border-cyan-100 bg-[#E0F7FA]/20 text-xs text-[#17242E] focus:outline-none focus:border-[#0088A8]"
+              required
+            />
+          </div>
+
+          {/* DESKRIPSI */}
+          <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-2xs space-y-2">
+            <label className="block text-xs font-bold text-[#17242E]">
+              Deskripsi Materi
+            </label>
+            <textarea
+              rows={5}
+              value={deskripsi}
+              onChange={(e) => setDeskripsi(e.target.value)}
+              placeholder="Tuliskan ringkasan atau petunjuk belajar materi ini..."
+              className="w-full p-4 rounded-2xl border border-gray-200 text-xs text-[#17242E] focus:outline-none focus:border-[#0088A8] bg-[#E0F7FA]/10 leading-relaxed"
+            />
+          </div>
+
+          {/* STATUS PUBLIKASI */}
+          <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-2xs space-y-3">
+            <label className="block text-xs font-bold text-[#17242E]">
+              Status Publikasi
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-[#17242E]">
+                <input
+                  type="radio"
+                  name="status"
+                  value="published"
+                  checked={statusPublikasi === 'published'}
+                  onChange={() => setStatusPublikasi('published')}
+                  className="accent-[#0088A8]"
+                />
+                Dipublikasikan (Dapat dilihat siswa)
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-[#17242E]">
+                <input
+                  type="radio"
+                  name="status"
+                  value="draft"
+                  checked={statusPublikasi === 'draft'}
+                  onChange={() => setStatusPublikasi('draft')}
+                  className="accent-[#0088A8]"
+                />
+                Draf (Disimpan sementara)
+              </label>
+            </div>
+          </div>
+
+          {/* LAMPIRAN SAAT INI (EXISTING FILES) */}
+          <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-2xs space-y-3">
+            <label className="block text-xs font-bold text-[#17242E]">
+              Berkas Terlampir Saat Ini ({existingFiles.length})
+            </label>
+            {existingFiles.length === 0 ? (
+              <p className="text-xs text-gray-400 italic">Belum ada berkas terlampir.</p>
+            ) : (
+              <div className="space-y-2">
+                {existingFiles.map((file) => (
+                  <div
+                    key={file.id}
+                    className="flex items-center justify-between p-3.5 bg-[#E0F7FA]/30 border border-cyan-100 rounded-2xl text-xs"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="p-2 bg-cyan-100 text-[#0088A8] rounded-xl shrink-0">
+                        <FileIcon size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-[#17242E] truncate">{file.file_name}</p>
+                        <p className="text-[10px] text-gray-400">
+                          {file.file_size ? formatFileSize(file.file_size) : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={deletingFileId === file.id}
+                      onClick={() => handleDeleteExistingFile(file.id, file.file_name)}
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition cursor-pointer flex items-center gap-1 text-xs font-semibold"
+                      title="Hapus file ini"
+                    >
+                      <Trash2 size={14} />
+                      {deletingFileId === file.id ? 'Menghapus...' : 'Hapus'}
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>
 
-          {/* CARD PRATINJAU FILE */}
-          <div className="bg-white p-7 rounded-3xl border border-gray-200 shadow-2xs space-y-4">
-            <h2 className="text-sm font-bold text-[#17242E]">Pratinjau File</h2>
-            
-            {/* MOCKUP CONTAINER PDF VIEWER */}
-            <div className="border border-gray-200 rounded-2xl overflow-hidden bg-gray-50">
-              
-              {/* Toolbar Viewer */}
-              <div className="bg-white px-4 py-2.5 border-b border-gray-200 flex justify-between items-center text-xs text-gray-600">
-                <span className="font-bold text-[#17242E]">{material?.fileName || 'Garis Lurus.pdf'}</span>
-                <div className="flex items-center gap-4">
-                  <span className="text-gray-400">- &nbsp; 100% &nbsp; +</span>
-                  <div className="flex items-center gap-2">
-                    <button className="p-1 hover:bg-gray-100 rounded cursor-pointer"><ChevronLeft size={14} /></button>
-                    <span className="text-[11px] font-semibold text-gray-600">1 dari 12</span>
-                    <button className="p-1 hover:bg-gray-100 rounded cursor-pointer"><ChevronRight size={14} /></button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Isi Pratinjau Dokumen Sesuai Figma */}
-              <div className="p-8 bg-white max-h-[500px] overflow-y-auto space-y-6 text-[#17242E]">
-                <div className="text-center pb-4 border-b border-gray-100">
-                  <h3 className="font-bold text-sm text-[#17242E]">BAB 4: PERSAMAAN GARIS LURUS</h3>
-                  <p className="text-[11px] text-gray-400">Matematika - Kelas VIII SMP</p>
-                </div>
-
-                <div className="space-y-4 text-xs">
-                  <div>
-                    <h4 className="font-bold text-[#0088A8] flex items-center gap-2">
-                      <span className="w-1.5 h-3.5 bg-[#0088A8] rounded-full inline-block"></span> 1. Definisi
-                    </h4>
-                    <p className="text-gray-600 mt-1 pl-3">
-                      Persamaan garis lurus adalah suatu persamaan yang jika digambarkan ke dalam koordinat Kartesius akan membentuk sebuah garis lurus. Hubungan antara variabel x dan y bersifat linear.
-                    </p>
-                  </div>
-
-                  <div>
-                    <h4 className="font-bold text-[#0088A8] flex items-center gap-2">
-                      <span className="w-1.5 h-3.5 bg-[#0088A8] rounded-full inline-block"></span> 2. Bentuk Umum
-                    </h4>
-                    <div className="bg-gray-50 p-3 rounded-xl text-center font-mono font-bold my-2 text-[#17242E] border border-gray-100">
-                      y = mx + c
-                    </div>
-                    <ul className="list-disc list-inside text-gray-600 pl-3 space-y-1 text-[11px]">
-                      <li><strong>m</strong> adalah Gradien (kemiringan garis)</li>
-                      <li><strong>c</strong> adalah Konstanta (titik potong pada sumbu y)</li>
-                    </ul>
-                  </div>
-
-                  <div>
-                    <h4 className="font-bold text-[#0088A8] flex items-center gap-2">
-                      <span className="w-1.5 h-3.5 bg-[#0088A8] rounded-full inline-block"></span> 4. Contoh Soal
-                    </h4>
-                    <div className="bg-gray-50 p-4 rounded-2xl space-y-2 text-[11px] border border-gray-100">
-                      <p className="font-semibold">Soal:</p>
-                      <p>Tentukan persamaan garis yang melalui titik (0, 3) dan memiliki gradien m = 4.</p>
-                      <p className="font-semibold pt-2">Penyelesaian:</p>
-                      <p>Gunakan rumus: y = mx + c</p>
-                      <p>Karena melalui (0, 3), maka c = 3.</p>
-                      <p>Dengan m = 4, maka persamaannya adalah:</p>
-                      <p className="font-bold text-[#0088A8]">y = 4x + 3</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Pagination Bawah Viewer */}
-              <div className="bg-white px-4 py-3 border-t border-gray-200 flex justify-center items-center gap-3">
-                <button className="p-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 cursor-pointer"><ChevronLeft size={14} /></button>
-                <span className="text-[11px] font-semibold px-3 py-1 bg-gray-100 rounded-lg text-gray-600">1 dari 12</span>
-                <button className="p-1.5 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 cursor-pointer"><ChevronRight size={14} /></button>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        {/* KOLOM KANAN (1 Span) - SIDEBAR INFORMASI */}
-        <div className="space-y-6">
-          
-          {/* CARD LAMPIRAN */}
-          <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-2xs space-y-3">
-            <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Lampiran</h3>
-            <div className="flex items-center justify-between p-3.5 bg-[#E0F7FA]/30 border border-cyan-100 rounded-2xl">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-cyan-100/50 text-[#0088A8] rounded-xl">
-                  <FileText size={20} />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-[#17242E]">{material?.fileName || 'Garis Lurus.pdf'}</p>
-                  <p className="text-[10px] text-gray-400">{material?.fileSize || '2.4 MB'} • PDF File</p>
-                </div>
-              </div>
-              <a 
-                href={material?.file_url || '#'} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="p-2.5 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl transition cursor-pointer shadow-xs"
-                title="Download File"
-              >
-                <Download size={16} />
-              </a>
-            </div>
-          </div>
-
-          {/* CARD INFORMASI TAMBAHAN */}
-          <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-2xs space-y-4">
-            <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Informasi Tambahan</h3>
-            
-            <div className="space-y-3 text-xs">
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 tracking-wide">MATA PELAJARAN</p>
-                <p className="font-semibold text-[#17242E] mt-0.5">{material?.subject || 'Matematika'}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 tracking-wide">KELAS TARGET</p>
-                <p className="font-semibold text-[#17242E] mt-0.5">{material?.targetClass || 'X-A'}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 tracking-wide">TANGGAL UNGGAH</p>
-                <p className="font-semibold text-[#17242E] mt-0.5">{material?.created_at ? new Date(material.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '12 Okt 2026'}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 tracking-wide">STATUS</p>
-                <div className="flex items-center gap-1.5 text-green-600 font-semibold mt-0.5">
-                  <CheckCircle size={14} /> {material?.status || 'Published'}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* CARD DIUNGGAH OLEH */}
+          {/* UNGGAH LAMPIRAN BARU */}
           <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-2xs space-y-3">
-            <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Diunggah Oleh</h3>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-cyan-100 text-[#0088A8] flex items-center justify-center font-bold text-sm">
-                {material?.author?.name?.[0] || 'K'}
-              </div>
-              <div>
-                <p className="text-xs font-bold text-[#17242E]">{material?.author?.name || 'Karina'}</p>
-                <p className="text-[11px] text-gray-400">{material?.author?.role || 'Guru Matematika'}</p>
-              </div>
+            <label className="block text-xs font-bold text-[#17242E]">
+              Tambah Lampiran Baru (Opsional)
+            </label>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.doc,.docx,.zip,.ppt,.pptx"
+              onChange={(e) => {
+                handleAddFiles(e.target.files);
+                e.target.value = '';
+              }}
+              className="hidden"
+            />
+
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsDragging(false);
+                handleAddFiles(e.dataTransfer.files);
+              }}
+              className={`border-2 border-dashed p-6 rounded-2xl text-center cursor-pointer transition ${
+                isDragging
+                  ? 'border-[#0088A8] bg-[#E0F7FA]/70'
+                  : 'border-cyan-200 bg-[#E0F7FA]/20 hover:bg-cyan-50/50'
+              }`}
+            >
+              <CloudUpload size={28} className="mx-auto text-[#0088A8] mb-2" />
+              <p className="text-xs font-semibold text-[#17242E]">
+                Klik untuk mengunggah atau seret dan lepas
+              </p>
+              <p className="text-[10px] text-cyan-600 mt-1">
+                PDF, DOC, DOCX, ZIP, PPT, atau PPTX (Maks 10MB per file)
+              </p>
             </div>
+
+            {newFiles.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <p className="text-[11px] font-bold text-[#0088A8]">File baru yang akan diunggah:</p>
+                {newFiles.map((file, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-3 rounded-xl bg-cyan-50 border border-cyan-100 text-xs"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileIcon size={16} className="text-[#0088A8] shrink-0" />
+                      <span className="font-semibold truncate">{file.name}</span>
+                      <span className="text-gray-400 text-[10px]">
+                        ({formatFileSize(file.size)})
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setNewFiles(newFiles.filter((_, i) => i !== idx))}
+                      className="text-gray-400 hover:text-red-500 p-1 cursor-pointer"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {fileError && <p className="text-xs text-red-600 mt-1">{fileError}</p>}
           </div>
 
-        </div>
-
-      </div>
+          {/* TOMBOL AKSI */}
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onKembali}
+              className="px-6 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-200 cursor-pointer transition"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-7 py-2.5 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <Save size={14} />
+              {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
+            </button>
+          </div>
+        </form>
+      </main>
     </div>
   );
 };
 
-export default DetailFileGuru;
+export default EditFileGuru;
