@@ -1,0 +1,550 @@
+
+/* =====================================
+   HALAMAN LIHAT SOAL
+===================================== */
+
+.lihatsoal-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background: #f7f9f9;
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  color: #20252a;
+}
+
+.lihatsoal-page {
+  flex: 1;
+  min-width: 0;
+  padding: 30px 42px 35px;
+  box-sizing: border-box;
+}
+
+.lihatsoal-page * {
+  box-sizing: border-box;
+}
+
+/* =====================================
+   HEADER
+===================================== */
+
+.lihatsoal-header {
+  margin-bottom: 23px;
+}
+
+.lihatsoal-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 17px;
+  font-size: 13px;
+  color: #858585;
+}
+
+.lihatsoal-breadcrumb b {
+  color: #00647a;
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.lihatsoal-breadcrumb strong {
+  color: #005b70;
+  font-weight: 500;
+}
+
+.lihatsoal-header h1 {
+  font-size: 27px;
+  font-weight: 700;
+  color: #191919;
+  margin: 0 0 8px;
+}
+
+.lihatsoal-header p {
+  font-size: 14px;
+  color: #818181;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* =====================================
+   KARTU DETAIL
+===================================== */
+
+.lihatsoal-card {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #e7e7e7;
+  border-radius: 16px;
+  padding: 22px 20px 20px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.025);
+}
+
+/* =====================================
+   HEADING DETAIL
+===================================== */
+
+.detail-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 22px;
+  gap: 15px;
+}
+
+.detail-heading-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.detail-icon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  color: #0095ae;
+  background: #e5f5f8;
+  flex-shrink: 0;
+}
+
+.detail-heading h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #202020;
+  margin: 0 0 7px;
+}
+
+.detail-heading p {
+  font-size: 12px;
+  color: #858585;
+  margin: 0;
+}
+
+.detail-type-badge {
+  padding: 7px 11px;
+  background: #e5f5f8;
+  color: #00596d;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 9px;
+}
+
+/* =====================================
+   INFORMASI SOAL
+===================================== */
+
+.detail-information {
+  background: #f7f9f9;
+  border: 1px solid #e7e9e9;
+  border-radius: 12px;
+  padding: 19px 17px;
+  margin-bottom: 23px;
+}
+
+.information-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.information-item {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.information-item span {
+  font-size: 12px;
+  color: #858585;
+}
+
+.information-item strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: #222222;
+}
+
+.second-row {
+  border-top: 1px solid #e4e7e7;
+  padding-top: 19px;
+  margin-top: 20px;
+}
+
+/* =====================================
+   PERTANYAAN
+===================================== */
+
+.detail-question {
+  margin-bottom: 23px;
+}
+
+.detail-question h3,
+.detail-answers h3,
+.score-title h3 {
+  font-size: 14px;
+  color: #222222;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
+.detail-question p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #252525;
+  margin: 0;
+}
+
+/* =====================================
+   PILIHAN JAWABAN
+===================================== */
+
+.detail-answers {
+  margin-bottom: 21px;
+}
+
+.answer-description {
+  color: #858585;
+  font-size: 12px;
+  margin: -2px 0 12px;
+}
+
+.answer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.answer-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid #e1e1e1;
+  border-radius: 12px;
+  background: #ffffff;
+  font-size: 14px;
+  color: #252525;
+}
+
+.answer-item strong {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.answer-item.correct-answer {
+  background: #e7f6f9;
+  border: 1px solid #00a4c4;
+}
+
+.answer-key {
+  margin-left: auto;
+  color: #00596d;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* =====================================
+   PEMBAHASAN
+===================================== */
+
+.detail-discussion {
+  background: #e5f5f8;
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 23px;
+}
+
+.detail-discussion h3 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #00596d;
+  margin: 0 0 15px;
+}
+
+.detail-discussion h3 span {
+  font-size: 18px;
+}
+
+.detail-discussion p {
+  font-size: 13px;
+  color: #222222;
+  line-height: 1.6;
+  margin: 0 0 11px;
+}
+
+.discussion-formula {
+  color: #005b70;
+  font-size: 13px;
+  line-height: 1.8;
+  margin-bottom: 11px;
+}
+
+.detail-discussion > strong {
+  color: #005b70;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* =====================================
+   BOBOT NILAI
+===================================== */
+
+.detail-score {
+  display: flex;
+  align-items: center;
+  gap: 65px;
+  margin-bottom: 26px;
+}
+
+.score-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 90px;
+}
+
+.score-title h3 {
+  margin-bottom: 9px;
+}
+
+.score-title strong {
+  color: #00596d;
+  font-size: 25px;
+  font-weight: 700;
+}
+
+.detail-score > p {
+  font-size: 12px;
+  line-height: 1.6;
+  color: #858585;
+  margin: 15px 0 0;
+}
+
+/* =====================================
+   FOOTER TOMBOL
+===================================== */
+
+.detail-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  border-top: 1px solid #e8e8e8;
+  padding-top: 20px;
+}
+
+.detail-footer-actions {
+  display: flex;
+  gap: 11px;
+}
+
+.btn-detail-back,
+.btn-detail-delete,
+.btn-detail-edit {
+  padding: 12px 21px;
+  border-radius: 11px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.btn-detail-back {
+  background: #e7f6f9;
+  border: 1px solid #a6e3ee;
+  color: #00596d;
+}
+
+.btn-detail-back:hover {
+  background: #d4f0f5;
+}
+
+.btn-detail-delete {
+  background: #fff0f0;
+  border: 1px solid #ff3838;
+  color: #e32323;
+}
+
+.btn-detail-delete:hover {
+  background: #ffe1e1;
+}
+
+.btn-detail-edit {
+  background: #005767;
+  border: 1px solid #005767;
+  color: #ffffff;
+}
+
+.btn-detail-edit:hover {
+  background: #004452;
+}
+
+/* =====================================
+   FOOTER HALAMAN
+===================================== */
+
+.lihatsoal-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 3px;
+  margin-top: 21px;
+}
+
+.lihatsoal-footer span {
+  font-size: 17px;
+  color: #555555;
+}
+
+.lihatsoal-footer p {
+  font-size: 12px;
+  color: #858585;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* =====================================
+   MODAL HAPUS
+===================================== */
+
+.delete-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.delete-modal {
+  width: 100%;
+  max-width: 420px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 28px;
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+}
+
+.delete-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  background: #fff0f0;
+  color: #e32323;
+  font-size: 25px;
+  font-weight: 700;
+  margin: 0 auto 15px;
+}
+
+.delete-modal h2 {
+  font-size: 19px;
+  margin: 0 0 12px;
+}
+
+.delete-modal p {
+  font-size: 13px;
+  color: #858585;
+  line-height: 1.7;
+  margin-bottom: 23px;
+}
+
+.delete-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.delete-cancel,
+.delete-confirm {
+  padding: 11px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.delete-cancel {
+  border: 1px solid #dddddd;
+  background: #ffffff;
+  color: #555555;
+}
+
+.delete-confirm {
+  border: none;
+  background: #e32323;
+  color: #ffffff;
+}
+
+/* =====================================
+   RESPONSIVE
+===================================== */
+
+@media (max-width: 900px) {
+  .lihatsoal-page {
+    padding: 25px 22px;
+  }
+
+  .detail-score {
+    gap: 25px;
+  }
+}
+
+@media (max-width: 600px) {
+  .lihatsoal-page {
+    padding: 20px 14px;
+  }
+
+  .lihatsoal-header h1 {
+    font-size: 23px;
+  }
+
+  .information-row {
+    grid-template-columns: 1fr;
+    gap: 17px;
+  }
+
+  .detail-score {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .detail-score > p {
+    margin-top: 5px;
+  }
+
+  .detail-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .detail-footer-actions {
+    justify-content: flex-end;
+  }
+
+  .detail-footer-actions button {
+    flex: 1;
+  }
+
+  .answer-key {
+    font-size: 10px;
+  }
+
+  .detail-heading {
+    align-items: flex-start;
+  }
+
+  .detail-type-badge {
+    font-size: 10px;
+  }
+}
