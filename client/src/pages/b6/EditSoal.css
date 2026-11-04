@@ -1,0 +1,555 @@
+
+/* =====================================
+   HALAMAN EDIT SOAL
+===================================== */
+
+.editsoal-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background: #f7f9f9;
+  color: #20252a;
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+}
+
+.editsoal-page {
+  flex: 1;
+  min-width: 0;
+  padding: 28px 38px 30px;
+  box-sizing: border-box;
+}
+
+.editsoal-page * {
+  box-sizing: border-box;
+}
+
+/* HEADER */
+
+.editsoal-header {
+  margin-bottom: 20px;
+}
+
+.editsoal-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 15px;
+  font-size: 12px;
+  color: #858585;
+}
+
+.editsoal-breadcrumb b {
+  font-size: 19px;
+  font-weight: 500;
+  color: #00647a;
+}
+
+.editsoal-breadcrumb strong {
+  color: #005b70;
+  font-weight: 500;
+}
+
+.editsoal-header h1 {
+  font-size: 25px;
+  font-weight: 700;
+  color: #191919;
+  margin: 0 0 7px;
+}
+
+.editsoal-header p {
+  font-size: 13px;
+  color: #858585;
+  margin: 0;
+}
+
+/* FORM CARD */
+
+.editsoal-card {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #e8e8e8;
+  border-radius: 14px;
+  padding: 20px 18px 18px;
+  box-shadow: 0 3px 9px rgba(0, 0, 0, 0.035);
+}
+
+/* JUDUL FORM */
+
+.editsoal-card-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.editsoal-card-heading h3 {
+  font-size: 13px;
+  font-weight: 700;
+  color: #202020;
+  margin: 0 0 7px;
+}
+
+.editsoal-card-heading p {
+  font-size: 11px;
+  color: #858585;
+  margin: 0;
+}
+
+.editsoal-card-heading > span {
+  font-size: 11px;
+  color: #858585;
+  white-space: nowrap;
+}
+
+/* GRID KELAS MAPEL MATERI */
+
+.editsoal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.editsoal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.editsoal-field label,
+.editsoal-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #252525;
+}
+
+.editsoal-field select {
+  width: 100%;
+  height: 39px;
+  padding: 0 12px;
+  border: 1px solid #e3e3e3;
+  border-radius: 11px;
+  background: #ffffff;
+  color: #252525;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+}
+
+.editsoal-field select:focus {
+  border-color: #00a4c4;
+}
+
+/* SECTION */
+
+.editsoal-section {
+  margin-bottom: 20px;
+}
+
+.editsoal-label {
+  display: block;
+  margin-bottom: 10px;
+}
+
+/* JENIS SOAL */
+
+.jenis-soal-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.jenis-option {
+  position: relative;
+  height: 39px;
+  padding: 0 12px;
+  border: 1px solid #e4e4e4;
+  border-radius: 11px;
+  background: #ffffff;
+  color: #858585;
+  font-size: 13px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.jenis-option:hover {
+  border-color: #8bd9e8;
+}
+
+.jenis-option.active {
+  border: 1px solid #00a4c4;
+  background: #e6f6f9;
+  color: #005b70;
+}
+
+.jenis-check {
+  margin-right: 7px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* PERTANYAAN */
+
+.pertanyaan-input,
+.pembahasan-input {
+  display: block;
+  width: 100%;
+  resize: vertical;
+  border: 1px solid #e3e3e3;
+  border-radius: 11px;
+  background: #ffffff;
+  padding: 12px;
+  font-family: inherit;
+  font-size: 12px;
+  color: #252525;
+  line-height: 1.6;
+  outline: none;
+}
+
+.pertanyaan-input {
+  min-height: 82px;
+}
+
+.pembahasan-input {
+  min-height: 64px;
+}
+
+.pertanyaan-input:focus,
+.pembahasan-input:focus {
+  border-color: #00a4c4;
+}
+
+.field-hint {
+  display: block;
+  font-size: 11px;
+  color: #858585;
+  margin-top: 8px;
+}
+
+/* UPLOAD GAMBAR */
+
+.upload-area {
+  width: 100%;
+  min-height: 166px;
+  padding: 15px;
+  border: 1px solid #e4e4e4;
+  border-radius: 11px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 9px;
+  text-align: center;
+}
+
+.upload-icon {
+  width: 39px;
+  height: 39px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #e6f6f9;
+  color: #00647a;
+  border-radius: 50%;
+}
+
+.upload-area > strong {
+  font-size: 12px;
+  color: #252525;
+  font-weight: 600;
+}
+
+.upload-area > span {
+  color: #858585;
+  font-size: 11px;
+}
+
+.btn-pilih-gambar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 115px;
+  min-height: 38px;
+  padding: 8px 17px;
+  margin-top: 2px;
+  border-radius: 12px;
+  background: #00596b;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.btn-pilih-gambar:hover {
+  background: #004452;
+}
+
+.uploaded-image {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.uploaded-image img {
+  max-width: 260px;
+  max-height: 130px;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.remove-image {
+  background: #fff0f0;
+  border: 1px solid #ffcccc;
+  color: #d62828;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+/* PILIHAN JAWABAN */
+
+.answer-hint {
+  margin: -3px 0 11px;
+}
+
+.edit-answer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.edit-answer-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 43px;
+  padding: 8px 12px;
+  border: 1px solid #e3e3e3;
+  border-radius: 11px;
+  background: #ffffff;
+  transition: 0.2s;
+}
+
+.edit-answer-item.answer-selected {
+  background: #e6f6f9;
+  border-color: #00a4c4;
+}
+
+.edit-answer-item input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #009cb6;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.edit-answer-item > strong {
+  min-width: 12px;
+  font-size: 12px;
+  color: #252525;
+}
+
+.edit-answer-item input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  height: 25px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #252525;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.answer-key-label {
+  color: #00596b;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.btn-add-option {
+  margin-top: 10px;
+  padding: 8px 13px;
+  border: 1px solid #a6e3ee;
+  border-radius: 9px;
+  background: #e6f6f9;
+  color: #00596b;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-add-option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* BOBOT NILAI */
+
+.bobot-section {
+  margin-bottom: 18px;
+}
+
+.bobot-row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.bobot-input-wrapper {
+  display: flex;
+  align-items: center;
+  width: 124px;
+  height: 39px;
+  flex-shrink: 0;
+  padding: 0 11px;
+  border: 1px solid #e3e3e3;
+  border-radius: 11px;
+}
+
+.bobot-input-wrapper input {
+  width: 40px;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 12px;
+  color: #252525;
+}
+
+.bobot-input-wrapper span {
+  font-size: 11px;
+  color: #858585;
+}
+
+.bobot-row p {
+  font-size: 11px;
+  color: #858585;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* FOOTER TOMBOL */
+
+.editsoal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid #e9e9e9;
+  padding-top: 17px;
+  margin-top: 17px;
+}
+
+.btn-edit-cancel,
+.btn-edit-save {
+  min-height: 39px;
+  padding: 9px 19px;
+  border-radius: 11px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.btn-edit-cancel {
+  background: #e7f6f9;
+  border: 1px solid #a6e3ee;
+  color: #00596b;
+}
+
+.btn-edit-cancel:hover {
+  background: #d5f0f5;
+}
+
+.btn-edit-save {
+  background: #00596b;
+  border: 1px solid #00596b;
+  color: #ffffff;
+}
+
+.btn-edit-save:hover {
+  background: #004452;
+}
+
+.edit-success-message {
+  color: #07834c;
+  font-size: 12px;
+  margin: 12px 0 0;
+}
+
+/* FOOTER HALAMAN */
+
+.editsoal-page-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 19px;
+  padding: 0 3px;
+}
+
+.editsoal-page-footer span {
+  font-size: 16px;
+  color: #555555;
+}
+
+.editsoal-page-footer p {
+  color: #858585;
+  font-size: 11px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 900px) {
+  .editsoal-page {
+    padding: 25px 22px;
+  }
+
+  .editsoal-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .editsoal-page {
+    padding: 20px 14px;
+  }
+
+  .editsoal-header h1 {
+    font-size: 23px;
+  }
+
+  .editsoal-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .jenis-soal-options {
+    grid-template-columns: 1fr;
+  }
+
+  .bobot-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .editsoal-card {
+    padding: 17px 13px;
+  }
+
+  .editsoal-card-heading {
+    align-items: flex-start;
+  }
+
+  .editsoal-footer {
+    gap: 10px;
+  }
+}
+

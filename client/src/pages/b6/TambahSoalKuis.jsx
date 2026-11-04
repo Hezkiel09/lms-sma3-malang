@@ -47,22 +47,38 @@ function resolveQuestionBank(banks, quiz) {
 export default function TambahSoalKuisPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const initialType = location.state?.initialType || 'Benar / Salah';
+  const fromSource = location.state?.from || 'buat-kuis';
+  const customKelas = location.state?.kelas;
+  const customMapel = location.state?.mapel;
+  const customMateri = location.state?.materi;
+  const sourceBankId = location.state?.bankId;
   const quizId = location.state?.quizId || sessionStorage.getItem('b6.currentQuizId');
   const [quiz, setQuiz] = useState(null);
   const [questionNumber, setQuestionNumber] = useState(1);
-  const [questionBankId, setQuestionBankId] = useState('');
-  const [isLoading, setIsLoading] = useState(Boolean(quizId));
+  const [questionBankId, setQuestionBankId] = useState(sourceBankId || '');
+  const [isLoading, setIsLoading] = useState(Boolean(quizId || sourceBankId));
   const [isSaving, setIsSaving] = useState(false);
   const [loadError, setLoadError] = useState(
-    quizId ? '' : 'Draft kuis tidak ditemukan. Kembali ke Buat Kuis dan simpan draft terlebih dahulu.',
+    sourceBankId || quizId
+      ? ''
+      : fromSource === 'bank-soal'
+        ? 'Bank soal tidak ditemukan. Kembali ke halaman Bank Soal dan pilih mata pelajaran.'
+        : 'Draft kuis tidak ditemukan. Kembali ke Buat Kuis dan simpan draft terlebih dahulu.',
   );
 
   // State
-  const [jenisSoal, setJenisSoal] = useState('Benar / Salah'); // Default to Gambar 1, easily toggled
-  const [pertanyaan, setPertanyaan] = useState('');
+  const [jenisSoal, setJenisSoal] = useState(initialType);
+  const [pertanyaan, setPertanyaan] = useState(() => {
+    if (initialType === 'Pilihan Ganda') return 'Hasil dari 12 × 8 adalah ...';
+    if (initialType === 'Esai') {
+      return 'Diketahui barisan aritmetika 5, 8, 11, .... Tentukan suku ke-10 dan jumlah 10 suku pertama. Tuliskan langkah penyelesaiannya.';
+    }
+    return 'Pada barisan aritmetika 5, 8, 11, ..., suku ke-10 adalah 32.';
+  });
   const [kunciJawabanPG, setKunciJawabanPG] = useState('B');
   const [kunciBenarSalah, setKunciBenarSalah] = useState('Benar');
-  const [bobot, setBobot] = useState(5);
+  const [bobot, setBobot] = useState(initialType === 'Esai' ? 10 : 5);
   const [pilihanPG, setPilihanPG] = useState({
     A: '',
     B: '',
@@ -73,6 +89,33 @@ export default function TambahSoalKuisPage() {
   // Esai reference & rubric
   const jawabanAcuan = `Diketahui a = 5 dan b = 8 – 5 = 3.\nU₁₀ = a + (10 – 1)b = 5 + 9 × 3 = 32.\nS₁₀ = 10/2 × (2 × 5 + 9 × 3) = 5 × 37 = 185.`;
   useEffect(() => {
+    if (fromSource === 'bank-soal') {
+      if (!sourceBankId) {
+        return undefined;
+      }
+
+      let active = true;
+      Promise.all([
+        b6ApiFetch(`/banks/${encodeURIComponent(sourceBankId)}`),
+        b6ApiFetch(`/banks/${encodeURIComponent(sourceBankId)}/questions`),
+      ])
+        .then(([bank, questions]) => {
+          if (!active) return;
+          setQuestionBankId(bank.id);
+          setQuestionNumber((Array.isArray(questions) ? questions.length : 0) + 1);
+        })
+        .catch((error) => {
+          if (active) setLoadError(error.message);
+        })
+        .finally(() => {
+          if (active) setIsLoading(false);
+        });
+
+      return () => {
+        active = false;
+      };
+    }
+
     if (!quizId) {
       return undefined;
     }
@@ -109,7 +152,7 @@ export default function TambahSoalKuisPage() {
     return () => {
       active = false;
     };
-  }, [quizId]);
+  }, [fromSource, quizId, sourceBankId]);
 
   const handleTabChange = (type) => {
     setJenisSoal(type);
@@ -125,7 +168,8 @@ export default function TambahSoalKuisPage() {
   const handleSimpanSoal = async (e) => {
     e.preventDefault();
     if (isLoading || isSaving) return;
-    if (!quizId || !quiz) {
+    const bankOnlyMode = fromSource === 'bank-soal';
+    if ((!quizId || !quiz) && !bankOnlyMode) {
       window.alert(loadError || 'Draft kuis belum tersedia.');
       return;
     }
@@ -179,6 +223,11 @@ export default function TambahSoalKuisPage() {
         },
       );
       createdQuestionId = question.id;
+
+      if (bankOnlyMode) {
+        navigate('/b6/bank-soal');
+        return;
+      }
 
       const latestQuiz = await b6ApiFetch(`/quizzes/${encodeURIComponent(quizId)}`);
       const attachedQuestions = latestQuiz.quiz_questions || [];
@@ -246,9 +295,15 @@ export default function TambahSoalKuisPage() {
           Beranda
         </Link>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-        <Link to="/b6/buat-kuis" className="hover:text-slate-600 transition-colors">
-          Buat Kuis
-        </Link>
+        {fromSource === 'bank-soal' ? (
+          <Link to="/b6/bank-soal" className="hover:text-slate-600 transition-colors">
+            Bank Soal
+          </Link>
+        ) : (
+          <Link to="/b6/buat-kuis" className="hover:text-slate-600 transition-colors">
+            Buat Kuis
+          </Link>
+        )}
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
         <span className="text-[#005b64] font-semibold">Tambah Soal</span>
       </nav>
@@ -259,7 +314,9 @@ export default function TambahSoalKuisPage() {
           Tambah Soal
         </h1>
         <p className="mt-1 text-xs sm:text-sm text-slate-400">
-          {quiz?.title || 'Ulangan Harian Matematika Kelas XI'}
+          {quiz?.title || (fromSource === 'bank-soal'
+            ? `Bank Soal Kelas ${customKelas || 'XI'} • ${customMapel || 'Mata Pelajaran'}${customMateri ? ` • ${customMateri}` : ''}`
+            : 'Ulangan Harian Matematika Kelas XI')}
         </p>
       </div>
 
@@ -571,7 +628,13 @@ export default function TambahSoalKuisPage() {
           <div className="flex items-center justify-between pt-4 border-t border-slate-100">
             <button
               type="button"
-              onClick={() => navigate('/b6/buat-kuis')}
+              onClick={() => {
+                if (fromSource === 'bank-soal') {
+                  navigate('/b6/bank-soal');
+                } else {
+                  navigate('/b6/buat-kuis');
+                }
+              }}
               className="rounded-xl bg-[#e6f7f8] px-5 py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors"
             >
               Kembali

@@ -19,6 +19,8 @@ import ImportSoalExcelPage from './pages/b6/ImportSoalExcel';
 import AmbilDariBankSoalPage from './pages/b6/AmbilDariBankSoal';
 import TambahSoalKuisPage from './pages/b6/TambahSoalKuis';
 import RekapHasilPage from './pages/b6/RekapHasil';
+import EditSoalPage from './pages/b6/EditSoal';
+import LihatSoalPage from './pages/b6/LihatSoal';
 
 // Placeholder for remaining guru pages
 function GuruPlaceholder({ title }) {
@@ -48,6 +50,8 @@ export default function App() {
           <Route index element={<Navigate to="/b6/buat-kuis" replace />} />
           <Route path="beranda" element={<GuruPlaceholder title="Beranda Guru" />} />
           <Route path="bank-soal" element={<BankSoalPage />} />
+          <Route path="bank-soal/edit-soal" element={<EditSoalPage />} />
+          <Route path="bank-soal/lihat-soal" element={<LihatSoalPage />} />
           <Route path="buat-kuis" element={<BuatKuisPage />} />
           <Route path="buat-kuis/import" element={<ImportSoalExcelPage />} />
           <Route path="buat-kuis/ambil-bank-soal" element={<AmbilDariBankSoalPage />} />
