@@ -1,5 +1,6 @@
 
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { getUser, logout } from '../services/auth';
 import {
   LayoutDashboard,
   BookOpen,
@@ -20,11 +21,16 @@ const nav = [
 ];
 
 export default function GuruLayout() {
-  // Sementara gunakan data tampilan.
-  // Nantinya ganti dengan data guru dari sistem login.
+  const navigate = useNavigate();
+  const user = getUser();
+  // Data dari akun yang login; kalau mode mock (tanpa login), pakai data tampilan.
   const teacher = {
-    name: 'Budi Santoso, S.Pd.',
-    subject: 'Guru Matematika'
+    name: user?.name ?? 'Budi Santoso, S.Pd.',
+    subject: user?.subject_label ?? 'Guru Matematika'
+  };
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
   };
 
   return (
@@ -63,7 +69,7 @@ export default function GuruLayout() {
           </nav>
         </div>
 
-        <button className="logout">
+        <button className="logout" onClick={handleLogout}>
           Keluar <LogOut size={18} />
         </button>
       </aside>

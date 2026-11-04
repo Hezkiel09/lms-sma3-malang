@@ -15,7 +15,7 @@ function Breadcrumb() {
 export default function DetailMapel() {
   const { subjectId } = useParams();
   // Nanti diganti: GET /attendances/student/me/subjects/:subjectId (opsional from, to, limit)
-  const data = getSubjectDetailMock(subjectId);
+  const data = getSubject(subjectId, { studentId })
 
   if (!data) {
     return (

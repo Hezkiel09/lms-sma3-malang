@@ -13,6 +13,8 @@ router.post('/attendance-sessions', requireRole('teacher'), c.openSession);
 router.get('/attendance-sessions', requireRole('teacher'), c.listMySessions);
 router.get('/attendance-sessions/:id', requireRole('teacher', 'admin'), c.getSession);
 router.patch('/attendance-sessions/:id/close', requireRole('teacher'), c.closeSession);
+router.patch('/attendance-sessions/:id', requireRole('teacher'), c.editSession);
+router.delete('/attendance-sessions/:id', requireRole('teacher'), c.deleteSession);
 router.patch('/attendance-sessions/:id/attendances', requireRole('teacher'), c.updateSessionAttendances);
 router.post('/attendance-sessions/:id/checkin', requireRole('student'), c.checkin);
 

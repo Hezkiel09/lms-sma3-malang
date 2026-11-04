@@ -292,9 +292,7 @@ export default function BuatPresensi() {
 
         if (!active) return;
 
-        const list = (teaching.classes || []).flatMap(
-          (item) => item.schedules || []
-        );
+        const list = today.schedules || [];
 
         const unique = [
           ...new Map(

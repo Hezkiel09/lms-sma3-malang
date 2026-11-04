@@ -564,6 +564,31 @@ export async function closeSession(userId, id) {
       })
     );
   }
-
-  return { ...closed, state: 'closed', summary, notified };
+  
+  let parentNotified = 0;
+  try {
+    const absent = rows.filter((r) => !(r.recorded_at && r.status === 'hadir'));
+    if (absent.length) {
+      const [full] = await withSchedule([session]);
+      const kids = await selectByIds(() => master().from('students'), 'id, name, parent_id', absent.map((r) => r.student_id));
+      const parents = await selectByIds(() => master().from('parents'), 'id, user_id', kids.map((k) => k.parent_id));
+      const parentUser = Object.fromEntries(parents.map((p) => [p.id, p.user_id]));
+      const kidById = Object.fromEntries(kids.map((k) => [k.id, k]));
+      const subjectName = full.schedule?.subject?.name ?? 'pelajaran';
+      parentNotified = await notifyEach(
+        absent.map((r) => {
+          const kid = kidById[r.student_id];
+          const st = r.recorded_at ? r.status : 'alpha';
+          return {
+            userId: kid ? parentUser[kid.parent_id] : null,
+            title: `Presensi ${(kid?.name ?? '').split(' ')[0]}: ${STATUS_LABEL[st]}`,
+            message: `${kid?.name} tercatat ${STATUS_LABEL[st]} pada presensi ${subjectName}, ${dateLabel(session.date)}.`,
+            type: 'presensi',
+            data: { action: 'lihat_riwayat', studentId: r.student_id, sessionId: id, status: st },
+          };
+        })
+      );
+    }
+  } catch (e) { console.error('[notif] orang tua:', e.message); }
+  return { ...closed, state: 'closed', summary, notified, parentNotified };
 }

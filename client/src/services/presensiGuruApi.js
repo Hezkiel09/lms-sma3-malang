@@ -739,11 +739,7 @@ export const presensiGuruApi = {
   // SEKALIGUS UBAH STATUS JADI SELESAI
   // ========================================
 
-  async simpanPresensiManual(
-    token,
-    sessionId,
-    changes
-  ) {
+  async simpanPresensiManual(token, sessionId, changes) {
     if (
       !Array.isArray(changes) ||
       changes.length === 0
@@ -767,10 +763,20 @@ export const presensiGuruApi = {
     );
 
     if (PRESENSI_SOURCE === "api") {
-      throw new Error(
-        "Penyimpanan sekaligus penutupan presensi manual " +
-        "perlu disepakati dengan Backend agar kedua operasi konsisten."
+      const saved = await request(
+        `/attendance-sessions/${sessionId}/attendances`,
+        token,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ changes: normalizedChanges }),
+        }
       );
+      const session = await request(
+        `/attendance-sessions/${sessionId}/close`,
+        token,
+        { method: "PATCH" }
+      );
+      return { ...saved, session };
     }
 
     const sessions = getSavedSessions();
@@ -955,9 +961,7 @@ export const presensiGuruApi = {
 
   async ingatkanSiswa(token, sessionId) {
     if (PRESENSI_SOURCE === "api") {
-      throw new Error(
-        "Endpoint pengingat belum diverifikasi."
-      );
+      return request(`/attendance-sessions/${sessionId}/remind`, token, { method: 'POST' });
     }
 
     const sessions = getSavedSessions();
@@ -1006,11 +1010,15 @@ export const presensiGuruApi = {
     payload
   ) {
     if (PRESENSI_SOURCE === "api") {
-      throw new Error(
-        "Endpoint edit materi sesi belum tersedia di kontrak BE."
-      );
+      validateMateri(payload.topic, payload.learningOutcome);
+      return request(`/attendance-sessions/${sessionId}`, token, {
+        method: "PATCH",
+        body: JSON.stringify({
+          topic: payload.topic.trim(),
+          learningOutcome: payload.learningOutcome.trim(),
+        }),
+      });
     }
-
     validateMateri(
       payload.topic,
       payload.learningOutcome
@@ -1081,11 +1089,10 @@ export const presensiGuruApi = {
 
   async hapusSesi(token, sessionId) {
     if (PRESENSI_SOURCE === "api") {
-      throw new Error(
-        "Endpoint hapus sesi belum tersedia di kontrak BE."
-      );
+      return request(`/attendance-sessions/${sessionId}`, token, {
+        method: "DELETE",
+      });
     }
-
     const sessions = getSavedSessions();
 
     const session = sessions.find(

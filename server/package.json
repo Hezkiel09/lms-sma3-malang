@@ -9,7 +9,10 @@
     "start": "node src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed:b8": "node src/modules/b8/seed/seed-b8-dummy.js",
-    "seed:b8:clean": "node src/modules/b8/seed/seed-b8-dummy.js --clean"
+    "seed:b8:clean": "node src/modules/b8/seed/seed-b8-dummy.js --clean",
+    "seed:b8:demo": "node src/modules/b8/seed/seed-b8-demo.js",
+    "seed:b8:demo:live": "node src/modules/b8/seed/seed-b8-demo.js --live",
+    "seed:b8:demo:clean": "node src/modules/b8/seed/seed-b8-demo.js --clean"
   },
   "keywords": [],
   "author": "",

@@ -20,6 +20,11 @@ export const closeSession = handle(async (req, res) =>
   ok(res, await guru.closeSession(req.user.id, req.params.id), 'Sesi presensi ditutup')
 );
 
+export const editSession = handle(async (req, res) =>
+  ok(res, await guru.editSession(req.user.id, req.params.id, req.body), 'Sesi diperbarui'));
+export const deleteSession = handle(async (req, res) =>
+  ok(res, await guru.deleteSession(req.user.id, req.params.id), 'Sesi dihapus'));
+
 export const previewSession = handle(async (req, res) =>
   ok(res, await guru.previewSession(req.user.id, req.query))
 );

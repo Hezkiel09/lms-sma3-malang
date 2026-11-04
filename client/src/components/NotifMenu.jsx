@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, BellRing, Lock, Radio } from 'lucide-react';
-import { notifMock } from '../mocks/notifMock';
+import { presensiSiswaApi as api } from '../services/presensiSiswaApi';
+import { getUser } from '../services/auth';
 
 const ICON = {
   closed: { icon: Lock, cls: 'closed' },
@@ -14,10 +15,48 @@ const GROUPS = [
   { key: 'earlier', label: 'SEBELUMNYA' },
 ];
 
+const SOURCE_API = import.meta.env.VITE_PRESENSI_SOURCE === 'api';
+
+function mapNotif(n, role) {
+  const d = n.data ?? {};
+  let action = null;
+  if (d.action === 'isi_presensi') action = { label: 'Isi presensi', to: '/siswa/presensi' };
+  else if (d.action === 'lihat_riwayat') {
+    action = role === 'parent'
+      ? { label: 'Lihat riwayat', to: `/ortu/presensi?anak=${d.studentId ?? ''}` }
+      : { label: 'Lihat riwayat', to: '/siswa/presensi/riwayat' };
+  }
+  // 'hubungi_guru' sengaja tanpa aksi sampai fitur Pesan ada
+  return {
+    id: n.id,
+    group: n.group,
+    time_label: n.time_label,
+    title: n.title,
+    body: n.message,
+    read: n.is_read,
+    type: n.title?.startsWith('Pengingat') ? 'reminder' : d.action === 'isi_presensi' ? 'open' : 'closed',
+    action,
+  };
+}
+
 export default function NotifMenu() {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState('all'); // 'all' | 'unread'
-  const [items, setItems] = useState(notifMock);
+    const role = getUser()?.role;
+  const [items, setItems] = useState([]);
+
+  useEffect(() => {
+    if (!SOURCE_API) return;
+    let alive = true;
+    const load = () =>
+      api.listNotifications()
+        .then((d) => alive && setItems((d.notifications ?? []).map((n) => mapNotif(n, role))))
+        .catch(() => {});
+    load();
+    const t = setInterval(load, 30000);
+    return () => { alive = false; clearInterval(t); };
+  }, [role]);
+
   const ref = useRef(null);
   const navigate = useNavigate();
 
@@ -38,8 +77,16 @@ export default function NotifMenu() {
   const shown = tab === 'unread' ? items.filter((n) => !n.read) : items;
 
   // TODO: panggil endpoint "tandai dibaca" di backend
-  const markOne = (id) => setItems((arr) => arr.map((n) => (n.id === id ? { ...n, read: true } : n)));
-  const markAll = () => setItems((arr) => arr.map((n) => ({ ...n, read: true })));
+  const markOne = (id) => {
+    const n = items.find((x) => x.id === id);
+    if (!n || n.read) return;
+    setItems((arr) => arr.map((x) => (x.id === id ? { ...x, read: true } : x)));
+    if (SOURCE_API) api.markNotificationRead(id).catch(() => {});
+  };
+  const markAll = () => {
+    setItems((arr) => arr.map((x) => ({ ...x, read: true })));
+    if (SOURCE_API) api.markAllNotificationsRead().catch(() => {});
+  };
 
   const runAction = (e, n) => {
     e.stopPropagation();

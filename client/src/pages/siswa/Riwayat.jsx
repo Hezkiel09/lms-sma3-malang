@@ -183,7 +183,12 @@ function Subjects({ data }) {
 
 export default function Riwayat() {
   // Nanti diganti: GET /attendances/student/me/overview?month=YYYY-MM
-  const data = overviewMock;
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    getOverview({ month, studentId }).then((d) => alive && setData(d)).catch((e) => alive && setError(e.message)).finally(() => alive && setLoading(false));
+    return () => { alive = false; };
+  }, [month, studentId]);
 
   return (
     <>

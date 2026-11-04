@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { logout } from '../services/auth';
 import { ChevronDown, User, Lock, Bell, CircleHelp, LogOut } from 'lucide-react';
 
 const ITEMS = [
@@ -20,6 +22,7 @@ function Avatar({ initial, large }) {
 }
 
 export default function ProfileMenu({ student }) {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -93,7 +96,11 @@ export default function ProfileMenu({ student }) {
               type="button"
               role="menuitem"
               className="pf-item danger"
-              onClick={() => setOpen(false)} // TODO: hapus token, navigate('/login')
+              onClick={async () => {
+                setOpen(false);
+                await logout();
+                navigate('/login', { replace: true });
+              }}
             >
               <span className="pf-ico"><LogOut size={18} /></span>
               Keluar

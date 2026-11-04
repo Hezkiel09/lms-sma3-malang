@@ -335,3 +335,46 @@ textarea { width: 100%; border: 1px solid var(--soft-line); border-radius: 12px;
 .nf-dotcol { width: 10px; flex-shrink: 0; padding-top: 7px; }
 .nf-dot { display: block; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
 .nf-empty { padding: 36px 24px; text-align: center; color: #64748b; font-size: 14px; }
+
+/* ===== Beranda orang tua ===== */
+.ortu-hero { background: #e6f5f9; border-radius: 24px; padding: 36px 40px; margin-bottom: 24px; min-height: 200px; display: flex; align-items: center; }
+.ortu-hero-hi { margin: 0; color: #0b8aa3; font-size: 24px; font-weight: 700; }
+.ortu-hero h1 { margin: 4px 0 10px; color: #0b8aa3; font-size: 36px; font-weight: 800; }
+.ortu-hero-sub { margin: 0; color: #0b8aa3; font-size: 16px; max-width: 560px; }
+.ortu-hero-link { display: inline-block; margin-top: 12px; color: #0b5566; font-weight: 700; font-size: 14px; }
+
+.ortu-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 28px; }
+.ortu-stat { background: #fff; border-radius: 20px; padding: 24px; box-shadow: 0 2px 14px rgba(11, 85, 102, .10); }
+.ortu-stat-top { display: flex; justify-content: space-between; margin-bottom: 18px; }
+.ortu-ico { width: 44px; height: 44px; border-radius: 50%; background: #e6f5f9; color: #0b7c93; display: grid; place-items: center; text-decoration: none; }
+.ortu-stat-title { margin: 0 0 8px; color: var(--muted); font-size: 16px; font-weight: 600; }
+.ortu-stat-val { margin: 0; font-size: 32px; font-weight: 800; }
+.ortu-stat-val em { font-style: normal; font-size: 16px; font-weight: 400; color: var(--muted); margin-left: 14px; }
+
+.ortu-card { background: #fff; border-radius: 20px; padding: 32px 40px; margin-bottom: 28px; box-shadow: 0 2px 14px rgba(11, 85, 102, .10); }
+.ortu-card-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+.ortu-card-head h2 { margin: 0 0 6px; font-size: 26px; }
+.ortu-card-head p { margin: 0; color: var(--muted); font-size: 18px; }
+.ortu-more { display: inline-flex; align-items: center; gap: 4px; color: #0b8aa3; font-weight: 700; font-size: 14px; text-decoration: none; }
+
+.ortu-week { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; }
+.ortu-day { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 22px 0; border-radius: 18px; background: #fff; box-shadow: 0 2px 10px rgba(11, 85, 102, .10); color: var(--muted); font-size: 16px; }
+.ortu-day b { font-size: 24px; color: var(--text); }
+.ortu-day-label { font-size: 15px; color: #0b7c93; padding: 4px 16px; border-radius: 999px; }
+.ortu-day-label.empty { color: var(--muted); }
+.ortu-day.today { background: #0e8fa9; color: #fff; }
+.ortu-day.today b { color: #fff; }
+.ortu-day.today .ortu-day-label { background: rgba(255, 255, 255, .25); color: #fff; }
+.ortu-note { display: flex; align-items: center; gap: 10px; margin-top: 24px; padding: 14px 20px; border-radius: 12px; background: #eefaf5; color: #0f766e; font-weight: 600; font-size: 15px; }
+
+.ortu-bar { margin-bottom: 20px; }
+.ortu-bar > div:first-child { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 8px; }
+.ortu-bar-track { height: 16px; border-radius: 999px; background: #eef0f3; overflow: hidden; }
+.ortu-bar-track i { display: block; height: 100%; border-radius: 999px; }
+.ortu-empty { color: var(--muted); margin: 0; }
+
+@media (max-width: 900px) {
+  .ortu-stats { grid-template-columns: 1fr; }
+  .ortu-week { grid-template-columns: repeat(5, minmax(64px, 1fr)); gap: 10px; overflow-x: auto; }
+  .ortu-card { padding: 24px; }
+}

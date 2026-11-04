@@ -1,8 +1,9 @@
 import ProfileMenu from './ProfileMenu';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, CalendarDays, MessageSquare, LogOut, Search } from 'lucide-react';
 import { todayMock } from '../mocks/todayMock';
 import NotifMenu from './NotifMenu';
+import { getUser, logout } from '../services/auth';
 
 const nav = [
   { to: '/siswa/beranda', label: 'Beranda', icon: LayoutDashboard, soon: true },
@@ -11,7 +12,16 @@ const nav = [
 ];
 
 export default function SiswaLayout() {
-  const student = todayMock.student; // nanti diganti dari data logi
+  const navigate = useNavigate();
+  const user = getUser();
+  // Data dari akun yang login; kalau mode mock (tanpa login), pakai data tampilan.
+  const student = user
+    ? { name: user.name ?? user.email, class_name: user.class_name, nis: user.nis }
+    : todayMock.student;
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
+  };
 
   return (
     <div className="shell">
@@ -32,7 +42,7 @@ export default function SiswaLayout() {
             )}
           </nav>
         </div>
-        <button className="logout">Keluar <LogOut size={18} /></button>
+        <button className="logout" onClick={handleLogout}>Keluar <LogOut size={18} /></button>
       </aside>
 
       <div className="main">

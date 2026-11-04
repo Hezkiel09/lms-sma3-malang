@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Radio, Clock, Check, School, FileText, Activity, Info, X, CalendarDays, ChevronRight, TriangleAlert, MessageSquare } from 'lucide-react';
 import PresensiTabs from '../../components/PresensiTabs';
 import { todayOpen, todaySubmitted, todayEnded, todayEmpty, todayWeekend, todayEndedNext, todayOver } from '../../mocks/todayMock';
+import { PRESENSI_SOURCE } from '../../services/presensiGuruApi';
+import { presensiSiswaApi } from '../../services/presensiSiswaApi';
 
 // true  = kartu Alfa tetap tampil sampai akhir hari, walau jam pelajarannya sudah lewat
 // false = semua kartu hilang setelah jam pelajaran habis (lihat di Riwayat)
@@ -207,13 +209,52 @@ function EmptyState({ next }) {
   );
 }
 
+// VITE_PRESENSI_SOURCE=api -> data asli dari backend (diperbarui otomatis). "mock" -> data tampilan.
+const USE_API = PRESENSI_SOURCE !== 'mock';
+const POLL_MS = 4000;
+
 export default function HariIni() {
   const [params] = useSearchParams();
-  const [data, setData] = useState(MOCKS[params.get('state')] ?? todayOpen);
+  const [data, setData] = useState(USE_API ? null : (MOCKS[params.get('state')] ?? todayOpen));
+  const [loadError, setLoadError] = useState('');
+  const [submitError, setSubmitError] = useState('');
   const [dismissed, setDismissed] = useState([]);
 
-  // Nanti diganti: POST /attendance-sessions/:id/checkin, lalu muat ulang me/today.
-  const handleSubmit = (sessionId, status, notes) => {
+  const load = useCallback(async (silent = false) => {
+    try {
+      setData(await presensiSiswaApi.getToday());
+      setLoadError('');
+    } catch (e) {
+      if (!silent) setLoadError(e.message);
+    }
+  }, []);
+
+  // Muat dari backend lalu cek ulang tiap beberapa detik, supaya sesi yang baru dibuka guru langsung muncul.
+  useEffect(() => {
+    if (!USE_API) return undefined;
+    load();
+    const tick = () => {
+      if (!document.hidden) load(true);
+    };
+    const id = setInterval(tick, POLL_MS);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, [load]);
+
+  const handleSubmit = async (sessionId, status, notes) => {
+    if (USE_API) {
+      try {
+        setSubmitError('');
+        await presensiSiswaApi.checkin(sessionId, { status, notes });
+      } catch (e) {
+        setSubmitError(e.message);
+      }
+      await load(true);
+      return;
+    }
     const time = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace('.', ':');
     setData((d) => ({
       ...d,
@@ -232,6 +273,15 @@ export default function HariIni() {
     }));
   };
 
+  if (!data) {
+    return (
+      <>
+        <h1 className="title">Isi Presensi</h1>
+        <p className="subtitle">{loadError || 'Memuat sesi presensi...'}</p>
+      </>
+    );
+  }
+
   const visible = data.sessions.filter(isVisible);
   const subtitle = visible.length === 0 ? 'Isi kehadiranmu saat sesi berlangsung.' : data.subtitle;
   const banners = visible.filter((s) => s.announcement && !dismissed.includes(s.session_id));
@@ -242,6 +292,10 @@ export default function HariIni() {
       <p className="subtitle">{subtitle}</p>
 
       <PresensiTabs />
+
+      {submitError && (
+        <p className="subtitle" style={{ color: '#b91c1c' }}>{submitError}</p>
+      )}
 
       {banners.map((s) => (
         <div className="banner" key={s.session_id}>
