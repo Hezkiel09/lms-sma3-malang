@@ -52,7 +52,7 @@ export const getMaterialsByCourseId = async (req, res) => {
       data: materials,
     });
   } catch (error) {
-    if (error.statusCode === 404 || error.message.includes('tidak ditemukan')) {
+    if (error.statusCode === 404 || error.message?.includes('tidak ditemukan')) {
       return res.status(404).json({
         success: false,
         message: error.message,
@@ -184,68 +184,250 @@ export const createMaterial = async (req, res) => {
 };
 
 /**
- * Controller untuk memperbarui materi (UC-03)
+ * Controller untuk memperbarui informasi materi dan/atau menambahkan file baru (UC-03)
  * Endpoint: PUT /api/v1/b5/materials/:id
  */
 export const updateMaterial = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, subject_id, class_ids } = req.body;
+
+    if (!isValidUUID(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Format Material ID tidak valid.',
+      });
+    }
+
+    const { title, description } = req.body;
+    let status = req.body.status;
+    if (status === 'publikasi') status = 'published';
+
+    if (title !== undefined) {
+      if (typeof title !== 'string' || !title.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Judul materi tidak boleh kosong.',
+        });
+      }
+      if (title.trim().length > 255) {
+        return res.status(400).json({
+          success: false,
+          message: 'Judul materi maksimal 255 karakter.',
+        });
+      }
+    }
+
+    if (description !== undefined && description !== null && typeof description !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Deskripsi materi harus berupa teks.',
+      });
+    }
+
+    if (status !== undefined && !['draft', 'published'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Status materi hanya boleh bernilai 'draft' atau 'published'.",
+      });
+    }
 
     const updatedMaterial = await materialsService.updateMaterialService(id, {
       title,
       description,
-      subject_id,
-      class_ids,
+      status,
+      files: req.files || [],
     });
 
     return res.status(200).json({
       success: true,
-      message: 'Berhasil memperbarui materi',
+      message: 'Materi berhasil diperbarui.',
       data: updatedMaterial,
     });
   } catch (error) {
-    if (error.message.includes('tidak ditemukan')) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    if (error.message?.includes('tidak ditemukan')) {
       return res.status(404).json({
         success: false,
         message: error.message,
       });
     }
 
+    console.error('Error updating material:', error);
     return res.status(500).json({
       success: false,
-      message: 'Gagal memperbarui materi',
-      error: error.message,
+      message: 'Terjadi kesalahan pada server saat memperbarui materi.',
     });
   }
 };
 
 /**
- * Controller untuk menghapus materi (UC-03)
- * Endpoint: DELETE /api/v1/b5/materials/:id
+ * Controller untuk mengubah nama satu lampiran (UC-03)
+ * Endpoint: PATCH /api/v1/b5/materials/:id/files/:fileId
  */
-export const deleteMaterial = async (req, res) => {
+export const renameMaterialFile = async (req, res) => {
   try {
-    const { id } = req.params;
-    const deletedMaterial = await materialsService.deleteMaterialService(id);
+    const { id, fileId } = req.params;
+
+    if (!isValidUUID(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Format Material ID tidak valid.',
+      });
+    }
+
+    if (!isValidUUID(fileId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Format File ID tidak valid.',
+      });
+    }
+
+    const rawFileName = req.body.file_name ?? req.body.fileName ?? req.body.name;
+
+    if (typeof rawFileName !== 'string' || !rawFileName.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Nama file baru wajib diisi.',
+      });
+    }
+
+    const trimmedFileName = rawFileName.trim();
+    if (trimmedFileName.length > 255) {
+      return res.status(400).json({
+        success: false,
+        message: 'Nama file maksimal 255 karakter.',
+      });
+    }
+
+    const updatedFile = await materialsService.renameMaterialFileService(id, fileId, trimmedFileName);
 
     return res.status(200).json({
       success: true,
-      message: 'Berhasil menghapus materi',
-      data: deletedMaterial,
+      message: 'Nama lampiran berhasil diperbarui.',
+      data: updatedFile,
     });
   } catch (error) {
-    if (error.message.includes('tidak ditemukan')) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    if (error.message?.includes('tidak ditemukan')) {
       return res.status(404).json({
         success: false,
         message: error.message,
       });
     }
 
+    console.error('Error renaming material file:', error);
     return res.status(500).json({
       success: false,
-      message: 'Gagal menghapus materi',
-      error: error.message,
+      message: 'Terjadi kesalahan pada server saat mengubah nama lampiran.',
+    });
+  }
+};
+
+/**
+ * Controller untuk menghapus satu lampiran (UC-03)
+ * Endpoint: DELETE /api/v1/b5/materials/:id/files/:fileId
+ */
+export const deleteMaterialFile = async (req, res) => {
+  try {
+    const { id, fileId } = req.params;
+
+    if (!isValidUUID(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Format Material ID tidak valid.',
+      });
+    }
+
+    if (!isValidUUID(fileId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Format File ID tidak valid.',
+      });
+    }
+
+    const result = await materialsService.deleteMaterialFileService(id, fileId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Lampiran berhasil dihapus.',
+      data: result,
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    if (error.message?.includes('tidak ditemukan')) {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    console.error('Error deleting material file:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan pada server saat menghapus lampiran.',
+    });
+  }
+};
+
+/**
+ * Controller untuk menghapus seluruh materi beserta seluruh lampirannya (UC-03)
+ * Endpoint: DELETE /api/v1/b5/materials/:id
+ */
+export const deleteMaterial = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidUUID(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Format Material ID tidak valid.',
+      });
+    }
+
+    const deletedMaterial = await materialsService.deleteMaterialService(id);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Materi beserta seluruh lampirannya berhasil dihapus.',
+      data: deletedMaterial,
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    if (error.message?.includes('tidak ditemukan')) {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    console.error('Error deleting material:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan pada server saat menghapus materi.',
     });
   }
 };

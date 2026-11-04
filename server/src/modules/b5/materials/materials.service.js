@@ -14,6 +14,18 @@ const sanitizeStorageFileName = (fileName = 'file') => {
   return safeName || 'file';
 };
 
+const formatFileSizeStr = (bytes) => {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB';
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const formatDateIndo = (dateStr) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
 /** Mengubah storage path menjadi signed URL saat data dikirim ke client. */
 const addSignedUrlToFile = async (file) => {
   if (!file?.file_url || /^https?:\/\//i.test(file.file_url)) return file;
@@ -22,12 +34,21 @@ const addSignedUrlToFile = async (file) => {
     throw new Error('Environment SUPABASE_STORAGE_BUCKET_MATERIALS belum dikonfigurasi.');
   }
 
-  const { data, error } = await supabaseAdmin.storage
-    .from(MATERIALS_BUCKET)
-    .createSignedUrl(file.file_url, SIGNED_URL_TTL_SECONDS);
+  try {
+    const { data, error } = await supabaseAdmin.storage
+      .from(MATERIALS_BUCKET)
+      .createSignedUrl(file.file_url, SIGNED_URL_TTL_SECONDS);
 
-  if (error) throw error;
-  return { ...file, file_url: data.signedUrl };
+    if (error) {
+      console.warn(`Gagal membuat signed URL untuk file ${file.file_url}:`, error.message);
+      return { ...file, file_url: null };
+    }
+
+    return { ...file, file_url: data.signedUrl };
+  } catch (err) {
+    console.warn(`Pengecualian saat membuat signed URL untuk file ${file.file_url}:`, err.message);
+    return { ...file, file_url: null };
+  }
 };
 
 const addSignedUrlsToFiles = async (files = []) => Promise.all(files.map(addSignedUrlToFile));
@@ -248,6 +269,17 @@ export const getMaterialByIdService = async (id) => {
       name: course.teacher_name,
     } : null),
     uploaded_at: material.created_at,
+    date: formatDateIndo(material.created_at),
+    uploadDate: formatDateIndo(material.created_at),
+    category: subjectResult.data?.name || course?.subject_name || 'Umum',
+    targetClass: course?.class_name || classes[0]?.name || null,
+    fileName: materialFiles[0]?.file_name || null,
+    fileSize: materialFiles[0]?.file_size ? formatFileSizeStr(materialFiles[0].file_size) : null,
+    fileUrl: materialFiles[0]?.file_url || null,
+    author: {
+      name: teacherResult.data?.name || course?.teacher_name || 'Guru',
+      role: 'Guru',
+    },
     material_files: materialFiles,
   };
 };
@@ -409,57 +441,300 @@ export const createMaterialService = async ({
 };
 
 /**
- * Service untuk memperbarui materi (UC-03)
+ * Service untuk memperbarui materi dan menambahkan lampiran baru jika ada (UC-03)
  */
-export const updateMaterialService = async (id, { title, description, subject_id, class_ids }) => {
-  // TODO: Implementasikan sinkronisasi class_ids (hapus relasi lama / tambah relasi baru)
-  // TODO: Tangani update/hapus file lampiran jika ada perubahan
+export const updateMaterialService = async (
+  id,
+  { title, description, status, files = [] }
+) => {
+  // 1. Pastikan materi dengan ID tersebut tersedia
+  const { data: existingMaterial, error: findError } = await supabaseAdmin
+    .schema('b5')
+    .from('materials')
+    .select(`
+      id,
+      teacher_id,
+      title,
+      description,
+      subject_id,
+      section_id,
+      status,
+      created_at,
+      updated_at
+    `)
+    .eq('id', id)
+    .maybeSingle();
+
+  if (findError) throw findError;
+  if (!existingMaterial) {
+    const error = new Error('Materi tidak ditemukan.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // 2. Siapkan payload update materi
   const updatePayload = {
     updated_at: new Date().toISOString(),
   };
 
-  if (title !== undefined) updatePayload.title = title;
-  if (description !== undefined) updatePayload.description = description;
-  if (subject_id !== undefined) updatePayload.subject_id = subject_id;
+  if (title !== undefined) updatePayload.title = title.trim();
+  if (description !== undefined) updatePayload.description = description?.trim() || null;
+  if (status !== undefined) updatePayload.status = status;
 
-  const { data, error } = await supabase
+  const { data: updatedMaterial, error: updateError } = await supabaseAdmin
     .schema('b5')
     .from('materials')
     .update(updatePayload)
     .eq('id', id)
-    .select()
+    .select(`
+      id,
+      teacher_id,
+      title,
+      description,
+      subject_id,
+      section_id,
+      status,
+      created_at,
+      updated_at
+    `)
     .single();
 
-  if (error) throw error;
-  if (!data) {
-    throw new Error('Materi tidak ditemukan atau gagal diperbarui');
+  if (updateError) throw updateError;
+
+  // 3. Tambahkan lampiran baru jika ada file yang diunggah
+  const newlyUploadedPaths = [];
+  if (files && files.length > 0) {
+    if (!MATERIALS_BUCKET) {
+      const error = new Error('Bucket Storage belum dikonfigurasi. Atur SUPABASE_STORAGE_BUCKET_MATERIALS pada environment server.');
+      error.statusCode = 500;
+      throw error;
+    }
+
+    const fileRows = [];
+    try {
+      for (const file of files) {
+        if (!Buffer.isBuffer(file.buffer) || file.buffer.length === 0) {
+          throw new Error(`Konten file ${file.originalname || 'lampiran'} tidak valid.`);
+        }
+
+        const safeFileName = sanitizeStorageFileName(file.originalname);
+        const storagePath = `${existingMaterial.teacher_id}/${id}/${randomUUID()}-${safeFileName}`;
+        const { error: uploadError } = await supabaseAdmin.storage
+          .from(MATERIALS_BUCKET)
+          .upload(storagePath, file.buffer, {
+            contentType: file.mimetype || 'application/octet-stream',
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (uploadError) throw uploadError;
+        newlyUploadedPaths.push(storagePath);
+
+        fileRows.push({
+          material_id: id,
+          file_name: file.originalname,
+          file_url: storagePath,
+          file_type: file.mimetype || null,
+          file_size: file.size ?? file.buffer.length,
+        });
+      }
+
+      if (fileRows.length > 0) {
+        const { error: filesInsertError } = await supabaseAdmin
+          .schema('b5')
+          .from('material_files')
+          .insert(fileRows);
+
+        if (filesInsertError) throw filesInsertError;
+      }
+    } catch (uploadOrDbErr) {
+      // Rollback file baru yang terlanjur terunggah ke Storage tanpa merusak file lama
+      if (MATERIALS_BUCKET && newlyUploadedPaths.length > 0) {
+        const { error: rmErr } = await supabaseAdmin.storage
+          .from(MATERIALS_BUCKET)
+          .remove(newlyUploadedPaths);
+        if (rmErr) console.error('Gagal rollback file Storage baru:', rmErr);
+      }
+      throw uploadOrDbErr;
+    }
   }
 
-  return data;
+  // 4. Ambil seluruh lampiran (lama + baru) dengan signed URL
+  const { data: allFiles, error: allFilesError } = await supabaseAdmin
+    .schema('b5')
+    .from('material_files')
+    .select('id, material_id, file_name, file_url, file_type, file_size, uploaded_at')
+    .eq('material_id', id)
+    .order('uploaded_at', { ascending: true });
+
+  if (allFilesError) throw allFilesError;
+
+  return {
+    ...updatedMaterial,
+    material_files: await addSignedUrlsToFiles(allFiles || []),
+  };
 };
 
 /**
- * Service untuk menghapus materi (UC-03)
+ * Service untuk mengubah nama satu lampiran (UC-03)
+ */
+export const renameMaterialFileService = async (materialId, fileId, newFileName) => {
+  // 1. Verifikasi lampiran milik materi yang sesuai
+  const { data: existingFile, error: findError } = await supabaseAdmin
+    .schema('b5')
+    .from('material_files')
+    .select('id, material_id, file_name, file_url, file_type, file_size, uploaded_at')
+    .eq('id', fileId)
+    .eq('material_id', materialId)
+    .maybeSingle();
+
+  if (findError) throw findError;
+  if (!existingFile) {
+    const error = new Error('Lampiran tidak ditemukan pada materi ini.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // 2. Update file_name di database tanpa mengubah objek fisik di Storage
+  const { data: updatedFile, error: updateError } = await supabaseAdmin
+    .schema('b5')
+    .from('material_files')
+    .update({ file_name: newFileName.trim() })
+    .eq('id', fileId)
+    .eq('material_id', materialId)
+    .select('id, material_id, file_name, file_url, file_type, file_size, uploaded_at')
+    .single();
+
+  if (updateError) throw updateError;
+
+  return addSignedUrlToFile(updatedFile);
+};
+
+/**
+ * Service untuk menghapus satu lampiran dari Storage dan database (UC-03)
+ */
+export const deleteMaterialFileService = async (materialId, fileId) => {
+  // 1. Verifikasi lampiran milik materi yang sesuai
+  const { data: existingFile, error: findError } = await supabaseAdmin
+    .schema('b5')
+    .from('material_files')
+    .select('id, material_id, file_name, file_url')
+    .eq('id', fileId)
+    .eq('material_id', materialId)
+    .maybeSingle();
+
+  if (findError) throw findError;
+  if (!existingFile) {
+    const error = new Error('Lampiran tidak ditemukan pada materi ini.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // 2. Hapus file fisik dari Supabase Storage terlebih dahulu
+  if (MATERIALS_BUCKET && existingFile.file_url) {
+    const { error: storageError } = await supabaseAdmin.storage
+      .from(MATERIALS_BUCKET)
+      .remove([existingFile.file_url]);
+
+    if (storageError) {
+      console.error('Gagal menghapus file dari Storage:', storageError);
+      const error = new Error('Gagal menghapus file fisik lampiran dari storage.');
+      error.statusCode = 500;
+      throw error;
+    }
+  }
+
+  // 3. Hapus metadata dari b5.material_files setelah storage bersih
+  const { error: deleteError } = await supabaseAdmin
+    .schema('b5')
+    .from('material_files')
+    .delete()
+    .eq('id', fileId)
+    .eq('material_id', materialId);
+
+  if (deleteError) throw deleteError;
+
+  return {
+    id: fileId,
+    material_id: materialId,
+    file_name: existingFile.file_name,
+  };
+};
+
+/**
+ * Service untuk menghapus seluruh materi beserta lampirannya (UC-03)
  */
 export const deleteMaterialService = async (id) => {
-  // TODO: Hapus juga file fisik dari Supabase Storage jika ada file terlampir
-  // Note: Pastikan cascading delete pada database atau hapus manual child rows (material_classes & material_files)
-  const { data, error } = await supabase
+  // 1. Verifikasi materi tersedia
+  const { data: existingMaterial, error: findError } = await supabaseAdmin
+    .schema('b5')
+    .from('materials')
+    .select('id, title')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (findError) throw findError;
+  if (!existingMaterial) {
+    const error = new Error('Materi tidak ditemukan.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // 2. Ambil seluruh lampiran milik materi ini
+  const { data: files, error: filesError } = await supabaseAdmin
+    .schema('b5')
+    .from('material_files')
+    .select('id, file_url')
+    .eq('material_id', id);
+
+  if (filesError) throw filesError;
+
+  // 3. Hapus seluruh file fisik terkait dari Supabase Storage
+  const storagePaths = (files || []).map((f) => f.file_url).filter(Boolean);
+  if (MATERIALS_BUCKET && storagePaths.length > 0) {
+    const { error: storageError } = await supabaseAdmin.storage
+      .from(MATERIALS_BUCKET)
+      .remove(storagePaths);
+
+    if (storageError) {
+      console.error('Gagal menghapus file-file dari storage:', storageError);
+      const error = new Error('Gagal menghapus file fisik materi dari storage.');
+      error.statusCode = 500;
+      throw error;
+    }
+  }
+
+  // 4. Hapus metadata lampiran di b5.material_files
+  const { error: deleteFilesError } = await supabaseAdmin
+    .schema('b5')
+    .from('material_files')
+    .delete()
+    .eq('id', id);
+
+  if (deleteFilesError) throw deleteFilesError;
+
+  // 5. Hapus relasi kelas di b5.material_classes
+  const { error: deleteClassesError } = await supabaseAdmin
+    .schema('b5')
+    .from('material_classes')
+    .delete()
+    .eq('id', id);
+
+  if (deleteClassesError) throw deleteClassesError;
+
+  // 6. Hapus record utama di b5.materials
+  const { data: deletedMaterial, error: deleteMaterialError } = await supabaseAdmin
     .schema('b5')
     .from('materials')
     .delete()
     .eq('id', id)
-    .select()
+    .select('id, title, section_id')
     .maybeSingle();
 
-  if (error) throw error;
-  if (!data) {
-    throw new Error('Materi tidak ditemukan atau gagal dihapus');
-  }
+  if (deleteMaterialError) throw deleteMaterialError;
 
-  return data;
+  return deletedMaterial || { id, title: existingMaterial.title };
 };
-
 
 /**
  * Service untuk mengambil seluruh materi dalam sebuah Course (berdasarkan Section)

@@ -9,17 +9,25 @@ const router = Router();
  * Base Path: /api/v1/b5/materials
  */
 
-// Endpoint GET yang sudah tersedia tetap dipertahankan.
+// UC-03: Mengambil daftar materi
 router.get('/', materialsController.getAllMaterials);
+
+// UC-03: Mengambil detail materi berdasarkan ID
 router.get('/:id', materialsController.getMaterialById);
 
-// UC-02 (sementara untuk pengembangan): belum memakai login/autentikasi.
-// teacher_id diturunkan dari Course berdasarkan section_id di service.
+// UC-02: Menambah materi baru (multipart/form-data)
 router.post('/', parseMaterialUpload, materialsController.createMaterial);
 
-// UC-03: Endpoint edit dan delete belum diberi middleware Guru pada tahap ini.
-// Akan diamankan ketika implementasi UC-03 dikerjakan.
-router.put('/:id', materialsController.updateMaterial);
+// UC-03: Mengubah nama satu lampiran
+router.patch('/:id/files/:fileId', materialsController.renameMaterialFile);
+
+// UC-03: Menghapus satu lampiran
+router.delete('/:id/files/:fileId', materialsController.deleteMaterialFile);
+
+// UC-03: Memperbarui informasi materi dan/atau menambahkan file baru
+router.put('/:id', parseMaterialUpload, materialsController.updateMaterial);
+
+// UC-03: Menghapus seluruh materi beserta seluruh lampirannya
 router.delete('/:id', materialsController.deleteMaterial);
 
 export default router;
