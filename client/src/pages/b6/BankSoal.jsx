@@ -1,38 +1,35 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   BarChart2,
   Edit3,
   FileUp,
   Upload,
-  Plus,
   Book,
   FileText,
   Calculator,
   Search,
   ChevronDown,
   ChevronRight,
-  Eye,
-  Edit,
-  Trash2,
   X,
   CheckCircle2,
   AlertCircle,
   FileSpreadsheet,
 } from 'lucide-react';
-import {
-  mockBankSoalStats,
-  mockKelasList,
-  mockQuestionsList,
-} from '../../data/mockBankSoal';
+import { b6ApiFetch } from './b6-api';
+import { getClassLabel, getClassLevel, toQuestionViewModel } from './b6-utils';
 
 export default function BankSoalPage() {
   // Navigation State: step 1 = Pilih Kelas, step 2 = Mapel, step 3 = Lihat Soal
   const [currentStep, setCurrentStep] = useState(1);
-  const [selectedKelas, setSelectedKelas] = useState(mockKelasList[1]); // Default XI
-  const [selectedMapel, setSelectedMapel] = useState(mockKelasList[1].mapelList[0]);
+  const [selectedKelas, setSelectedKelas] = useState(null);
+  const [selectedMapel, setSelectedMapel] = useState(null);
 
   // Data states
-  const [questions, setQuestions] = useState(mockQuestionsList);
+  const [banks, setBanks] = useState([]);
+  const [questionsByBank, setQuestionsByBank] = useState({});
+  const [importedQuestionCount, setImportedQuestionCount] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [editingQuestionId, setEditingQuestionId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedJenisSoal, setSelectedJenisSoal] = useState('Semua jenis');
   const [selectedWaktu, setSelectedWaktu] = useState('Semua waktu');
@@ -64,10 +61,105 @@ export default function BankSoalPage() {
     setTimeout(() => setToast(null), 3500);
   };
 
+  useEffect(() => {
+    let active = true;
+
+    const loadBanks = async () => {
+      try {
+        const [bankResult, importResult] = await Promise.allSettled([
+          b6ApiFetch('/banks'),
+          b6ApiFetch('/imports'),
+        ]);
+        if (!active) return;
+        if (bankResult.status === 'rejected') throw bankResult.reason;
+        const bankList = Array.isArray(bankResult.value) ? bankResult.value : [];
+        setBanks(bankList);
+        if (importResult.status === 'fulfilled') {
+          setImportedQuestionCount(
+            (Array.isArray(importResult.value) ? importResult.value : []).reduce(
+            (total, entry) => total + Number(entry.total_valid || 0),
+            0,
+            ),
+          );
+        } else {
+          showToast(importResult.reason.message, 'error');
+        }
+
+        const questionEntries = await Promise.all(
+          bankList.map(async (bank) => [
+            bank.id,
+            await b6ApiFetch(`/banks/${encodeURIComponent(bank.id)}/questions`),
+          ]),
+        );
+        if (active) {
+          setQuestionsByBank(Object.fromEntries(
+            questionEntries.map(([bankId, data]) => [
+              bankId,
+              (Array.isArray(data) ? data : []).map((question) => toQuestionViewModel(
+                question,
+                bankList.find((item) => item.id === bankId) || {},
+              )),
+            ]),
+          ));
+        }
+      } catch (error) {
+        if (active) showToast(error.message, 'error');
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    };
+
+    loadBanks();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const kelasList = useMemo(() => {
+    const grouped = new Map();
+    banks.forEach((bank) => {
+      const classLevel = getClassLevel(bank.class_level);
+      const mapel = {
+        id: bank.id,
+        bankId: bank.id,
+        nama: bank.subject_name || bank.name || 'Mata pelajaran',
+        materi: bank.topic_name || bank.name || 'Materi belum ditentukan',
+        tipeSoal: 'Lihat jenis soal yang tersedia',
+        totalSoal: questionsByBank[bank.id]?.length || 0,
+      };
+      const kelas = grouped.get(classLevel) || {
+        id: classLevel,
+        romawi: classLevel,
+        nama: getClassLabel(bank.class_level),
+        jumlahMapel: 0,
+        materiPreview: '',
+        totalSoal: 0,
+        mapelList: [],
+      };
+      kelas.mapelList.push(mapel);
+      kelas.totalSoal += mapel.totalSoal;
+      grouped.set(classLevel, kelas);
+    });
+
+    return Array.from(grouped.values()).map((kelas) => ({
+      ...kelas,
+      jumlahMapel: kelas.mapelList.length,
+      materiPreview: kelas.mapelList
+        .map((mapel) => `${mapel.nama} • ${mapel.materi}`)
+        .join(', '),
+    }));
+  }, [banks, questionsByBank]);
+
+  const questions = selectedMapel
+    ? questionsByBank[selectedMapel.bankId] || []
+    : [];
+  const totalQuestions = Object.values(questionsByBank)
+    .reduce((total, bankQuestions) => total + bankQuestions.length, 0);
+
   // Handlers for navigation
   const handlePilihKelas = (kelas) => {
     setSelectedKelas(kelas);
-    setSelectedMapel(kelas.mapelList[0] || null);
+    setSelectedMapel(null);
     setCurrentStep(2);
   };
 
@@ -77,58 +169,88 @@ export default function BankSoalPage() {
   };
 
   // Handler for deleting question
-  const handleDeleteQuestion = (id) => {
+  const handleDeleteQuestion = async (id) => {
     if (window.confirm('Apakah Anda yakin ingin menghapus soal ini?')) {
-      setQuestions((prev) => prev.filter((q) => q.id !== id));
-      showToast('Soal berhasil dihapus.');
+      try {
+        await b6ApiFetch(`/banks/${encodeURIComponent(selectedMapel.bankId)}/questions/${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+        });
+        setQuestionsByBank((prev) => ({
+          ...prev,
+          [selectedMapel.bankId]: prev[selectedMapel.bankId].filter((question) => question.id !== id),
+        }));
+        showToast('Soal berhasil dihapus.');
+      } catch (error) {
+        showToast(error.message, 'error');
+      }
     }
   };
 
   // Handler for creating question
-  const handleCreateQuestionSubmit = (e) => {
+  const handleCreateQuestionSubmit = async (e) => {
     e.preventDefault();
     if (!newQuestion.pertanyaan.trim()) {
       showToast('Pertanyaan wajib diisi!', 'error');
       return;
     }
 
-    const created = {
-      id: Date.now(),
-      tipe: newQuestion.tipe,
-      metode: 'Dibuat',
-      tanggal: 'Hari ini',
-      pertanyaan: newQuestion.pertanyaan,
-      tag: `${selectedKelas.romawi} • ${selectedMapel?.nama || 'Matematika'} • ${selectedMapel?.materi || 'Komposisi & invers'}`,
-      kelasId: selectedKelas.id,
-      mapelId: selectedMapel?.id || 'mat-xi',
-      materi: selectedMapel?.materi || 'Komposisi & invers',
-      pilihan:
-        newQuestion.tipe === 'Pilihan Ganda'
-          ? [
-              { key: 'A', teks: newQuestion.pilihanA || 'Pilihan A' },
-              { key: 'B', teks: newQuestion.pilihanB || 'Pilihan B' },
-              { key: 'C', teks: newQuestion.pilihanC || 'Pilihan C' },
-              { key: 'D', teks: newQuestion.pilihanD || 'Pilihan D' },
-            ]
-          : [
-              { key: 'B', teks: 'Benar' },
-              { key: 'S', teks: 'Salah' },
-            ],
-      kunciJawaban: newQuestion.kunci,
-    };
+    if (!selectedMapel?.bankId) {
+      showToast('Pilih bank soal terlebih dahulu.', 'error');
+      return;
+    }
 
-    setQuestions((prev) => [created, ...prev]);
-    setShowAddModal(false);
-    setNewQuestion({
-      pertanyaan: '',
-      tipe: 'Pilihan Ganda',
-      pilihanA: '',
-      pilihanB: '',
-      pilihanC: '',
-      pilihanD: '',
-      kunci: 'A',
-    });
-    showToast('Soal baru berhasil ditambahkan ke bank soal!');
+    const options = newQuestion.tipe === 'Pilihan Ganda'
+      ? ['A', 'B', 'C', 'D'].map((optionLabel) => ({
+          option_label: optionLabel,
+          option_text: newQuestion[`pilihan${optionLabel}`].trim(),
+          is_correct: newQuestion.kunci === optionLabel,
+        }))
+      : [
+          { option_label: 'B', option_text: 'Benar', is_correct: newQuestion.kunci === 'B' },
+          { option_label: 'S', option_text: 'Salah', is_correct: newQuestion.kunci === 'S' },
+        ];
+
+    if (options.some((option) => !option.option_text)) {
+      showToast('Lengkapi semua pilihan jawaban sebelum menyimpan.', 'error');
+      return;
+    }
+
+    try {
+      const payload = {
+        question_text: newQuestion.pertanyaan.trim(),
+        question_type: newQuestion.tipe === 'Pilihan Ganda' ? 'PILIHAN_GANDA' : 'BENAR_SALAH',
+        default_points: 1,
+        options,
+      };
+      const savedQuestion = await b6ApiFetch(
+        `/banks/${encodeURIComponent(selectedMapel.bankId)}/questions${editingQuestionId ? `/${encodeURIComponent(editingQuestionId)}` : '/manual'}`,
+        {
+          method: editingQuestionId ? 'PUT' : 'POST',
+          body: JSON.stringify(payload),
+        },
+      );
+      const viewModel = toQuestionViewModel(savedQuestion, banks.find((bank) => bank.id === selectedMapel.bankId) || {});
+      setQuestionsByBank((prev) => ({
+        ...prev,
+        [selectedMapel.bankId]: editingQuestionId
+          ? prev[selectedMapel.bankId].map((question) => question.id === editingQuestionId ? viewModel : question)
+          : [viewModel, ...(prev[selectedMapel.bankId] || [])],
+      }));
+      setShowAddModal(false);
+      setEditingQuestionId(null);
+      setNewQuestion({
+        pertanyaan: '',
+        tipe: 'Pilihan Ganda',
+        pilihanA: '',
+        pilihanB: '',
+        pilihanC: '',
+        pilihanD: '',
+        kunci: 'A',
+      });
+      showToast(editingQuestionId ? 'Soal berhasil diperbarui.' : 'Soal baru berhasil ditambahkan ke bank soal!');
+    } catch (error) {
+      showToast(error.message, 'error');
+    }
   };
 
   // Filtered questions
@@ -191,7 +313,13 @@ export default function BankSoalPage() {
                 <span>Impor Soal</span>
               </button>
               <button
-                onClick={() => setShowAddModal(true)}
+                onClick={() => {
+                  if (!selectedMapel?.bankId) {
+                    showToast('Pilih kelas dan materi sebelum menambahkan soal.', 'error');
+                    return;
+                  }
+                  setShowAddModal(true);
+                }}
                 className="rounded-xl bg-[#004d57] px-5 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] shadow-xs transition-colors"
               >
                 Tambah Soal
@@ -209,12 +337,12 @@ export default function BankSoalPage() {
               <div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-bold text-slate-800">
-                    {mockBankSoalStats.totalSoal}
+                    {totalQuestions}
                   </span>
                   <span className="text-xs font-semibold text-slate-700">total soal</span>
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {mockBankSoalStats.totalKelas} kelas • {mockBankSoalStats.totalMateri} materi
+                  {kelasList.length} kelas • {new Set(banks.map((bank) => bank.topic_name).filter(Boolean)).size} materi
                 </p>
               </div>
             </div>
@@ -227,12 +355,12 @@ export default function BankSoalPage() {
               <div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-bold text-slate-800">
-                    {mockBankSoalStats.dibuat}
+                    {banks.length}
                   </span>
-                  <span className="text-xs font-semibold text-slate-700">dibuat</span>
+                  <span className="text-xs font-semibold text-slate-700">bank soal</span>
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Ditulis langsung di aplikasi
+                  Tersedia di database
                 </p>
               </div>
             </div>
@@ -245,9 +373,9 @@ export default function BankSoalPage() {
               <div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-bold text-slate-800">
-                    {mockBankSoalStats.diimpor}
+                    {importedQuestionCount ?? '—'}
                   </span>
-                  <span className="text-xs font-semibold text-slate-700">diimpor</span>
+                  <span className="text-xs font-semibold text-slate-700">soal valid diimpor</span>
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">
                   Ditambahkan dari Excel
@@ -311,7 +439,7 @@ export default function BankSoalPage() {
                 Mata pelajaran tersedia
               </span>
               <div className="text-sm font-bold text-slate-800 mt-1">
-                {showEmptyMapel ? '-' : selectedMapel?.nama || 'Matematika'}
+                {showEmptyMapel ? '-' : `${selectedKelas.mapelList.length} bank soal`}
               </div>
             </div>
             <div>
@@ -344,7 +472,7 @@ export default function BankSoalPage() {
             </button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
             <span className="text-[#005b64] font-semibold">
-              {selectedMapel?.nama || 'Matematika'}
+              {selectedMapel?.nama || 'Mata pelajaran'}
             </span>
           </nav>
 
@@ -380,13 +508,13 @@ export default function BankSoalPage() {
             <div>
               <span className="text-xs text-slate-400 font-medium">Mata pelajaran</span>
               <div className="text-sm font-bold text-slate-800 mt-1">
-                {selectedMapel?.nama || 'Matematika'}
+                {selectedMapel?.nama || 'Mata pelajaran'}
               </div>
             </div>
             <div>
               <span className="text-xs text-slate-400 font-medium">Materi</span>
               <div className="text-sm font-bold text-slate-800 mt-1">
-                {selectedMapel?.materi || 'Komposisi & invers'}
+                {selectedMapel?.materi || 'Materi belum ditentukan'}
               </div>
             </div>
           </div>
@@ -489,7 +617,15 @@ export default function BankSoalPage() {
            ===================================================================== */}
         {currentStep === 1 && (
           <div className="grid grid-cols-1 gap-5 md:grid-cols-3 pt-2">
-            {mockKelasList.map((kelas) => (
+            {isLoading ? (
+              <div className="col-span-full rounded-xl border border-slate-100 bg-white p-6 text-center text-xs text-slate-400">
+                Memuat bank soal...
+              </div>
+            ) : kelasList.length === 0 ? (
+              <div className="col-span-full rounded-xl border border-amber-300 bg-amber-50/50 p-6 text-center text-xs font-medium text-amber-800">
+                Belum ada bank soal di database.
+              </div>
+            ) : kelasList.map((kelas) => (
               <div
                 key={kelas.id}
                 className="flex flex-col justify-between rounded-2xl border border-cyan-100/80 bg-white p-5 shadow-2xs hover:shadow-md transition-shadow"
@@ -551,14 +687,16 @@ export default function BankSoalPage() {
               </button>
             </div>
 
-            {showEmptyMapel ? (
+            {showEmptyMapel || selectedKelas.mapelList.length === 0 ? (
               /* Empty State (Sesuai Gambar 3) */
               <div className="rounded-xl border border-amber-300 bg-amber-50/50 p-4 text-center text-xs font-medium text-amber-800">
                 Belum ada mapel yang diinput silahkan hubungi admin.
               </div>
             ) : (
               /* Subject Card (Sesuai Gambar 2) */
-              <div className="rounded-2xl border border-cyan-100/80 bg-white p-5 shadow-2xs space-y-4">
+              <div className="space-y-4">
+                {selectedKelas.mapelList.map((mapel) => (
+                  <div key={mapel.bankId} className="rounded-2xl border border-cyan-100/80 bg-white p-5 shadow-2xs space-y-4">
                 {/* Header Card: Ikon Calculator & Badge 2 soal */}
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3.5">
@@ -575,7 +713,7 @@ export default function BankSoalPage() {
                     </div>
                   </div>
                   <span className="rounded-full bg-[#e0f7fa] px-3 py-1 text-xs font-semibold text-[#006064]">
-                    {selectedKelas.totalSoal} soal
+                    {mapel.totalSoal} soal
                   </span>
                 </div>
 
@@ -583,26 +721,28 @@ export default function BankSoalPage() {
                 <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 space-y-1">
                   <span className="text-xs text-slate-400 font-medium">Materi tersedia</span>
                   <div className="text-sm font-bold text-slate-800">
-                    {selectedMapel?.materi || 'Komposisi & invers'}
+                    {mapel.materi}
                   </div>
                   <div className="text-xs text-slate-500">
-                    {selectedMapel?.tipeSoal || 'Pilihan Ganda • Benar / Salah'}
+                    {mapel.tipeSoal}
                   </div>
                 </div>
 
                 {/* Footer bar */}
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-2">
                   <span className="text-xs text-slate-500">
-                    Lihat dan kelola soal {selectedMapel?.nama || 'Matematika'} untuk Kelas{' '}
+                    Lihat dan kelola soal {mapel.nama} untuk Kelas{' '}
                     {selectedKelas.romawi}.
                   </span>
                   <button
-                    onClick={() => handlePilihMapel(selectedMapel)}
+                    onClick={() => handlePilihMapel(mapel)}
                     className="rounded-xl bg-[#004d57] px-5 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] transition-colors"
                   >
-                    Lihat Soal {selectedMapel?.nama || 'Matematika'}
+                    Lihat Soal {mapel.nama}
                   </button>
                 </div>
+              </div>
+                ))}
               </div>
             )}
           </div>
@@ -713,13 +853,14 @@ export default function BankSoalPage() {
                         {/* Tombol Edit */}
                         <button
                           onClick={() => {
+                            setEditingQuestionId(q.id);
                             setNewQuestion({
                               pertanyaan: q.pertanyaan,
                               tipe: q.tipe,
-                              pilihanA: q.pilihan?.[0]?.teks || '',
-                              pilihanB: q.pilihan?.[1]?.teks || '',
-                              pilihanC: q.pilihan?.[2]?.teks || '',
-                              pilihanD: q.pilihan?.[3]?.teks || '',
+                              pilihanA: q.pilihan?.find((option) => option.key === 'A')?.teks || '',
+                              pilihanB: q.pilihan?.find((option) => option.key === 'B')?.teks || '',
+                              pilihanC: q.pilihan?.find((option) => option.key === 'C')?.teks || '',
+                              pilihanD: q.pilihan?.find((option) => option.key === 'D')?.teks || '',
                               kunci: q.kunciJawaban || 'A',
                             });
                             setShowAddModal(true);
@@ -765,10 +906,13 @@ export default function BankSoalPage() {
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-800">
-                Tambah Soal Baru
+                {editingQuestionId ? 'Edit Soal' : 'Tambah Soal Baru'}
               </h3>
               <button
-                onClick={() => setShowAddModal(false)}
+                onClick={() => {
+                  setShowAddModal(false);
+                  setEditingQuestionId(null);
+                }}
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
               >
                 <X className="h-5 w-5" />
@@ -782,9 +926,11 @@ export default function BankSoalPage() {
                 </label>
                 <select
                   value={newQuestion.tipe}
-                  onChange={(e) =>
-                    setNewQuestion({ ...newQuestion, tipe: e.target.value })
-                  }
+                  onChange={(e) => setNewQuestion({
+                    ...newQuestion,
+                    tipe: e.target.value,
+                    kunci: e.target.value === 'Pilihan Ganda' ? 'A' : 'B',
+                  })}
                   className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium text-slate-700 focus:border-[#004d57] focus:outline-none"
                 >
                   <option value="Pilihan Ganda">Pilihan Ganda</option>
@@ -868,7 +1014,10 @@ export default function BankSoalPage() {
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => {
+                    setShowAddModal(false);
+                    setEditingQuestionId(null);
+                  }}
                   className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
                 >
                   Batal
@@ -1033,4 +1182,3 @@ export default function BankSoalPage() {
     </div>
   );
 }
-

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ChevronRight,
@@ -8,24 +8,24 @@ import {
   Search,
   ChevronDown,
   Info,
-  CheckCircle2,
-  XCircle,
-  HelpCircle,
   X,
 } from 'lucide-react';
-import {
-  mockAsesmenHeader,
-  mockRekapKpi,
-  mockDistribusiNilai,
-  mockSiswaRekapList,
-} from '../../data/mockRekapHasil';
+import { b6ApiFetch } from './b6-api';
 
 export default function RekapHasilPage() {
   // Filters & Search
-  const [selectedAsesmen, setSelectedAsesmen] = useState('Ulangan Harian Matematika XI');
+  const [selectedAsesmen, setSelectedAsesmen] = useState('');
   const [selectedJenis, setSelectedJenis] = useState('Ulangan Harian');
-  const [selectedKelas, setSelectedKelas] = useState('XI IPA 1 (contoh)');
+  const [selectedKelas, setSelectedKelas] = useState('all');
   const [selectedSemester, setSelectedSemester] = useState('Ganjil 2026/2027');
+  const [quizzes, setQuizzes] = useState([]);
+  const [quizDetail, setQuizDetail] = useState(null);
+  const [attempts, setAttempts] = useState([]);
+  const [attemptsQuizId, setAttemptsQuizId] = useState('');
+  const [students, setStudents] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPengerjaan, setFilterPengerjaan] = useState('Semua status');
@@ -34,22 +34,164 @@ export default function RekapHasilPage() {
   // Selected student for detail modal
   const [selectedSiswa, setSelectedSiswa] = useState(null);
 
-  // Filtered student list
-  const filteredStudents = useMemo(() => {
-    return mockSiswaRekapList.filter((item) => {
-      const matchSearch =
-        item.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.kode.toLowerCase().includes(searchQuery.toLowerCase());
+  const selectedQuiz = (String(quizDetail?.id) === selectedAsesmen ? quizDetail : null)
+    || quizzes.find((quiz) => String(quiz.id) === selectedAsesmen)
+    || null;
 
-      const matchPengerjaan =
-        filterPengerjaan === 'Semua status' || item.pengerjaan === filterPengerjaan;
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      b6ApiFetch('/quizzes'),
+      b6ApiFetch('/master/users/students'),
+      b6ApiFetch('/master/classes'),
+    ])
+      .then(([quizData, studentData, classData]) => {
+        if (!active) return;
+        const quizList = Array.isArray(quizData) ? quizData : [];
+        setQuizzes(quizList);
+        setStudents(Array.isArray(studentData) ? studentData : []);
+        setClasses(Array.isArray(classData) ? classData : []);
+        if (quizList.length > 0) setSelectedAsesmen(String(quizList[0].id));
+      })
+      .catch((error) => {
+        if (active) setErrorMessage(error.message);
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
 
-      const matchKetuntasan =
-        filterKetuntasan === 'Semua hasil' || item.ketuntasan === filterKetuntasan;
+    return () => {
+      active = false;
+    };
+  }, []);
 
-      return matchSearch && matchPengerjaan && matchKetuntasan;
+  useEffect(() => {
+    if (!selectedAsesmen) {
+      return undefined;
+    }
+
+    let active = true;
+    Promise.all([
+      b6ApiFetch(`/quizzes/${encodeURIComponent(selectedAsesmen)}`),
+      b6ApiFetch(`/attempts?quiz_id=${encodeURIComponent(selectedAsesmen)}`),
+    ])
+      .then(([quizData, attemptData]) => {
+        if (!active) return;
+        setQuizDetail(quizData);
+        setAttempts(Array.isArray(attemptData) ? attemptData : []);
+        setAttemptsQuizId(selectedAsesmen);
+        if (quizData.academic_term) setSelectedSemester(quizData.academic_term);
+      })
+      .catch((error) => {
+        if (active) setErrorMessage(error.message);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedAsesmen]);
+
+  const classFilter = selectedKelas === 'all' && selectedQuiz?.class_id
+    ? String(selectedQuiz.class_id)
+    : selectedKelas;
+  const selectedAttempts = useMemo(
+    () => String(attemptsQuizId) === selectedAsesmen ? attempts : [],
+    [attempts, attemptsQuizId, selectedAsesmen],
+  );
+
+  const studentRows = useMemo(() => {
+    const roster = students.filter((student) => {
+      const classId = student.class_id || student.classes?.id;
+      const quizClassId = selectedQuiz?.class_id;
+      if (classFilter !== 'all' && String(classId) !== classFilter) return false;
+      return !quizClassId || String(classId) === String(quizClassId);
     });
-  }, [searchQuery, filterPengerjaan, filterKetuntasan]);
+    const attemptsByStudent = new Map();
+    selectedAttempts.forEach((attempt) => {
+      if (!attemptsByStudent.has(String(attempt.student_id))) {
+        attemptsByStudent.set(String(attempt.student_id), attempt);
+      }
+    });
+
+    return roster.map((student, index) => {
+      const attempt = attemptsByStudent.get(String(student.id));
+      const rawScore = attempt?.score;
+      const score = rawScore === null || rawScore === undefined || rawScore === ''
+        ? null
+        : Number(rawScore);
+      const validScore = Number.isFinite(score) ? score : null;
+      const normalizedStatus = String(attempt?.status || '').toUpperCase();
+      const isComplete = ['SELESAI', 'COMPLETED', 'SUBMITTED'].includes(normalizedStatus);
+      const pengerjaan = isComplete ? 'Selesai'
+        : attempt ? 'Mengerjakan' : 'Belum mulai';
+      const startedAt = attempt?.started_at ? new Date(attempt.started_at).getTime() : null;
+      const finishedAt = attempt?.submitted_at ? new Date(attempt.submitted_at).getTime() : null;
+      const elapsedMinutes = startedAt && finishedAt && finishedAt >= startedAt
+        ? Math.round((finishedAt - startedAt) / 60000)
+        : null;
+      const className = student.classes?.name
+        || classes.find((item) => String(item.id) === String(student.class_id))?.name;
+      const nis = student.nis || student.id;
+      const passingGrade = Number(selectedQuiz?.passing_grade ?? 75);
+
+      return {
+        no: String(index + 1).padStart(2, '0'),
+        studentId: student.id,
+        nama: student.name || 'Siswa',
+        kode: `${nis}${className ? ` • ${className}` : ''}`,
+        nilai: validScore ?? '—',
+        benar: '—',
+        salah: '—',
+        waktu: elapsedMinutes === null ? '—' : `${elapsedMinutes} mnt`,
+        pengerjaan,
+        ketuntasan: validScore === null ? 'Belum dinilai'
+          : validScore >= passingGrade ? 'Tuntas' : 'Belum tuntas',
+      };
+    });
+  }, [students, classes, selectedAttempts, selectedQuiz, classFilter]);
+
+  const filteredStudents = useMemo(() => studentRows.filter((item) => {
+    const matchSearch = item.nama.toLowerCase().includes(searchQuery.toLowerCase())
+      || item.kode.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchPengerjaan = filterPengerjaan === 'Semua status'
+      || item.pengerjaan === filterPengerjaan;
+    const matchKetuntasan = filterKetuntasan === 'Semua hasil'
+      || item.ketuntasan === filterKetuntasan;
+    return matchSearch && matchPengerjaan && matchKetuntasan;
+  }), [studentRows, searchQuery, filterPengerjaan, filterKetuntasan]);
+
+  const scoredStudents = studentRows.filter((student) => typeof student.nilai === 'number');
+  const completedStudents = studentRows.filter((student) => student.pengerjaan === 'Selesai');
+  const passingStudents = scoredStudents.filter((student) => student.ketuntasan === 'Tuntas');
+  const averageScore = scoredStudents.length
+    ? (scoredStudents.reduce((total, student) => total + student.nilai, 0) / scoredStudents.length).toFixed(1)
+    : '—';
+  const passRate = scoredStudents.length
+    ? Math.round((passingStudents.length / scoredStudents.length) * 100)
+    : 0;
+  const scoreDistribution = [
+    { rentang: '0–59', min: 0, max: 59 },
+    { rentang: '60–74', min: 60, max: 74 },
+    { rentang: '75–89', min: 75, max: 89 },
+    { rentang: '90–100', min: 90, max: 100 },
+  ].map((range) => ({
+    ...range,
+    jumlah: scoredStudents.filter((student) => student.nilai >= range.min && student.nilai <= range.max).length,
+  }));
+  const maxDistribution = Math.max(1, ...scoreDistribution.map((item) => item.jumlah));
+  const distribution = scoreDistribution.map((item) => ({
+    ...item,
+    height: `${(item.jumlah / maxDistribution) * 100}%`,
+  }));
+  const scoreValues = scoredStudents.map((student) => student.nilai);
+  const passingGrade = Number(selectedQuiz?.passing_grade ?? 75);
+  const startDate = selectedQuiz?.start_at
+    ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(selectedQuiz.start_at))
+    : '—';
+  const startTime = selectedQuiz?.start_at
+    ? new Intl.DateTimeFormat('id-ID', { timeStyle: 'short' }).format(new Date(selectedQuiz.start_at))
+    : '—';
+  const quizStatus = selectedQuiz?.status || '—';
 
   const handleExport = () => {
     alert('Rekap hasil berhasil diekspor dalam format Excel (.xlsx)!');
@@ -91,6 +233,12 @@ export default function RekapHasilPage() {
         </button>
       </div>
 
+      {errorMessage && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-medium text-red-700">
+          {errorMessage}
+        </div>
+      )}
+
       {/* 3. Filter Card & Asesmen Metadata */}
       <div className="rounded-2xl border border-slate-100 bg-white p-5 sm:p-6 shadow-xs space-y-5">
         {/* Dropdowns Row */}
@@ -106,11 +254,10 @@ export default function RekapHasilPage() {
                 onChange={(e) => setSelectedAsesmen(e.target.value)}
                 className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-8 text-xs sm:text-sm font-semibold text-slate-800 focus:border-[#004d57] focus:outline-none"
               >
-                <option value="Ulangan Harian Matematika XI">
-                  Ulangan Harian Matematika XI
-                </option>
-                <option value="Kuis Logika Matematika">Kuis Logika Matematika</option>
-                <option value="Penilaian Akhir Semester">Penilaian Akhir Semester</option>
+                <option value="">Pilih asesmen</option>
+                {quizzes.map((quiz) => (
+                  <option key={quiz.id} value={quiz.id}>{quiz.title}</option>
+                ))}
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             </div>
@@ -130,6 +277,9 @@ export default function RekapHasilPage() {
                 <option value="Ulangan Harian">Ulangan Harian</option>
                 <option value="Tugas Mandiri">Tugas Mandiri</option>
                 <option value="Ujian Tengah Semester">Ujian Tengah Semester</option>
+                {selectedQuiz?.assessment_type
+                  && !['Ulangan Harian', 'Tugas Mandiri', 'Ujian Tengah Semester'].includes(selectedQuiz.assessment_type)
+                  && <option value={selectedQuiz.assessment_type}>{selectedQuiz.assessment_type}</option>}
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             </div>
@@ -142,14 +292,14 @@ export default function RekapHasilPage() {
             </label>
             <div className="relative">
               <select
-                value={selectedKelas}
+                value={classFilter}
                 onChange={(e) => setSelectedKelas(e.target.value)}
                 className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-8 text-xs sm:text-sm font-semibold text-slate-800 focus:border-[#004d57] focus:outline-none"
               >
-                <option value="XI IPA 1 (contoh)">XI IPA 1 (contoh)</option>
-                <option value="XI IPA 2">XI IPA 2</option>
-                <option value="XI IPA 3">XI IPA 3</option>
-                <option value="XI IPS 1">XI IPS 1</option>
+                <option value="all">Semua kelas</option>
+                {classes.map((classItem) => (
+                  <option key={classItem.id} value={classItem.id}>{classItem.name}</option>
+                ))}
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             </div>
@@ -166,6 +316,8 @@ export default function RekapHasilPage() {
                 onChange={(e) => setSelectedSemester(e.target.value)}
                 className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-8 text-xs sm:text-sm font-semibold text-slate-800 focus:border-[#004d57] focus:outline-none"
               >
+                {selectedQuiz?.academic_term && !['Ganjil 2026/2027', 'Genap 2026/2027'].includes(selectedQuiz.academic_term)
+                  && <option value={selectedQuiz.academic_term}>{selectedQuiz.academic_term}</option>}
                 <option value="Ganjil 2026/2027">Ganjil 2026/2027</option>
                 <option value="Genap 2026/2027">Genap 2026/2027</option>
               </select>
@@ -178,32 +330,32 @@ export default function RekapHasilPage() {
         <div className="flex flex-col gap-3 pt-3 border-t border-slate-100 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-base font-bold text-slate-800">
-              {mockAsesmenHeader.judul}
+              {selectedQuiz?.title || (isLoading ? 'Memuat asesmen...' : 'Belum ada asesmen')}
             </h2>
             <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
               <span className="flex items-center gap-1.5">
                 <FileText className="h-3.5 w-3.5 text-slate-400" />
-                {mockAsesmenHeader.soalInfo}
+                {selectedQuiz?.quiz_questions?.length || 0} soal
               </span>
               <span>•</span>
               <span className="flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-slate-400" />
-                {mockAsesmenHeader.durasi}
+                {selectedQuiz?.duration_minutes ? `${selectedQuiz.duration_minutes} menit` : 'Durasi belum ditentukan'}
               </span>
               <span>•</span>
               <span className="font-semibold text-slate-700">
-                KKM {mockAsesmenHeader.kkm}
+                KKM {selectedQuiz?.passing_grade ?? 75}
               </span>
               <span>•</span>
               <span>
-                {mockAsesmenHeader.tanggal} • {mockAsesmenHeader.waktu}
+                {startDate} • {startTime}
               </span>
             </div>
           </div>
 
           <div>
             <span className="inline-flex items-center rounded-md bg-[#e0f7fa] px-3 py-1 text-xs font-semibold text-[#006064]">
-              {mockAsesmenHeader.status}
+              {quizStatus}
             </span>
           </div>
         </div>
@@ -216,11 +368,11 @@ export default function RekapHasilPage() {
           <p className="text-xs font-medium text-slate-400">Jumlah siswa</p>
           <div className="mt-2 flex items-baseline gap-1.5">
             <span className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-800">
-              {mockRekapKpi.jumlahSiswa}
+              {studentRows.length}
             </span>
             <span className="text-xs font-semibold text-slate-500">siswa</span>
           </div>
-          <p className="mt-1 text-[11px] text-slate-400">Terdaftar di kelas contoh</p>
+          <p className="mt-1 text-[11px] text-slate-400">Terdaftar pada kelas yang dipilih</p>
         </div>
 
         {/* KPI 2 */}
@@ -228,11 +380,11 @@ export default function RekapHasilPage() {
           <p className="text-xs font-medium text-slate-400">Rata-rata nilai</p>
           <div className="mt-2 flex items-baseline gap-1.5">
             <span className="text-2xl sm:text-3xl font-bold tracking-tight text-[#005b64]">
-              {mockRekapKpi.rataRata}
+              {averageScore}
             </span>
             <span className="text-xs font-semibold text-slate-400">/ 100</span>
           </div>
-          <p className="mt-1 text-[11px] text-slate-400">Dari 10 siswa yang selesai</p>
+          <p className="mt-1 text-[11px] text-slate-400">Dari {scoredStudents.length} siswa yang memiliki nilai</p>
         </div>
 
         {/* KPI 3 */}
@@ -240,11 +392,11 @@ export default function RekapHasilPage() {
           <p className="text-xs font-medium text-slate-400">Ketuntasan</p>
           <div className="mt-2 flex items-baseline gap-1.5">
             <span className="text-2xl sm:text-3xl font-bold tracking-tight text-[#008994]">
-              {mockRekapKpi.ketuntasanPersen}%
+              {passRate}%
             </span>
             <span className="text-xs font-semibold text-slate-500">tuntas</span>
           </div>
-          <p className="mt-1 text-[11px] text-slate-400">{mockRekapKpi.ketuntasanSiswa}</p>
+          <p className="mt-1 text-[11px] text-slate-400">{passingStudents.length} dari {scoredStudents.length} siswa bernilai</p>
         </div>
 
         {/* KPI 4 */}
@@ -252,11 +404,11 @@ export default function RekapHasilPage() {
           <p className="text-xs font-medium text-slate-400">Pengerjaan selesai</p>
           <div className="mt-2 flex items-baseline gap-1.5">
             <span className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-800">
-              {mockRekapKpi.pengerjaanSelesai}
+              {completedStudents.length} / {studentRows.length}
             </span>
             <span className="text-xs font-semibold text-slate-500">siswa</span>
           </div>
-          <p className="mt-1 text-[11px] text-slate-400">{mockRekapKpi.pengerjaanSub}</p>
+          <p className="mt-1 text-[11px] text-slate-400">{studentRows.length - completedStudents.length} belum selesai</p>
         </div>
       </div>
 
@@ -267,7 +419,7 @@ export default function RekapHasilPage() {
           <div>
             <div className="flex items-center justify-between pb-3">
               <h2 className="text-base font-bold text-slate-800">Distribusi Nilai</h2>
-              <span className="text-xs text-slate-400">10 siswa selesai</span>
+              <span className="text-xs text-slate-400">{scoredStudents.length} siswa memiliki nilai</span>
             </div>
 
             {/* Bar Chart Container */}
@@ -295,7 +447,7 @@ export default function RekapHasilPage() {
               </div>
 
               {/* Bars */}
-              {mockDistribusiNilai.map((item, idx) => {
+              {distribution.map((item, idx) => {
                 // Color variation as in mockup:
                 // 0-59: light cyan #b2ebf2
                 // 60-74: medium soft cyan #80deea
@@ -327,7 +479,7 @@ export default function RekapHasilPage() {
 
             {/* X-axis labels */}
             <div className="flex items-center justify-between px-6 pt-2 text-xs font-semibold text-slate-500">
-              {mockDistribusiNilai.map((item) => (
+              {distribution.map((item) => (
                 <div key={item.rentang} className="flex-1 text-center">
                   {item.rentang}
                 </div>
@@ -337,7 +489,9 @@ export default function RekapHasilPage() {
 
           {/* Subnote */}
           <p className="mt-6 text-[11px] text-slate-400">
-            Nilai tertinggi 95 • Nilai terendah 55 • Nilai = benar / 40 × 100
+            {scoreValues.length
+              ? `Nilai tertinggi ${Math.max(...scoreValues)} • Nilai terendah ${Math.min(...scoreValues)}`
+              : 'Belum ada nilai tersimpan untuk asesmen ini.'}
           </p>
         </div>
 
@@ -369,7 +523,7 @@ export default function RekapHasilPage() {
                     strokeWidth="14"
                     fill="transparent"
                     strokeDasharray={326.72}
-                    strokeDashoffset={326.72 * (1 - 0.7)}
+                    strokeDashoffset={326.72 * (1 - passRate / 100)}
                     strokeLinecap="round"
                     className="transition-all duration-1000 ease-out"
                   />
@@ -377,7 +531,7 @@ export default function RekapHasilPage() {
                 {/* Center text */}
                 <div className="absolute flex flex-col items-center justify-center text-center">
                   <span className="text-2xl font-bold tracking-tight text-slate-800">
-                    70%
+                    {passRate}%
                   </span>
                   <span className="text-[11px] font-medium text-slate-400">tuntas</span>
                 </div>
@@ -389,7 +543,7 @@ export default function RekapHasilPage() {
                   <span className="h-3 w-3 rounded-full bg-[#008994]" />
                   <div>
                     <span className="text-xs text-slate-500">Tuntas</span>
-                    <p className="text-xs font-bold text-slate-800">7 siswa</p>
+                    <p className="text-xs font-bold text-slate-800">{passingStudents.length} siswa</p>
                   </div>
                 </div>
 
@@ -397,11 +551,11 @@ export default function RekapHasilPage() {
                   <span className="h-3 w-3 rounded-full bg-[#a5e3e8]" />
                   <div>
                     <span className="text-xs text-slate-500">Belum tuntas</span>
-                    <p className="text-xs font-bold text-slate-800">3 siswa</p>
+                    <p className="text-xs font-bold text-slate-800">{scoredStudents.length - passingStudents.length} siswa</p>
                   </div>
                 </div>
 
-                <p className="text-[11px] text-slate-400 pt-1">KKM ≥ 75</p>
+                <p className="text-[11px] text-slate-400 pt-1">KKM ≥ {passingGrade}</p>
               </div>
             </div>
           </div>
@@ -409,10 +563,10 @@ export default function RekapHasilPage() {
           {/* Remedial Recommendation Box */}
           <div className="mt-6 rounded-xl bg-slate-50/80 border border-slate-100 p-3.5">
             <h4 className="text-xs font-bold text-slate-800">
-              3 siswa perlu penguatan materi
+              {scoredStudents.length - passingStudents.length} siswa perlu penguatan materi
             </h4>
             <p className="mt-0.5 text-[11px] text-slate-500">
-              Siapkan remedial; 2 siswa lainnya belum memiliki nilai akhir.
+              {studentRows.length - scoredStudents.length} siswa belum memiliki nilai akhir.
             </p>
           </div>
         </div>
@@ -430,7 +584,7 @@ export default function RekapHasilPage() {
               </p>
             </div>
             <span className="rounded-md bg-[#e0f7fa] px-3 py-1 text-xs font-semibold text-[#006064]">
-              {mockSiswaRekapList.length} siswa
+              {studentRows.length} siswa
             </span>
           </div>
 
@@ -532,7 +686,7 @@ export default function RekapHasilPage() {
                       <span
                         className={`font-bold ${
                           typeof siswa.nilai === 'number'
-                            ? siswa.nilai >= 75
+                            ? siswa.nilai >= passingGrade
                               ? 'text-slate-800'
                               : 'text-amber-700'
                             : 'text-slate-400'
@@ -615,7 +769,7 @@ export default function RekapHasilPage() {
         {/* Table Footer */}
         <div className="flex flex-col gap-2 p-4 border-t border-slate-100 sm:flex-row sm:items-center sm:justify-between text-xs text-slate-400">
           <div>
-            <span>Menampilkan {filteredStudents.length} dari {mockSiswaRekapList.length} siswa contoh</span>
+            <span>Menampilkan {filteredStudents.length} dari {studentRows.length} siswa</span>
             <p className="text-[11px] text-slate-400 mt-0.5">
               * Waktu berjalan untuk siswa yang masih mengerjakan. Tanda — berarti hasil akhir belum tersedia.
             </p>
@@ -630,7 +784,7 @@ export default function RekapHasilPage() {
       <div className="flex items-start gap-2.5 text-xs text-slate-400 leading-relaxed pt-2">
         <Info className="h-4 w-4 text-slate-400 flex-shrink-0 mt-0.5" />
         <span>
-          Rata-rata, ketuntasan, dan distribusi dihitung dari 10 siswa selesai. Setiap soal berbobot sama; seluruh jawaban siswa selesai terisi. Rata-rata waktu pengerjaan: 56,1 menit.
+          Nilai, ketuntasan, dan distribusi dihitung dari data nilai yang tersedia pada backend. Jumlah benar/salah belum tersedia dari API rekap.
         </span>
       </div>
 
@@ -692,7 +846,7 @@ export default function RekapHasilPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Batas KKM:</span>
-                <span className="font-semibold text-slate-700">75 poin</span>
+                <span className="font-semibold text-slate-700">{passingGrade} poin</span>
               </div>
             </div>
 

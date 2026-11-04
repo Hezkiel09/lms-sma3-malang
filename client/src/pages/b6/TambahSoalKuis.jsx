@@ -1,61 +1,241 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   ChevronRight,
   Upload,
   CheckCircle2,
   FileText,
 } from 'lucide-react';
+import { b6ApiFetch } from './b6-api';
+
+const rubricList = [
+  { text: 'Menentukan a = 5 dan b = 3 dengan benar.', points: 2 },
+  { text: 'Menggunakan rumus U₁₀ dan memperoleh U₁₀ = 32.', points: 3 },
+  { text: 'Menuliskan rumus S₁₀ = n/2 × (2a + (n - 1)b).', points: 2 },
+  { text: 'Menghitung S₁₀ = 185 dengan langkah yang benar.', points: 3 },
+];
+
+const normalize = (value) => String(value || '').trim().toLowerCase();
+
+function resolveQuestionBank(banks, quiz) {
+  const title = normalize(quiz.title);
+  const subjectBanks = quiz.subject_id
+    ? banks.filter((bank) => String(bank.subject_id) === String(quiz.subject_id))
+    : [];
+  if (subjectBanks.length === 1) return subjectBanks[0];
+
+  const matchedByMetadata = subjectBanks.filter((bank) => {
+    const bankLevel = normalize(bank.class_level).replace(/^kelas\s+/, '');
+    return Boolean(bankLevel) && title.includes(bankLevel);
+  });
+
+  if (matchedByMetadata.length === 1) return matchedByMetadata[0];
+  if (banks.length === 1) return banks[0];
+
+  const titleMatches = banks.filter((bank) => {
+    const subjectName = bank.subject_name || bank.name;
+    const bankLevel = normalize(bank.class_level).replace(/^kelas\s+/, '');
+    return normalize(subjectName)
+      && title.includes(normalize(subjectName))
+      && bankLevel
+      && title.includes(bankLevel);
+  });
+
+  return titleMatches.length === 1 ? titleMatches[0] : null;
+}
 
 export default function TambahSoalKuisPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const quizId = location.state?.quizId || sessionStorage.getItem('b6.currentQuizId');
+  const [quiz, setQuiz] = useState(null);
+  const [questionNumber, setQuestionNumber] = useState(1);
+  const [questionBankId, setQuestionBankId] = useState('');
+  const [isLoading, setIsLoading] = useState(Boolean(quizId));
+  const [isSaving, setIsSaving] = useState(false);
+  const [loadError, setLoadError] = useState(
+    quizId ? '' : 'Draft kuis tidak ditemukan. Kembali ke Buat Kuis dan simpan draft terlebih dahulu.',
+  );
 
   // State
   const [jenisSoal, setJenisSoal] = useState('Benar / Salah'); // Default to Gambar 1, easily toggled
-  const [pertanyaan, setPertanyaan] = useState(
-    'Pada barisan aritmetika 5, 8, 11, ..., suku ke-10 adalah 32.'
-  );
+  const [pertanyaan, setPertanyaan] = useState('');
   const [kunciJawabanPG, setKunciJawabanPG] = useState('B');
   const [kunciBenarSalah, setKunciBenarSalah] = useState('Benar');
   const [bobot, setBobot] = useState(5);
   const [pilihanPG, setPilihanPG] = useState({
-    A: '84',
-    B: '96',
-    C: '108',
-    D: '120',
+    A: '',
+    B: '',
+    C: '',
+    D: '',
   });
 
   // Esai reference & rubric
-  const [jawabanAcuan, setJawabanAcuan] = useState(
-    `Diketahui a = 5 dan b = 8 – 5 = 3.\nU₁₀ = a + (10 – 1)b = 5 + 9 × 3 = 32.\nS₁₀ = 10/2 × (2 × 5 + 9 × 3) = 5 × 37 = 185.`
-  );
-  const rubricList = [
-    { text: 'Menentukan a = 5 dan b = 3 dengan benar.', poin: '2 poin' },
-    { text: 'Menggunakan rumus U₁₀ dan memperoleh U₁₀ = 32.', poin: '3 poin' },
-    { text: 'Menuliskan rumus S₁₀ = n/2 × (2a + (n - 1)b).', poin: '2 poin' },
-    { text: 'Menghitung S₁₀ = 185 dengan langkah yang benar.', poin: '3 poin' },
-  ];
+  const jawabanAcuan = `Diketahui a = 5 dan b = 8 – 5 = 3.\nU₁₀ = a + (10 – 1)b = 5 + 9 × 3 = 32.\nS₁₀ = 10/2 × (2 × 5 + 9 × 3) = 5 × 37 = 185.`;
+  useEffect(() => {
+    if (!quizId) {
+      return undefined;
+    }
+
+    let active = true;
+    const loadQuizContext = async () => {
+      try {
+        const [quizData, banksData] = await Promise.all([
+          b6ApiFetch(`/quizzes/${encodeURIComponent(quizId)}`),
+          b6ApiFetch('/banks'),
+        ]);
+        if (!active) return;
+
+        const attached = quizData.quiz_questions || [];
+        setQuiz(quizData);
+        setQuestionNumber(attached.reduce(
+          (max, item) => Math.max(max, Number(item.question_order) || 0),
+          attached.length,
+        ) + 1);
+        const bank = resolveQuestionBank(
+          Array.isArray(banksData) ? banksData : [],
+          quizData,
+        );
+        if (bank) setQuestionBankId(bank.id);
+        sessionStorage.setItem('b6.currentQuizId', quizData.id);
+      } catch (error) {
+        if (active) setLoadError(error.message);
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    };
+
+    loadQuizContext();
+    return () => {
+      active = false;
+    };
+  }, [quizId]);
 
   const handleTabChange = (type) => {
     setJenisSoal(type);
     if (type === 'Benar / Salah') {
-      setPertanyaan('Pada barisan aritmetika 5, 8, 11, ..., suku ke-10 adalah 32.');
       setBobot(5);
     } else if (type === 'Esai') {
-      setPertanyaan(
-        'Diketahui barisan aritmetika 5, 8, 11, .... Tentukan suku ke-10 dan jumlah 10 suku pertama. Tuliskan langkah penyelesaiannya.'
-      );
       setBobot(10);
     } else {
-      setPertanyaan('Hasil dari 12 × 8 adalah ...');
       setBobot(5);
     }
   };
 
-  const handleSimpanSoal = (e) => {
+  const handleSimpanSoal = async (e) => {
     e.preventDefault();
-    alert(`Soal 41 (${jenisSoal}) berhasil disimpan ke daftar soal!`);
-    navigate('/b6/buat-kuis', { state: { addedQuestionNumber: 41 } });
+    if (isLoading || isSaving) return;
+    if (!quizId || !quiz) {
+      window.alert(loadError || 'Draft kuis belum tersedia.');
+      return;
+    }
+    if (!questionBankId) {
+      window.alert('Bank soal untuk kuis ini tidak dapat ditentukan dari data mapel/kelas. Simpan kuis dengan mata pelajaran dan kelas yang sesuai sebelum menambah soal.');
+      return;
+    }
+    if (!pertanyaan.trim()) {
+      window.alert('Pertanyaan wajib diisi.');
+      return;
+    }
+    if (!Number.isFinite(bobot) || bobot <= 0) {
+      window.alert('Bobot nilai harus lebih dari 0.');
+      return;
+    }
+
+    const options = jenisSoal === 'Pilihan Ganda'
+      ? ['A', 'B', 'C', 'D'].map((optionLabel) => ({
+          option_label: optionLabel,
+          option_text: pilihanPG[optionLabel].trim(),
+          is_correct: kunciJawabanPG === optionLabel,
+        }))
+      : jenisSoal === 'Benar / Salah'
+        ? [
+            { option_label: 'B', option_text: 'Benar', is_correct: kunciBenarSalah === 'Benar' },
+            { option_label: 'S', option_text: 'Salah', is_correct: kunciBenarSalah === 'Salah' },
+          ]
+        : undefined;
+
+    if (options?.some((option) => !option.option_text)) {
+      window.alert('Lengkapi semua pilihan jawaban sebelum menyimpan.');
+      return;
+    }
+
+    setIsSaving(true);
+    let createdQuestionId;
+    let attachmentRequested = false;
+    try {
+      const question = await b6ApiFetch(
+        `/banks/${encodeURIComponent(questionBankId)}/questions/manual`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            question_text: pertanyaan.trim(),
+            question_type: jenisSoal === 'Pilihan Ganda'
+              ? 'PILIHAN_GANDA'
+              : jenisSoal === 'Benar / Salah' ? 'BENAR_SALAH' : 'ESAI',
+            default_points: bobot,
+            ...(options ? { options } : {}),
+          }),
+        },
+      );
+      createdQuestionId = question.id;
+
+      const latestQuiz = await b6ApiFetch(`/quizzes/${encodeURIComponent(quizId)}`);
+      const attachedQuestions = latestQuiz.quiz_questions || [];
+      const nextOrder = attachedQuestions.reduce(
+        (max, item) => Math.max(max, Number(item.question_order) || 0),
+        attachedQuestions.length,
+      ) + 1;
+
+      attachmentRequested = true;
+      await b6ApiFetch(`/quizzes/${encodeURIComponent(quizId)}/questions`, {
+        method: 'POST',
+        body: JSON.stringify({
+          questions: [{
+            question_id: question.id,
+            points: bobot,
+            question_order: nextOrder,
+          }],
+        }),
+      });
+
+      navigate('/b6/buat-kuis', {
+        state: { quizId, addedFromBank: true, addedQuestionCount: 1 },
+      });
+    } catch (error) {
+      if (createdQuestionId) {
+        if (attachmentRequested) {
+          try {
+            const latestQuiz = await b6ApiFetch(`/quizzes/${encodeURIComponent(quizId)}`);
+            const isAttached = (latestQuiz.quiz_questions || []).some(
+              (item) => String(item.questions?.id || item.question_id) === String(createdQuestionId),
+            );
+            if (isAttached) {
+              navigate('/b6/buat-kuis', {
+                state: { quizId, addedFromBank: true, addedQuestionCount: 1 },
+              });
+              return;
+            }
+          } catch (verificationError) {
+            window.alert(`Tidak dapat memastikan apakah soal berhasil ditautkan ke kuis (${error.message}). Soal tetap tersimpan di bank; periksa kuis sebelum mencoba lagi. ${verificationError.message}`);
+            return;
+          }
+        }
+
+        try {
+          await b6ApiFetch(
+            `/banks/${encodeURIComponent(questionBankId)}/questions/${encodeURIComponent(createdQuestionId)}`,
+            { method: 'DELETE' },
+          );
+        } catch (cleanupError) {
+          window.alert(`Soal tersimpan di bank, tetapi gagal ditambahkan ke kuis. Penghapusan otomatis juga gagal: ${cleanupError.message}`);
+          return;
+        }
+      }
+      window.alert(error.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -79,7 +259,7 @@ export default function TambahSoalKuisPage() {
           Tambah Soal
         </h1>
         <p className="mt-1 text-xs sm:text-sm text-slate-400">
-          Ulangan Harian Matematika Kelas XI
+          {quiz?.title || 'Ulangan Harian Matematika Kelas XI'}
         </p>
       </div>
 
@@ -97,7 +277,7 @@ export default function TambahSoalKuisPage() {
               </p>
             </div>
             <span className="rounded-md bg-[#e0f7fa] px-3 py-1 text-xs font-semibold text-[#006064]">
-              Soal 41
+              Soal {questionNumber}
             </span>
           </div>
 
@@ -355,7 +535,7 @@ export default function TambahSoalKuisPage() {
                     >
                       <span className="text-slate-700">{rubric.text}</span>
                       <span className="font-bold text-[#005b64] pl-3 whitespace-nowrap">
-                        {rubric.poin}
+                        {rubric.points} poin
                       </span>
                     </div>
                   ))}
@@ -399,9 +579,10 @@ export default function TambahSoalKuisPage() {
 
             <button
               type="submit"
-              className="rounded-xl bg-[#004d57] px-6 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] shadow-xs transition-colors"
+              disabled={isLoading || isSaving}
+              className="rounded-xl bg-[#004d57] px-6 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] shadow-xs transition-colors disabled:opacity-60"
             >
-              Simpan Soal
+              {isSaving ? 'Menyimpan...' : 'Simpan Soal'}
             </button>
           </div>
         </div>
