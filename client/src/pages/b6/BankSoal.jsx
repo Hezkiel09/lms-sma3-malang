@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   BarChart2,
   Edit3,
@@ -14,6 +15,7 @@ import {
   CheckCircle2,
   AlertCircle,
   FileSpreadsheet,
+  Info,
 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import {
@@ -23,7 +25,13 @@ import {
 } from '../../data/mockBankSoal';
 
 export default function BankSoalPage() {
-  // Navigation State: step 1 = Pilih Kelas, step 2 = Mapel, step 3 = Lihat Soal
+  const navigate = useNavigate();
+
+  // Navigation State:
+  // step 1 = Pilih Kelas
+  // step 2 = Pilih Mata Pelajaran
+  // step 3 = Lihat Soal
+  // step 4 = Buat Soal / Tambah & Impor Soal
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedKelas, setSelectedKelas] = useState(mockKelasList[1]); // Default XI
   const [selectedMapel, setSelectedMapel] = useState(mockKelasList[1].mapelList[0]);
@@ -51,21 +59,8 @@ export default function BankSoalPage() {
   const [showEmptyMapel, setShowEmptyMapel] = useState(false);
   const [showEmptySoal, setShowEmptySoal] = useState(false);
 
-  // Modals state
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
+  // Modal detail view
   const [viewQuestion, setViewQuestion] = useState(null);
-
-  // Form state for Tambah Soal
-  const [newQuestion, setNewQuestion] = useState({
-    pertanyaan: '',
-    tipe: 'Pilihan Ganda',
-    pilihanA: '',
-    pilihanB: '',
-    pilihanC: '',
-    pilihanD: '',
-    kunci: 'A',
-  });
 
   // Notification toast
   const [toast, setToast] = useState(null);
@@ -91,7 +86,9 @@ export default function BankSoalPage() {
         if (active) setIsLoadingBanks(false);
       });
 
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -100,23 +97,31 @@ export default function BankSoalPage() {
     apiFetch(`/banks/${encodeURIComponent(selectedBankId)}/questions`)
       .then((data) => {
         if (!active) return;
-        setQuestions((Array.isArray(data) ? data : []).map((question) => {
-          const options = question.question_options || [];
-          return {
-            id: question.id,
-            bankId: selectedBankId,
-            tipe: question.question_type || 'Soal',
-            metode: 'Backend',
-            tanggal: question.created_at ? new Date(question.created_at).toLocaleDateString('id-ID') : 'Tersimpan',
-            pertanyaan: question.question_text || '',
-            tag: `${selectedKelas.romawi} • ${selectedMapel?.nama || 'Matematika'} • ${selectedMapel?.materi || 'Bank Soal'}`,
-            kelasId: selectedKelas.id,
-            mapelId: selectedMapel?.id,
-            materi: selectedMapel?.materi,
-            pilihan: options.map((option) => ({ key: option.option_label, teks: option.option_text })),
-            kunciJawaban: options.find((option) => option.is_correct)?.option_label || '-',
-          };
-        }));
+        setQuestions(
+          (Array.isArray(data) ? data : []).map((question) => {
+            const options = question.question_options || [];
+            return {
+              id: question.id,
+              bankId: selectedBankId,
+              tipe: question.question_type || 'Soal',
+              metode: 'Backend',
+              tanggal: question.created_at
+                ? new Date(question.created_at).toLocaleDateString('id-ID')
+                : 'Tersimpan',
+              pertanyaan: question.question_text || '',
+              tag: `${selectedKelas.romawi} • ${selectedMapel?.nama || 'Matematika'} • ${selectedMapel?.materi || 'Bank Soal'}`,
+              kelasId: selectedKelas.id,
+              mapelId: selectedMapel?.id,
+              materi: selectedMapel?.materi,
+              pilihan: options.map((option) => ({
+                key: option.option_label,
+                teks: option.option_text,
+              })),
+              kunciJawaban:
+                options.find((option) => option.is_correct)?.option_label || '-',
+            };
+          })
+        );
       })
       .catch((error) => {
         if (active) showToast(`Gagal memuat soal bank: ${error.message}`, 'error');
@@ -125,7 +130,9 @@ export default function BankSoalPage() {
         if (active) setIsLoadingQuestions(false);
       });
 
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [currentStep, selectedBankId, selectedKelas, selectedMapel]);
 
   const handleCreateBank = async (event) => {
@@ -144,7 +151,13 @@ export default function BankSoalPage() {
       setBanks((current) => [createdBank, ...current]);
       setSelectedBankId(createdBank.id);
       setShowCreateBankModal(false);
-      setNewBank({ name: '', description: '', class_level: 'XI', subject_name: 'Matematika', topic_name: '' });
+      setNewBank({
+        name: '',
+        description: '',
+        class_level: 'XI',
+        subject_name: 'Matematika',
+        topic_name: '',
+      });
       setCurrentStep(3);
       showToast('Bank soal berhasil dibuat di database.');
     } catch (error) {
@@ -174,53 +187,6 @@ export default function BankSoalPage() {
     }
   };
 
-  // Handler for creating question
-  const handleCreateQuestionSubmit = (e) => {
-    e.preventDefault();
-    if (!newQuestion.pertanyaan.trim()) {
-      showToast('Pertanyaan wajib diisi!', 'error');
-      return;
-    }
-
-    const created = {
-      id: Date.now(),
-      tipe: newQuestion.tipe,
-      metode: 'Dibuat',
-      tanggal: 'Hari ini',
-      pertanyaan: newQuestion.pertanyaan,
-      tag: `${selectedKelas.romawi} • ${selectedMapel?.nama || 'Matematika'} • ${selectedMapel?.materi || 'Komposisi & invers'}`,
-      kelasId: selectedKelas.id,
-      mapelId: selectedMapel?.id || 'mat-xi',
-      materi: selectedMapel?.materi || 'Komposisi & invers',
-      pilihan:
-        newQuestion.tipe === 'Pilihan Ganda'
-          ? [
-              { key: 'A', teks: newQuestion.pilihanA || 'Pilihan A' },
-              { key: 'B', teks: newQuestion.pilihanB || 'Pilihan B' },
-              { key: 'C', teks: newQuestion.pilihanC || 'Pilihan C' },
-              { key: 'D', teks: newQuestion.pilihanD || 'Pilihan D' },
-            ]
-          : [
-              { key: 'B', teks: 'Benar' },
-              { key: 'S', teks: 'Salah' },
-            ],
-      kunciJawaban: newQuestion.kunci,
-    };
-
-    setQuestions((prev) => [created, ...prev]);
-    setShowAddModal(false);
-    setNewQuestion({
-      pertanyaan: '',
-      tipe: 'Pilihan Ganda',
-      pilihanA: '',
-      pilihanB: '',
-      pilihanC: '',
-      pilihanD: '',
-      kunci: 'A',
-    });
-    showToast('Soal baru berhasil ditambahkan ke bank soal!');
-  };
-
   // Filtered questions
   const filteredQuestions = questions.filter((q) => {
     if (showEmptySoal) return false;
@@ -231,7 +197,7 @@ export default function BankSoalPage() {
   });
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Toast Notification */}
       {toast && (
         <div
@@ -250,37 +216,94 @@ export default function BankSoalPage() {
         </div>
       )}
 
+      {/* Modal: Buat Bank Soal */}
       {showCreateBankModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs">
-          <form onSubmit={handleCreateBank} className="w-full max-w-lg space-y-4 rounded-2xl border border-slate-100 bg-white p-6 shadow-xl">
+          <form
+            onSubmit={handleCreateBank}
+            className="w-full max-w-lg space-y-4 rounded-2xl border border-slate-100 bg-white p-6 shadow-xl"
+          >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h2 className="text-base font-bold text-slate-800">Buat Bank Soal</h2>
-              <button type="button" onClick={() => setShowCreateBankModal(false)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100" aria-label="Tutup">
+              <button
+                type="button"
+                onClick={() => setShowCreateBankModal(false)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                aria-label="Tutup"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
             <label className="block space-y-1 text-xs font-semibold text-slate-700">
               Nama bank soal
-              <input required value={newBank.name} onChange={(event) => setNewBank({ ...newBank, name: event.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal" placeholder="Contoh: Bank Soal Matematika XI" />
+              <input
+                required
+                value={newBank.name}
+                onChange={(event) =>
+                  setNewBank({ ...newBank, name: event.target.value })
+                }
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal"
+                placeholder="Contoh: Bank Soal Matematika XI"
+              />
             </label>
             <label className="block space-y-1 text-xs font-semibold text-slate-700">
               Deskripsi
-              <textarea rows={2} value={newBank.description} onChange={(event) => setNewBank({ ...newBank, description: event.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal" />
+              <textarea
+                rows={2}
+                value={newBank.description}
+                onChange={(event) =>
+                  setNewBank({ ...newBank, description: event.target.value })
+                }
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal"
+              />
             </label>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <label className="block space-y-1 text-xs font-semibold text-slate-700">Kelas
-                <input value={newBank.class_level} onChange={(event) => setNewBank({ ...newBank, class_level: event.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal" />
+              <label className="block space-y-1 text-xs font-semibold text-slate-700">
+                Kelas
+                <input
+                  value={newBank.class_level}
+                  onChange={(event) =>
+                    setNewBank({ ...newBank, class_level: event.target.value })
+                  }
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal"
+                />
               </label>
-              <label className="block space-y-1 text-xs font-semibold text-slate-700">Mapel
-                <input value={newBank.subject_name} onChange={(event) => setNewBank({ ...newBank, subject_name: event.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal" />
+              <label className="block space-y-1 text-xs font-semibold text-slate-700">
+                Mapel
+                <input
+                  value={newBank.subject_name}
+                  onChange={(event) =>
+                    setNewBank({ ...newBank, subject_name: event.target.value })
+                  }
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal"
+                />
               </label>
-              <label className="block space-y-1 text-xs font-semibold text-slate-700">Materi
-                <input value={newBank.topic_name} onChange={(event) => setNewBank({ ...newBank, topic_name: event.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal" />
+              <label className="block space-y-1 text-xs font-semibold text-slate-700">
+                Materi
+                <input
+                  value={newBank.topic_name}
+                  onChange={(event) =>
+                    setNewBank({ ...newBank, topic_name: event.target.value })
+                  }
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal"
+                />
               </label>
             </div>
             <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
-              <button type="button" onClick={() => setShowCreateBankModal(false)} className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600">Batal</button>
-              <button type="submit" disabled={isSavingBank} className="rounded-xl bg-[#004d57] px-5 py-2 text-xs font-semibold text-white disabled:opacity-60">{isSavingBank ? 'Menyimpan...' : 'Simpan Bank'}</button>
+              <button
+                type="button"
+                onClick={() => setShowCreateBankModal(false)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={isSavingBank}
+                className="rounded-xl bg-[#004d57] px-5 py-2 text-xs font-semibold text-white disabled:opacity-60"
+              >
+                {isSavingBank ? 'Menyimpan...' : 'Simpan Bank'}
+              </button>
             </div>
           </form>
         </div>
@@ -310,20 +333,31 @@ export default function BankSoalPage() {
             </div>
             <div className="flex items-center gap-3">
               <button
+                type="button"
                 onClick={() => setShowCreateBankModal(true)}
                 className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
               >
                 Buat Bank
               </button>
               <button
-                onClick={() => setShowImportModal(true)}
+                type="button"
+                onClick={() =>
+                  navigate('/b6/buat-kuis/import', {
+                    state: {
+                      from: 'bank-soal',
+                      kelas: selectedKelas.romawi,
+                      mapel: selectedMapel?.nama || 'Matematika',
+                    },
+                  })
+                }
                 className="flex items-center gap-2 rounded-xl bg-[#e6f7f8] px-4 py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors"
               >
                 <Upload className="h-4 w-4 stroke-[2.2]" />
                 <span>Impor Soal</span>
               </button>
               <button
-                onClick={() => setShowAddModal(true)}
+                type="button"
+                onClick={() => setCurrentStep(4)}
                 className="rounded-xl bg-[#004d57] px-5 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] shadow-xs transition-colors"
               >
                 Tambah Soal
@@ -397,11 +431,17 @@ export default function BankSoalPage() {
         <>
           {/* Breadcrumb */}
           <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
-            <button onClick={() => setCurrentStep(1)} className="hover:text-slate-600">
+            <button
+              onClick={() => setCurrentStep(1)}
+              className="hover:text-slate-600 transition-colors"
+            >
               Beranda
             </button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-            <button onClick={() => setCurrentStep(1)} className="hover:text-slate-600">
+            <button
+              onClick={() => setCurrentStep(1)}
+              className="hover:text-slate-600 transition-colors"
+            >
               Bank Soal
             </button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
@@ -463,15 +503,24 @@ export default function BankSoalPage() {
         <>
           {/* Breadcrumb */}
           <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
-            <button onClick={() => setCurrentStep(1)} className="hover:text-slate-600">
+            <button
+              onClick={() => setCurrentStep(1)}
+              className="hover:text-slate-600 transition-colors"
+            >
               Beranda
             </button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-            <button onClick={() => setCurrentStep(1)} className="hover:text-slate-600">
+            <button
+              onClick={() => setCurrentStep(1)}
+              className="hover:text-slate-600 transition-colors"
+            >
               Bank Soal
             </button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-            <button onClick={() => setCurrentStep(2)} className="hover:text-slate-600">
+            <button
+              onClick={() => setCurrentStep(2)}
+              className="hover:text-slate-600 transition-colors"
+            >
               Kelas {selectedKelas.romawi}
             </button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
@@ -526,30 +575,114 @@ export default function BankSoalPage() {
       )}
 
       {/* =========================================================================
+          STEP 4: BREADCRUMBS & HEADER (BUAT SOAL - GAMBAR 3 TARGET)
+         ========================================================================= */}
+      {currentStep === 4 && (
+        <>
+          {/* Breadcrumb */}
+          <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
+            <button
+              onClick={() => setCurrentStep(1)}
+              className="hover:text-slate-600 transition-colors"
+            >
+              Beranda
+            </button>
+            <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+            <button
+              onClick={() => setCurrentStep(1)}
+              className="hover:text-slate-600 transition-colors"
+            >
+              Bank Soal
+            </button>
+            <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+            <button
+              onClick={() => setCurrentStep(2)}
+              className="hover:text-slate-600 transition-colors"
+            >
+              Kelas {selectedKelas.romawi}
+            </button>
+            <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+            <button
+              onClick={() => setCurrentStep(3)}
+              className="hover:text-slate-600 transition-colors"
+            >
+              {selectedMapel?.nama || 'Matematika'}
+            </button>
+            <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+            <span className="text-[#005b64] font-semibold">Buat Soal</span>
+          </nav>
+
+          {/* Header Title & Actions */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">
+                Buat Soal
+              </h1>
+              <p className="mt-1 text-xs sm:text-sm text-slate-400">
+                Pilih cara menambahkan soal ke Bank Soal {selectedKelas.romawi} / {selectedMapel?.nama || 'Matematika'}.
+              </p>
+            </div>
+            <div>
+              <button
+                onClick={() => setCurrentStep(3)}
+                className="rounded-xl bg-[#e0f7fa] px-4 py-2.5 text-xs sm:text-sm font-semibold text-[#006064] hover:bg-[#b2ebf2] transition-colors"
+              >
+                Kembali ke Kelas Mapel
+              </button>
+            </div>
+          </div>
+
+          {/* Info Summary Box */}
+          <div className="grid grid-cols-1 gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-xs sm:grid-cols-3">
+            <div>
+              <span className="text-xs text-slate-400 font-medium">Kelas</span>
+              <div className="text-sm font-bold text-slate-800 mt-1">
+                {selectedKelas.romawi}
+              </div>
+            </div>
+            <div>
+              <span className="text-xs text-slate-400 font-medium">Mata pelajaran</span>
+              <div className="text-sm font-bold text-slate-800 mt-1">
+                {selectedMapel?.nama || 'Matematika'}
+              </div>
+            </div>
+            <div>
+              <span className="text-xs text-slate-400 font-medium">Materi</span>
+              <div className="text-sm font-bold text-slate-800 mt-1">
+                {selectedMapel?.materi || 'Komposisi & invers'}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* =========================================================================
           MAIN CONTAINER CARD (PANEL DENGAN STEPPER DI DALAMNYA)
          ========================================================================= */}
       <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xs space-y-6">
+        {/* Backend bank selector for Step 3 */}
         {currentStep === 3 && (
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-50 pb-4">
             <label htmlFor="b6-bank-selector" className="text-xs font-semibold text-slate-600">
-              Bank soal backend
+              Pilih Bank Soal Database:
             </label>
             <select
               id="b6-bank-selector"
               value={selectedBankId}
-              onChange={(event) => {
-                setIsLoadingQuestions(true);
-                setSelectedBankId(event.target.value);
-              }}
-              disabled={isLoadingBanks || banks.length === 0}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs sm:w-96 sm:text-sm"
+              onChange={(event) => setSelectedBankId(event.target.value)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700"
             >
-              {isLoadingBanks && <option value="">Memuat bank...</option>}
-              {!isLoadingBanks && banks.length === 0 && <option value="">Belum ada bank backend</option>}
-              {banks.map((bank) => <option key={bank.id} value={bank.id}>{bank.name}</option>)}
+              {isLoadingBanks && <option value="">Memuat bank soal backend...</option>}
+              {!isLoadingBanks && banks.length === 0 && <option value="">Tidak ada bank soal backend</option>}
+              {banks.map((bank) => (
+                <option key={bank.id} value={bank.id}>
+                  {bank.name} ({bank.class_level || 'Semua'} - {bank.subject_name || 'Umum'})
+                </option>
+              ))}
             </select>
           </div>
         )}
+
         {/* Header di dalam Panel */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -558,6 +691,7 @@ export default function BankSoalPage() {
               {currentStep === 2 && 'Pilih Mata Pelajaran'}
               {currentStep === 3 &&
                 `Soal ${selectedMapel?.materi || 'Komposisi & invers'}`}
+              {currentStep === 4 && 'Pilih Cara Membuat Soal'}
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
               {currentStep === 1 &&
@@ -566,6 +700,8 @@ export default function BankSoalPage() {
                 `Mata pelajaran yang tersedia pada bank soal Kelas ${selectedKelas.romawi}.`}
               {currentStep === 3 &&
                 'Soal yang sudah dibuat atau diimpor untuk kelas dan mata pelajaran ini.'}
+              {currentStep === 4 &&
+                'Input satu per satu atau impor soal yang sudah disiapkan dalam Excel.'}
             </p>
           </div>
 
@@ -573,7 +709,7 @@ export default function BankSoalPage() {
           {currentStep === 3 && (
             <div>
               <button
-                onClick={() => setShowAddModal(true)}
+                onClick={() => setCurrentStep(4)}
                 className="rounded-xl bg-[#004d57] px-5 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] transition-colors"
               >
                 Buat Soal
@@ -630,8 +766,12 @@ export default function BankSoalPage() {
 
           {/* Step 4 Pill */}
           <button
-            onClick={() => setShowAddModal(true)}
-            className="rounded-full bg-slate-100 px-3.5 py-1 text-xs font-medium text-slate-500 hover:bg-slate-200 transition-colors"
+            onClick={() => setCurrentStep(4)}
+            className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-all ${
+              currentStep === 4
+                ? 'bg-[#004d57] text-white shadow-xs'
+                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+            }`}
           >
             4. Tambah / Impor Soal
           </button>
@@ -653,33 +793,34 @@ export default function BankSoalPage() {
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e0f7fa] font-bold text-[#006064] text-sm">
                       {kelas.romawi}
                     </div>
-                    <span className="rounded-full bg-[#e0f7fa] px-2.5 py-0.5 text-xs font-semibold text-[#006064]">
+                    <span className="rounded-md bg-[#e0f7fa] px-2.5 py-1 text-xs font-semibold text-[#006064]">
                       {kelas.totalSoal} soal
                     </span>
                   </div>
 
-                  {/* Title & Info */}
-                  <div className="mt-4">
-                    <h3 className="text-base font-bold text-slate-800">{kelas.nama}</h3>
+                  {/* Title */}
+                  <h3 className="mt-4 text-base font-bold text-slate-800">
+                    {kelas.nama}
+                  </h3>
 
-                    <div className="mt-2.5 space-y-1.5 text-xs text-slate-500">
-                      <div className="flex items-center gap-2">
-                        <Book className="h-3.5 w-3.5 text-slate-400" />
-                        <span>{kelas.jumlahMapel} mata pelajaran</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-3.5 w-3.5 text-slate-400" />
-                        <span>{kelas.materiPreview}</span>
-                      </div>
+                  {/* Meta items */}
+                  <div className="mt-2 space-y-1.5 text-xs text-slate-500">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-3.5 w-3.5 text-slate-400" />
+                      <span>{kelas.totalMapel} mata pelajaran</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Book className="h-3.5 w-3.5 text-slate-400" />
+                      <span>{kelas.mapelPreview}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Button Pilih Mata Pelajaran */}
-                <div className="mt-6">
+                {/* Action Button */}
+                <div className="mt-6 pt-2">
                   <button
                     onClick={() => handlePilihKelas(kelas)}
-                    className="w-full rounded-xl bg-[#004d57] py-2.5 text-center text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] transition-colors"
+                    className="w-full rounded-xl bg-[#004d57] py-2.5 text-xs sm:text-sm font-semibold text-white shadow-xs hover:bg-[#003c44] transition-colors text-center"
                   >
                     Pilih Mata Pelajaran
                   </button>
@@ -690,30 +831,33 @@ export default function BankSoalPage() {
         )}
 
         {/* =====================================================================
-            KONTEN STEP 2: PILIH MATA PELAJARAN (ADA DATA & EMPTY STATE)
+            KONTEN STEP 2: PILIH MATA PELAJARAN
            ===================================================================== */}
         {currentStep === 2 && (
-          <div className="space-y-4 pt-2">
-            {/* Toggle demo empty state */}
-            <div className="flex justify-end">
-              <button
-                onClick={() => setShowEmptyMapel(!showEmptyMapel)}
-                className="text-[11px] text-slate-400 hover:text-slate-600 underline"
-              >
-                [Demo: {showEmptyMapel ? 'Tampilkan Ada Data' : 'Tampilkan Kondisi Kosong'}]
-              </button>
-            </div>
-
+          <div className="pt-2">
             {showEmptyMapel ? (
-              /* Empty State (Sesuai Gambar 3) */
-              <div className="rounded-xl border border-amber-300 bg-amber-50/50 p-4 text-center text-xs font-medium text-amber-800">
-                Belum ada mapel yang diinput silahkan hubungi admin.
+              /* Empty State Mapel */
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 py-16 px-4 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 mb-3">
+                  <Book className="h-6 w-6 stroke-[1.8]" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-800">
+                  Belum ada mata pelajaran untuk Kelas {selectedKelas.romawi}
+                </h3>
+                <p className="mt-1 text-xs text-slate-400 max-w-sm">
+                  Tambahkan mata pelajaran baru terlebih dahulu atau pilih kelas lain.
+                </p>
+                <button
+                  onClick={() => setCurrentStep(1)}
+                  className="mt-4 rounded-xl bg-[#004d57] px-4 py-2 text-xs font-semibold text-white hover:bg-[#003c44] transition-colors"
+                >
+                  Pilih Kelas Lain
+                </button>
               </div>
             ) : (
-              /* Subject Card (Sesuai Gambar 2) */
-              <div className="rounded-2xl border border-cyan-100/80 bg-white p-5 shadow-2xs space-y-4">
-                {/* Header Card: Ikon Calculator & Badge 2 soal */}
-                <div className="flex items-start justify-between">
+              /* Kartu Mapel (Matematika) */
+              <div className="rounded-2xl border border-cyan-100/90 bg-white p-5 shadow-2xs space-y-4">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3.5">
                     <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#e0f7fa] text-[#006064]">
                       <Calculator className="h-5 w-5" />
@@ -727,31 +871,32 @@ export default function BankSoalPage() {
                       </p>
                     </div>
                   </div>
-                  <span className="rounded-full bg-[#e0f7fa] px-3 py-1 text-xs font-semibold text-[#006064]">
-                    {selectedKelas.totalSoal} soal
+                  <span className="rounded-md bg-[#e0f7fa] px-2.5 py-1 text-xs font-semibold text-[#006064]">
+                    {selectedMapel?.totalSoal || 2} soal
                   </span>
                 </div>
 
-                {/* Inset gray box Materi tersedia */}
-                <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 space-y-1">
-                  <span className="text-xs text-slate-400 font-medium">Materi tersedia</span>
-                  <div className="text-sm font-bold text-slate-800">
+                {/* Materi Box */}
+                <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 space-y-1.5">
+                  <span className="text-[11px] font-semibold text-slate-400 block">
+                    Materi tersedia
+                  </span>
+                  <p className="text-xs sm:text-sm font-bold text-slate-800">
                     {selectedMapel?.materi || 'Komposisi & invers'}
-                  </div>
-                  <div className="text-xs text-slate-500">
+                  </p>
+                  <p className="text-xs text-slate-500">
                     {selectedMapel?.tipeSoal || 'Pilihan Ganda • Benar / Salah'}
-                  </div>
+                  </p>
                 </div>
 
-                {/* Footer bar */}
+                {/* Bottom Row */}
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-2">
-                  <span className="text-xs text-slate-500">
-                    Lihat dan kelola soal {selectedMapel?.nama || 'Matematika'} untuk Kelas{' '}
-                    {selectedKelas.romawi}.
+                  <span className="text-xs text-slate-400">
+                    Lihat dan kelola soal {selectedMapel?.nama || 'Matematika'} untuk Kelas {selectedKelas.romawi}.
                   </span>
                   <button
                     onClick={() => handlePilihMapel(selectedMapel)}
-                    className="rounded-xl bg-[#004d57] px-5 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] transition-colors"
+                    className="rounded-xl bg-[#004d57] px-6 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-xs hover:bg-[#003c44] transition-colors whitespace-nowrap"
                   >
                     Lihat Soal {selectedMapel?.nama || 'Matematika'}
                   </button>
@@ -762,131 +907,146 @@ export default function BankSoalPage() {
         )}
 
         {/* =====================================================================
-            KONTEN STEP 3: LIHAT SOAL (FILTER & LIST KARTU SOAL)
+            KONTEN STEP 3: LIHAT DAFTAR SOAL (KELAS MAPEL)
            ===================================================================== */}
         {currentStep === 3 && (
-          <div className="space-y-4 pt-1">
-            {/* Filter bar: Search, Jenis Soal, Waktu Dibuat */}
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-              {/* Search Bar */}
+          <div className="space-y-5 pt-2">
+            {/* Filter & Search Bar */}
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              {/* Search Input */}
               <div className="relative flex-1">
-                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Cari pertanyaan dalam materi ini..."
+                  placeholder="Cari soal di materi ini..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-4 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 transition-all focus:border-[#004d57] focus:bg-white focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-4 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:border-[#004d57] focus:outline-none"
                 />
               </div>
 
-              {/* Dropdown Jenis Soal */}
-              <div className="relative w-full sm:w-48">
-                <select
-                  value={selectedJenisSoal}
-                  onChange={(e) => setSelectedJenisSoal(e.target.value)}
-                  className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2 pr-9 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 focus:border-[#004d57] focus:outline-none"
-                >
-                  <option value="Semua jenis">Semua jenis</option>
-                  <option value="Pilihan Ganda">Pilihan Ganda</option>
-                  <option value="Benar / Salah">Benar / Salah</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              </div>
+              {/* Dropdown Filters */}
+              <div className="flex items-center gap-3">
+                {/* Filter Jenis Soal */}
+                <div className="relative">
+                  <select
+                    value={selectedJenisSoal}
+                    onChange={(e) => setSelectedJenisSoal(e.target.value)}
+                    className="appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2 pr-8 text-xs font-semibold text-slate-700 focus:border-[#004d57] focus:outline-none"
+                  >
+                    <option value="Semua jenis">Semua jenis</option>
+                    <option value="Pilihan Ganda">Pilihan Ganda</option>
+                    <option value="Benar / Salah">Benar / Salah</option>
+                    <option value="Esai">Esai</option>
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                </div>
 
-              {/* Dropdown Waktu Dibuat */}
-              <div className="relative w-full sm:w-48">
-                <select
-                  value={selectedWaktu}
-                  onChange={(e) => setSelectedWaktu(e.target.value)}
-                  className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2 pr-9 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 focus:border-[#004d57] focus:outline-none"
-                >
-                  <option value="Semua waktu">Semua waktu</option>
-                  <option value="Hari ini">Hari ini</option>
-                  <option value="7 hari terakhir">7 hari terakhir</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                {/* Filter Waktu */}
+                <div className="relative">
+                  <select
+                    value={selectedWaktu}
+                    onChange={(e) => setSelectedWaktu(e.target.value)}
+                    className="appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2 pr-8 text-xs font-semibold text-slate-700 focus:border-[#004d57] focus:outline-none"
+                  >
+                    <option value="Semua waktu">Semua waktu</option>
+                    <option value="Hari ini">Hari ini</option>
+                    <option value="Minggu ini">Minggu ini</option>
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                </div>
               </div>
             </div>
 
-            {/* Toggle demo empty state */}
-            <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
-              <span>
-                Menampilkan {filteredQuestions.length} dari {questions.length} soal •{' '}
-                {selectedMapel?.materi || 'Komposisi & invers'}
-              </span>
-              <button
-                onClick={() => setShowEmptySoal(!showEmptySoal)}
-                className="text-[11px] text-slate-400 hover:text-slate-600 underline"
-              >
-                [Demo: {showEmptySoal ? 'Tampilkan Ada Soal' : 'Tampilkan Kosong'}]
-              </button>
-            </div>
-
-            {/* Empty State Soal (Sesuai Gambar 5) */}
+            {/* List of Questions */}
             {isLoadingQuestions ? (
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-xs text-slate-500">
-                Memuat soal dari bank...
+              <div className="py-12 text-center text-xs text-slate-400">
+                Memuat butir soal dari database...
               </div>
             ) : filteredQuestions.length === 0 ? (
-              <div className="rounded-xl border border-amber-300 bg-amber-50/50 p-6 text-center text-xs font-medium text-amber-800">
-                Belum ada soal yang dibuat.
+              /* Empty State Soal */
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 py-16 px-4 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 mb-3">
+                  <FileText className="h-6 w-6 stroke-[1.8]" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-800">
+                  Belum ada soal pada materi ini
+                </h3>
+                <p className="mt-1 text-xs text-slate-400 max-w-sm">
+                  Mulai dengan membuat soal secara manual atau impor dari file Excel.
+                </p>
+                <div className="mt-4 flex items-center gap-3">
+                  <button
+                    onClick={() => setCurrentStep(4)}
+                    className="rounded-xl bg-[#004d57] px-4 py-2 text-xs font-semibold text-white hover:bg-[#003c44] transition-colors"
+                  >
+                    Tambah Soal Sekarang
+                  </button>
+                </div>
               </div>
             ) : (
-              /* Question Cards List (Sesuai Gambar 4) */
-              <div className="space-y-3.5">
+              <div className="space-y-4">
                 {filteredQuestions.map((q) => (
                   <div
                     key={q.id}
-                    className="rounded-2xl border border-slate-100 bg-white p-5 shadow-2xs hover:shadow-sm transition-shadow space-y-3"
+                    className="rounded-2xl border border-cyan-100/80 bg-white p-5 shadow-2xs space-y-4 hover:border-cyan-200 transition-colors"
                   >
-                    {/* Top Row: Badge & Timestamp */}
-                    <div className="flex items-center justify-between">
-                      <span className="rounded-lg bg-[#e0f7fa] px-2.5 py-1 text-xs font-semibold text-[#006064]">
-                        {q.tipe}
-                      </span>
+                    {/* Top Row: Tags & Metadata */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-50 pb-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-md bg-[#e0f7fa] px-2.5 py-1 text-xs font-semibold text-[#006064]">
+                          {q.tipe}
+                        </span>
+                        <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                          {q.tag}
+                        </span>
+                      </div>
                       <span className="text-xs text-slate-400">
                         {q.metode} • {q.tanggal}
                       </span>
                     </div>
 
-                    {/* Question Statement */}
-                    <div className="text-sm font-semibold text-slate-800 leading-relaxed">
+                    {/* Question Text */}
+                    <p className="text-xs sm:text-sm font-semibold text-slate-800 leading-relaxed">
                       {q.pertanyaan}
-                    </div>
+                    </p>
 
-                    {/* Bottom Row: Tags & Action Buttons (Lihat, Edit, Hapus) */}
-                    <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
-                      <span className="text-xs text-slate-400">{q.tag}</span>
+                    {/* Options Preview for Pilihan Ganda */}
+                    {q.pilihan && q.pilihan.length > 0 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs text-slate-600">
+                        {q.pilihan.map((p) => (
+                          <div
+                            key={p.key}
+                            className={`flex items-center gap-2 p-2 rounded-xl border ${
+                              p.key === q.kunciJawaban
+                                ? 'bg-cyan-50/60 border-cyan-300 font-semibold text-[#005b64]'
+                                : 'bg-slate-50/40 border-slate-100'
+                            }`}
+                          >
+                            <span className="font-bold">{p.key}.</span>
+                            <span>{p.teks}</span>
+                            {p.key === q.kunciJawaban && (
+                              <span className="ml-auto text-[10px] font-bold text-[#008994]">
+                                Kunci
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Action Buttons: Lihat, Hapus */}
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-50">
+                      <span className="text-[11px] text-slate-400">
+                        Kunci Jawaban: <strong className="text-slate-700">{q.kunciJawaban}</strong>
+                      </span>
                       <div className="flex items-center gap-2">
-                        {/* Tombol Lihat */}
                         <button
                           onClick={() => setViewQuestion(q)}
-                          className="rounded-xl bg-[#e6f7f8] px-3.5 py-1.5 text-xs font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors"
+                          className="rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
                         >
                           Lihat
                         </button>
-
-                        {/* Tombol Edit */}
-                        <button
-                          onClick={() => {
-                            setNewQuestion({
-                              pertanyaan: q.pertanyaan,
-                              tipe: q.tipe,
-                              pilihanA: q.pilihan?.[0]?.teks || '',
-                              pilihanB: q.pilihan?.[1]?.teks || '',
-                              pilihanC: q.pilihan?.[2]?.teks || '',
-                              pilihanD: q.pilihan?.[3]?.teks || '',
-                              kunci: q.kunciJawaban || 'A',
-                            });
-                            setShowAddModal(true);
-                          }}
-                          className="rounded-xl bg-[#e6f7f8] px-3.5 py-1.5 text-xs font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors"
-                        >
-                          Edit
-                        </button>
-
-                        {/* Tombol Hapus */}
                         <button
                           onClick={() => handleDeleteQuestion(q.id)}
                           className="rounded-xl border border-red-200 bg-red-50/50 px-3.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100/50 transition-colors"
@@ -901,6 +1061,141 @@ export default function BankSoalPage() {
             )}
           </div>
         )}
+
+        {/* =====================================================================
+            KONTEN STEP 4: PILIH CARA MEMBUAT SOAL (INPUT MANUAL & IMPOR DARI EXCEL)
+            SESUAI GAMBAR 3 / SCREENSHOT KANAN
+           ===================================================================== */}
+        {currentStep === 4 && (
+          <div className="space-y-6 pt-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Card 1: Input Manual */}
+              <div className="rounded-2xl border border-cyan-100/90 bg-white p-6 space-y-5 flex flex-col justify-between shadow-2xs">
+                <div className="space-y-4">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-50 text-[#008994]">
+                    <Edit3 className="h-5 w-5 stroke-[2.2]" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-800">
+                      Input Manual
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                      Tulis pertanyaan, kunci jawaban, dan pembahasan langsung di aplikasi.
+                      Pilih jenis soal untuk mulai.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate('/b6/buat-kuis/tambah-soal', {
+                        state: {
+                          initialType: 'Pilihan Ganda',
+                          from: 'bank-soal',
+                          kelas: selectedKelas.romawi,
+                          mapel: selectedMapel?.nama || 'Matematika',
+                          materi: selectedMapel?.materi || 'Komposisi & invers',
+                        },
+                      })
+                    }
+                    className="w-full rounded-xl bg-[#e6f7f8] py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors text-center border border-cyan-100/60"
+                  >
+                    Pilihan Ganda
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate('/b6/buat-kuis/tambah-soal', {
+                        state: {
+                          initialType: 'Benar / Salah',
+                          from: 'bank-soal',
+                          kelas: selectedKelas.romawi,
+                          mapel: selectedMapel?.nama || 'Matematika',
+                          materi: selectedMapel?.materi || 'Komposisi & invers',
+                        },
+                      })
+                    }
+                    className="w-full rounded-xl bg-[#e6f7f8] py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors text-center border border-cyan-100/60"
+                  >
+                    Benar / Salah
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate('/b6/buat-kuis/tambah-soal', {
+                        state: {
+                          initialType: 'Esai',
+                          from: 'bank-soal',
+                          kelas: selectedKelas.romawi,
+                          mapel: selectedMapel?.nama || 'Matematika',
+                          materi: selectedMapel?.materi || 'Komposisi & invers',
+                        },
+                      })
+                    }
+                    className="w-full rounded-xl bg-[#e6f7f8] py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors text-center border border-cyan-100/60"
+                  >
+                    Esai
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 2: Impor dari Excel */}
+              <div className="rounded-2xl border border-cyan-100/90 bg-white p-6 space-y-5 flex flex-col justify-between shadow-2xs">
+                <div className="space-y-4">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-50 text-[#008994]">
+                    <FileSpreadsheet className="h-5 w-5 stroke-[2.2]" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-800">
+                      Impor dari Excel
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                      Tambahkan soal dari file Excel sesuai templat. Periksa isi soal sebelum
+                      menyimpan ke bank soal.
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-slate-50/80 p-4 space-y-2 text-xs text-slate-600">
+                    <p>• Unduh dan isi templat Excel.</p>
+                    <p>• Unggah file dan tinjau soal yang diimpor.</p>
+                    <p>• Simpan pada konteks kelas, mapel, dan materi ini.</p>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate('/b6/buat-kuis/import', {
+                        state: {
+                          from: 'bank-soal',
+                          kelas: selectedKelas.romawi,
+                          mapel: selectedMapel?.nama || 'Matematika',
+                          materi: selectedMapel?.materi || 'Komposisi & invers',
+                        },
+                      })
+                    }
+                    className="w-full rounded-xl bg-[#004d57] py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] shadow-xs transition-colors text-center"
+                  >
+                    Impor dari Excel
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Context alert at bottom of step 4 */}
+            <div className="flex items-center gap-2 pt-4 border-t border-slate-100 text-xs text-slate-500">
+              <Info className="h-4 w-4 text-[#008994] flex-shrink-0" />
+              <span>
+                Soal baru akan ditambahkan ke Kelas {selectedKelas.romawi} • {selectedMapel?.nama || 'Matematika'} • {selectedMapel?.materi || 'Komposisi & invers'}.
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* =========================================================================
@@ -909,210 +1204,12 @@ export default function BankSoalPage() {
       <div className="flex items-start gap-2.5 text-xs text-slate-400 leading-relaxed">
         <FileText className="h-4 w-4 text-slate-400 flex-shrink-0 mt-0.5" />
         <span>
-          Bank soal tersinkronisasi otomatis dengan portal ujian dan presensi SMAN 3 Malang.
-          Gunakan kembali materi yang telah diuji untuk efisiensi pembuatan kuis.
+          Lorem ipsum dolor sit amet consectetur. Risus aenean massa congue bibendum nibh consectetur.
         </span>
       </div>
 
       {/* =========================================================================
-          MODAL 1: TAMBAH / EDIT SOAL
-         ========================================================================= */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-800">
-                Tambah Soal Baru
-              </h3>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateQuestionSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Jenis Soal
-                </label>
-                <select
-                  value={newQuestion.tipe}
-                  onChange={(e) =>
-                    setNewQuestion({ ...newQuestion, tipe: e.target.value })
-                  }
-                  className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-medium text-slate-700 focus:border-[#004d57] focus:outline-none"
-                >
-                  <option value="Pilihan Ganda">Pilihan Ganda</option>
-                  <option value="Benar / Salah">Benar / Salah</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Pertanyaan
-                </label>
-                <textarea
-                  rows={3}
-                  value={newQuestion.pertanyaan}
-                  onChange={(e) =>
-                    setNewQuestion({ ...newQuestion, pertanyaan: e.target.value })
-                  }
-                  placeholder="Tuliskan pertanyaan soal di sini..."
-                  className="w-full rounded-xl border border-slate-200 p-3 text-xs text-slate-800 focus:border-[#004d57] focus:outline-none"
-                />
-              </div>
-
-              {newQuestion.tipe === 'Pilihan Ganda' ? (
-                <div className="space-y-2">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Pilihan Jawaban
-                  </label>
-                  {['A', 'B', 'C', 'D'].map((opt) => (
-                    <div key={opt} className="flex items-center gap-2">
-                      <span className="w-6 text-xs font-bold text-slate-500">{opt}.</span>
-                      <input
-                        type="text"
-                        placeholder={`Jawaban ${opt}`}
-                        value={newQuestion[`pilihan${opt}`]}
-                        onChange={(e) =>
-                          setNewQuestion({
-                            ...newQuestion,
-                            [`pilihan${opt}`]: e.target.value,
-                          })
-                        }
-                        className="flex-1 rounded-xl border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-[#004d57] focus:outline-none"
-                      />
-                    </div>
-                  ))}
-                  <div className="pt-2">
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Kunci Jawaban Benar
-                    </label>
-                    <select
-                      value={newQuestion.kunci}
-                      onChange={(e) =>
-                        setNewQuestion({ ...newQuestion, kunci: e.target.value })
-                      }
-                      className="w-full rounded-xl border border-slate-200 p-2 text-xs font-semibold text-[#004d57]"
-                    >
-                      <option value="A">Pilihan A</option>
-                      <option value="B">Pilihan B</option>
-                      <option value="C">Pilihan C</option>
-                      <option value="D">Pilihan D</option>
-                    </select>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Kunci Jawaban Benar
-                  </label>
-                  <select
-                    value={newQuestion.kunci}
-                    onChange={(e) =>
-                      setNewQuestion({ ...newQuestion, kunci: e.target.value })
-                    }
-                    className="w-full rounded-xl border border-slate-200 p-2 text-xs font-semibold text-[#004d57]"
-                  >
-                    <option value="B">Benar</option>
-                    <option value="S">Salah</option>
-                  </select>
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-[#004d57] px-5 py-2 text-xs font-semibold text-white hover:bg-[#003c44]"
-                >
-                  Simpan Soal
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          MODAL 2: IMPOR SOAL EXCEL
-         ========================================================================= */}
-      {showImportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-slate-100 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-800">
-                Impor Soal dari Excel
-              </h3>
-              <button
-                onClick={() => setShowImportModal(false)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Unggah file template Excel (.xlsx atau .xls) yang berisi daftar soal beserta kunci jawabannya.
-              </p>
-
-              {/* Drag and Drop Box */}
-              <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-cyan-300 bg-cyan-50/40 p-6 text-center">
-                <FileSpreadsheet className="h-10 w-10 text-[#00838f] mb-2" />
-                <span className="text-xs font-semibold text-slate-700">
-                  Klik untuk pilih file atau seret file ke sini
-                </span>
-                <span className="text-[11px] text-slate-400 mt-1">
-                  Format yang didukung: .xlsx, .xls (Maks. 5MB)
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between text-xs pt-1">
-                <span className="text-slate-400">Belum punya formatnya?</span>
-                <button
-                  type="button"
-                  onClick={() => showToast('Template Excel berhasil diunduh.')}
-                  className="font-semibold text-[#005b64] hover:underline"
-                >
-                  Unduh Template Excel
-                </button>
-              </div>
-
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowImportModal(false)}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                >
-                  Batal
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowImportModal(false);
-                    showToast('3 soal berhasil diimpor dari Excel!');
-                  }}
-                  className="rounded-xl bg-[#004d57] px-5 py-2 text-xs font-semibold text-white hover:bg-[#003c44]"
-                >
-                  Mulai Impor
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          MODAL 3: LIHAT DETAIL SOAL
+          MODAL: LIHAT DETAIL SOAL
          ========================================================================= */}
       {viewQuestion && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs">
@@ -1179,7 +1276,7 @@ export default function BankSoalPage() {
             <div className="flex justify-end pt-3 border-t border-slate-100">
               <button
                 onClick={() => setViewQuestion(null)}
-                className="rounded-xl bg-[#004d57] px-5 py-2 text-xs font-semibold text-white hover:bg-[#003c44]"
+                className="rounded-xl bg-[#004d57] px-5 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44]"
               >
                 Tutup
               </button>
@@ -1190,4 +1287,3 @@ export default function BankSoalPage() {
     </div>
   );
 }
-

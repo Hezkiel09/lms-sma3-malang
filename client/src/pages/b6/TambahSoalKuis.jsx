@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   ChevronRight,
   Upload,
@@ -9,15 +9,28 @@ import {
 
 export default function TambahSoalKuisPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Read state passed from Bank Soal or Buat Kuis
+  const initialType = location.state?.initialType || 'Benar / Salah';
+  const fromSource = location.state?.from || 'buat-kuis';
+  const customKelas = location.state?.kelas;
+  const customMapel = location.state?.mapel;
+  const customMateri = location.state?.materi;
 
   // State
-  const [jenisSoal, setJenisSoal] = useState('Benar / Salah'); // Default to Gambar 1, easily toggled
-  const [pertanyaan, setPertanyaan] = useState(
-    'Pada barisan aritmetika 5, 8, 11, ..., suku ke-10 adalah 32.'
-  );
+  const [jenisSoal, setJenisSoal] = useState(initialType);
+  const [pertanyaan, setPertanyaan] = useState(() => {
+    if (initialType === 'Pilihan Ganda') {
+      return 'Hasil dari 12 × 8 adalah ...';
+    } else if (initialType === 'Esai') {
+      return 'Diketahui barisan aritmetika 5, 8, 11, .... Tentukan suku ke-10 dan jumlah 10 suku pertama. Tuliskan langkah penyelesaiannya.';
+    }
+    return 'Pada barisan aritmetika 5, 8, 11, ..., suku ke-10 adalah 32.';
+  });
   const [kunciJawabanPG, setKunciJawabanPG] = useState('B');
   const [kunciBenarSalah, setKunciBenarSalah] = useState('Benar');
-  const [bobot, setBobot] = useState(5);
+  const [bobot, setBobot] = useState(initialType === 'Esai' ? 10 : 5);
   const [pilihanPG, setPilihanPG] = useState({
     A: '84',
     B: '96',
@@ -54,8 +67,12 @@ export default function TambahSoalKuisPage() {
 
   const handleSimpanSoal = (e) => {
     e.preventDefault();
-    alert(`Soal 41 (${jenisSoal}) berhasil disimpan ke daftar soal!`);
-    navigate('/b6/buat-kuis', { state: { addedQuestionNumber: 41 } });
+    alert(`Soal 41 (${jenisSoal}) berhasil disimpan!`);
+    if (fromSource === 'bank-soal') {
+      navigate('/b6/bank-soal');
+    } else {
+      navigate('/b6/buat-kuis', { state: { addedQuestionNumber: 41 } });
+    }
   };
 
   return (
@@ -66,9 +83,15 @@ export default function TambahSoalKuisPage() {
           Beranda
         </Link>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-        <Link to="/b6/buat-kuis" className="hover:text-slate-600 transition-colors">
-          Buat Kuis
-        </Link>
+        {fromSource === 'bank-soal' ? (
+          <Link to="/b6/bank-soal" className="hover:text-slate-600 transition-colors">
+            Bank Soal
+          </Link>
+        ) : (
+          <Link to="/b6/buat-kuis" className="hover:text-slate-600 transition-colors">
+            Buat Kuis
+          </Link>
+        )}
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
         <span className="text-[#005b64] font-semibold">Tambah Soal</span>
       </nav>
@@ -79,7 +102,9 @@ export default function TambahSoalKuisPage() {
           Tambah Soal
         </h1>
         <p className="mt-1 text-xs sm:text-sm text-slate-400">
-          Ulangan Harian Matematika Kelas XI
+          {fromSource === 'bank-soal'
+            ? `Bank Soal Kelas ${customKelas || 'XI'} • ${customMapel || 'Matematika'}${customMateri ? ` • ${customMateri}` : ''}`
+            : 'Ulangan Harian Matematika Kelas XI'}
         </p>
       </div>
 
@@ -391,7 +416,13 @@ export default function TambahSoalKuisPage() {
           <div className="flex items-center justify-between pt-4 border-t border-slate-100">
             <button
               type="button"
-              onClick={() => navigate('/b6/buat-kuis')}
+              onClick={() => {
+                if (fromSource === 'bank-soal') {
+                  navigate('/b6/bank-soal');
+                } else {
+                  navigate('/b6/buat-kuis');
+                }
+              }}
               className="rounded-xl bg-[#e6f7f8] px-5 py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors"
             >
               Kembali
