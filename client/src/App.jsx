@@ -21,6 +21,7 @@ import TambahSoalKuisPage from './pages/b6/TambahSoalKuis';
 import RekapHasilPage from './pages/b6/RekapHasil';
 import EditSoalPage from './pages/b6/EditSoal';
 import LihatSoalPage from './pages/b6/LihatSoal';
+import BuatSoal from './pages/b6/BuatSoal';
 
 // Placeholder for remaining guru pages
 function GuruPlaceholder({ title }) {
@@ -52,6 +53,7 @@ export default function App() {
           <Route path="bank-soal" element={<BankSoalPage />} />
           <Route path="bank-soal/edit-soal" element={<EditSoalPage />} />
           <Route path="bank-soal/lihat-soal" element={<LihatSoalPage />} />
+          <Route path="buat-soal" element={<BuatSoal />} />
           <Route path="buat-kuis" element={<BuatKuisPage />} />
           <Route path="buat-kuis/import" element={<ImportSoalExcelPage />} />
           <Route path="buat-kuis/ambil-bank-soal" element={<AmbilDariBankSoalPage />} />
@@ -81,6 +83,7 @@ export default function App() {
         {/* Direct shortcuts */}
         <Route path="/buat-kuis" element={<Navigate to="/b6/buat-kuis" replace />} />
         <Route path="/bank-soal" element={<Navigate to="/b6/bank-soal" replace />} />
+        <Route path="/buat-soal" element={<Navigate to="/b6/buat-soal" replace />} />
         <Route path="/rekap-nilai" element={<Navigate to="/b6/rekap-nilai" replace />} />
         <Route path="/rekap-hasil" element={<Navigate to="/b6/rekap-nilai" replace />} />
 
