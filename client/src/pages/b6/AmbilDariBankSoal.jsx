@@ -77,7 +77,7 @@ export default function AmbilDariBankSoalPage() {
         </div>
         <div>
           <button
-            onClick={() => navigate('/b6/buat-kuis')}
+            onClick={() => navigate('/b6/buat-kuis', { state: { quizId, formData: location.state?.formData } })}
             className="rounded-xl bg-[#e6f7f8] px-4 py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors"
           >
             Kembali ke Kuis
@@ -298,7 +298,7 @@ export default function AmbilDariBankSoalPage() {
 
           <div className="flex items-center gap-2.5">
             <button
-              onClick={() => navigate('/b6/buat-kuis')}
+              onClick={() => navigate('/b6/buat-kuis', { state: { quizId, formData: location.state?.formData } })}
               className="rounded-xl bg-[#e6f7f8] px-4 py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors"
             >
               Batal

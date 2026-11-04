@@ -1,24 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   BarChart2,
   Edit3,
   FileUp,
   Upload,
-  Plus,
   Book,
   FileText,
   Calculator,
   Search,
   ChevronDown,
   ChevronRight,
-  Eye,
-  Edit,
-  Trash2,
   X,
   CheckCircle2,
   AlertCircle,
   FileSpreadsheet,
 } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
 import {
   mockBankSoalStats,
   mockKelasList,
@@ -33,6 +30,19 @@ export default function BankSoalPage() {
 
   // Data states
   const [questions, setQuestions] = useState(mockQuestionsList);
+  const [banks, setBanks] = useState([]);
+  const [selectedBankId, setSelectedBankId] = useState('');
+  const [isLoadingBanks, setIsLoadingBanks] = useState(true);
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
+  const [isSavingBank, setIsSavingBank] = useState(false);
+  const [showCreateBankModal, setShowCreateBankModal] = useState(false);
+  const [newBank, setNewBank] = useState({
+    name: '',
+    description: '',
+    class_level: 'XI',
+    subject_name: 'Matematika',
+    topic_name: '',
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedJenisSoal, setSelectedJenisSoal] = useState('Semua jenis');
   const [selectedWaktu, setSelectedWaktu] = useState('Semua waktu');
@@ -62,6 +72,86 @@ export default function BankSoalPage() {
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
+  };
+
+  useEffect(() => {
+    let active = true;
+    apiFetch('/banks')
+      .then((data) => {
+        if (!active) return;
+        const bankList = Array.isArray(data) ? data : [];
+        setBanks(bankList);
+        setSelectedBankId((current) => current || bankList[0]?.id || '');
+        if (bankList.length > 0) setIsLoadingQuestions(true);
+      })
+      .catch((error) => {
+        if (active) showToast(`Bank soal backend gagal dimuat: ${error.message}`, 'error');
+      })
+      .finally(() => {
+        if (active) setIsLoadingBanks(false);
+      });
+
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (currentStep !== 3 || !selectedBankId) return undefined;
+    let active = true;
+    apiFetch(`/banks/${encodeURIComponent(selectedBankId)}/questions`)
+      .then((data) => {
+        if (!active) return;
+        setQuestions((Array.isArray(data) ? data : []).map((question) => {
+          const options = question.question_options || [];
+          return {
+            id: question.id,
+            bankId: selectedBankId,
+            tipe: question.question_type || 'Soal',
+            metode: 'Backend',
+            tanggal: question.created_at ? new Date(question.created_at).toLocaleDateString('id-ID') : 'Tersimpan',
+            pertanyaan: question.question_text || '',
+            tag: `${selectedKelas.romawi} • ${selectedMapel?.nama || 'Matematika'} • ${selectedMapel?.materi || 'Bank Soal'}`,
+            kelasId: selectedKelas.id,
+            mapelId: selectedMapel?.id,
+            materi: selectedMapel?.materi,
+            pilihan: options.map((option) => ({ key: option.option_label, teks: option.option_text })),
+            kunciJawaban: options.find((option) => option.is_correct)?.option_label || '-',
+          };
+        }));
+      })
+      .catch((error) => {
+        if (active) showToast(`Gagal memuat soal bank: ${error.message}`, 'error');
+      })
+      .finally(() => {
+        if (active) setIsLoadingQuestions(false);
+      });
+
+    return () => { active = false; };
+  }, [currentStep, selectedBankId, selectedKelas, selectedMapel]);
+
+  const handleCreateBank = async (event) => {
+    event.preventDefault();
+    if (!newBank.name.trim()) {
+      showToast('Nama bank soal wajib diisi.', 'error');
+      return;
+    }
+
+    setIsSavingBank(true);
+    try {
+      const createdBank = await apiFetch('/banks', {
+        method: 'POST',
+        body: JSON.stringify({ ...newBank, name: newBank.name.trim() }),
+      });
+      setBanks((current) => [createdBank, ...current]);
+      setSelectedBankId(createdBank.id);
+      setShowCreateBankModal(false);
+      setNewBank({ name: '', description: '', class_level: 'XI', subject_name: 'Matematika', topic_name: '' });
+      setCurrentStep(3);
+      showToast('Bank soal berhasil dibuat di database.');
+    } catch (error) {
+      showToast(`Gagal membuat bank soal: ${error.message}`, 'error');
+    } finally {
+      setIsSavingBank(false);
+    }
   };
 
   // Handlers for navigation
@@ -160,6 +250,42 @@ export default function BankSoalPage() {
         </div>
       )}
 
+      {showCreateBankModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs">
+          <form onSubmit={handleCreateBank} className="w-full max-w-lg space-y-4 rounded-2xl border border-slate-100 bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h2 className="text-base font-bold text-slate-800">Buat Bank Soal</h2>
+              <button type="button" onClick={() => setShowCreateBankModal(false)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100" aria-label="Tutup">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <label className="block space-y-1 text-xs font-semibold text-slate-700">
+              Nama bank soal
+              <input required value={newBank.name} onChange={(event) => setNewBank({ ...newBank, name: event.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal" placeholder="Contoh: Bank Soal Matematika XI" />
+            </label>
+            <label className="block space-y-1 text-xs font-semibold text-slate-700">
+              Deskripsi
+              <textarea rows={2} value={newBank.description} onChange={(event) => setNewBank({ ...newBank, description: event.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal" />
+            </label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <label className="block space-y-1 text-xs font-semibold text-slate-700">Kelas
+                <input value={newBank.class_level} onChange={(event) => setNewBank({ ...newBank, class_level: event.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal" />
+              </label>
+              <label className="block space-y-1 text-xs font-semibold text-slate-700">Mapel
+                <input value={newBank.subject_name} onChange={(event) => setNewBank({ ...newBank, subject_name: event.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal" />
+              </label>
+              <label className="block space-y-1 text-xs font-semibold text-slate-700">Materi
+                <input value={newBank.topic_name} onChange={(event) => setNewBank({ ...newBank, topic_name: event.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal" />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
+              <button type="button" onClick={() => setShowCreateBankModal(false)} className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600">Batal</button>
+              <button type="submit" disabled={isSavingBank} className="rounded-xl bg-[#004d57] px-5 py-2 text-xs font-semibold text-white disabled:opacity-60">{isSavingBank ? 'Menyimpan...' : 'Simpan Bank'}</button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* =========================================================================
           STEP 1: BREADCRUMBS & HEADER (BERANDA > BANK SOAL)
          ========================================================================= */}
@@ -183,6 +309,12 @@ export default function BankSoalPage() {
               </p>
             </div>
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowCreateBankModal(true)}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                Buat Bank
+              </button>
               <button
                 onClick={() => setShowImportModal(true)}
                 className="flex items-center gap-2 rounded-xl bg-[#e6f7f8] px-4 py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors"
@@ -397,6 +529,27 @@ export default function BankSoalPage() {
           MAIN CONTAINER CARD (PANEL DENGAN STEPPER DI DALAMNYA)
          ========================================================================= */}
       <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xs space-y-6">
+        {currentStep === 3 && (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <label htmlFor="b6-bank-selector" className="text-xs font-semibold text-slate-600">
+              Bank soal backend
+            </label>
+            <select
+              id="b6-bank-selector"
+              value={selectedBankId}
+              onChange={(event) => {
+                setIsLoadingQuestions(true);
+                setSelectedBankId(event.target.value);
+              }}
+              disabled={isLoadingBanks || banks.length === 0}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs sm:w-96 sm:text-sm"
+            >
+              {isLoadingBanks && <option value="">Memuat bank...</option>}
+              {!isLoadingBanks && banks.length === 0 && <option value="">Belum ada bank backend</option>}
+              {banks.map((bank) => <option key={bank.id} value={bank.id}>{bank.name}</option>)}
+            </select>
+          </div>
+        )}
         {/* Header di dalam Panel */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -671,7 +824,11 @@ export default function BankSoalPage() {
             </div>
 
             {/* Empty State Soal (Sesuai Gambar 5) */}
-            {filteredQuestions.length === 0 ? (
+            {isLoadingQuestions ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-xs text-slate-500">
+                Memuat soal dari bank...
+              </div>
+            ) : filteredQuestions.length === 0 ? (
               <div className="rounded-xl border border-amber-300 bg-amber-50/50 p-6 text-center text-xs font-medium text-amber-800">
                 Belum ada soal yang dibuat.
               </div>

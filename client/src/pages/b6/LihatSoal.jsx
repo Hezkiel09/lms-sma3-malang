@@ -1,9 +1,8 @@
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Sidebar from "../components/Sidebar";
 import "./LihatSoal.css";
-import { Book, BookOpen, Eye } from "lucide-react";
+import { BookOpen, Eye } from "lucide-react";
 
 export default function LihatSoal() {
   const navigate = useNavigate();
@@ -11,7 +10,7 @@ export default function LihatSoal() {
   const [showDelete, setShowDelete] = useState(false);
 
   // Contoh data soal
-  const [soal, setSoal] = useState({
+  const [soal] = useState({
     kelas: "XI",
     mapel: "Matematika",
     materi: "Komposisi & invers",
@@ -42,9 +41,6 @@ export default function LihatSoal() {
 
   return (
     <div className="lihatsoal-layout">
-
-      {/* SIDEBAR */}
-      <Sidebar />
 
       <main className="lihatsoal-page">
 

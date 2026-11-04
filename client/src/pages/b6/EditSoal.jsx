@@ -1,7 +1,6 @@
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Sidebar from "../components/Sidebar";
 import "./EditSoal.css";
 
 export default function EditSoal() {
@@ -145,9 +144,6 @@ export default function EditSoal() {
 
   return (
     <div className="editsoal-layout">
-
-      {/* SIDEBAR */}
-      <Sidebar />
 
       <main className="editsoal-page">
 
