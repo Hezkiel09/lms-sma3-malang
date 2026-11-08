@@ -1,22 +1,16 @@
 import React, { useRef, useState, useEffect } from 'react';
 import {
-  Home,
-  Calendar as CalendarIcon,
-  MessageSquare,
-  LogOut,
   Search,
   Bell,
-  BookOpen,
-  FileText,
   CloudUpload,
   ArrowLeft,
   X,
   File as FileIcon,
   Trash2,
   Save,
-  CheckCircle,
 } from 'lucide-react';
-import logoSmanti from '../../../assets/Logo.png';
+
+import SidebarGuru from './SidebarGuru'; // <--- Komponen Sidebar Terpisah
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
@@ -236,45 +230,13 @@ const EditFileGuru = ({ materialId, onKembali, onSaveSuccess }) => {
 
   return (
     <div className="flex min-h-screen bg-white font-sans text-[#17242E] w-full relative">
-      {/* SIDEBAR */}
-      <aside className="w-80 bg-white p-6 flex flex-col justify-between border-r border-gray-100 min-h-screen shrink-0 sticky top-0 h-screen">
-        <div>
-          <div className="mt-4 mb-8 pl-2">
-            <img src={logoSmanti} alt="SMANTI Connect" className="h-10 object-contain" />
-          </div>
-
-          <nav className="space-y-0">
-            <button
-              onClick={onKembali}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#E0F7FA] text-[#007A99] font-bold text-sm w-full text-left cursor-pointer"
-            >
-              <Home size={24} className="text-[#0088A8]" />
-              <span>Beranda</span>
-            </button>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#71808D] hover:bg-gray-50 transition text-sm">
-              <BookOpen size={24} />
-              <span>Bank Soal</span>
-            </a>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#71808D] hover:bg-gray-50 transition text-sm">
-              <FileText size={24} />
-              <span>Rekap Nilai</span>
-            </a>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#71808D] hover:bg-gray-50 transition text-sm">
-              <CalendarIcon size={24} />
-              <span>Presensi</span>
-            </a>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#71808D] hover:bg-gray-50 transition text-sm">
-              <MessageSquare size={24} />
-              <span>Pesan</span>
-            </a>
-          </nav>
-        </div>
-
-        <button className="flex items-center justify-between w-full px-4 py-3 rounded-xl bg-[#FFF0F0] text-[#E53935] font-semibold text-sm hover:bg-red-100 transition cursor-pointer">
-          <span>Keluar</span>
-          <LogOut size={22} />
-        </button>
-      </aside>
+      {/* SIDEBAR TERPISAH */}
+      <SidebarGuru 
+        menuAktif="beranda" 
+        onPilihMenu={(menu) => {
+          if (menu === 'beranda') onKembali();
+        }} 
+      />
 
       {/* MAIN CONTENT AREA */}
       <main className="flex-1 p-7 overflow-y-auto w-full bg-white rounded-tl-[32px] rounded-bl-[32px] shadow-[0_0_30px_rgba(0,136,168,0.12)] border-l border-[#DDF6F9]">

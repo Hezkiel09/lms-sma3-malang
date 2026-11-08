@@ -6,10 +6,11 @@ import {
   Trash2
 } from 'lucide-react';
 
-const TabTugasGuru = ({ onKeEditTugas }) => {
+// 1. Tangkap searchTerm di parameter komponen di sini!
+const TabTugasGuru = ({ searchTerm = '', onKeEditTugas, onPilihTugas }) => {
   const [daftarTugas] = useState([
     {
-      id: 1,
+      id: '1',
       judul: 'Latihan Mandiri: Grafik Parabola',
       dibuat: 'Dibuat pada 20 Jan 2026',
       mapel: 'Matematika X A',
@@ -18,7 +19,7 @@ const TabTugasGuru = ({ onKeEditTugas }) => {
       status: 'Aktif'
     },
     {
-      id: 2,
+      id: '2',
       judul: 'Proyek Matematika: Analisis Data',
       dibuat: 'Dibuat pada 15 Feb 2026',
       mapel: 'Matematika X A',
@@ -27,7 +28,7 @@ const TabTugasGuru = ({ onKeEditTugas }) => {
       status: 'Dijadwalkan'
     },
     {
-      id: 3,
+      id: '3',
       judul: 'Tugas Trigonometri',
       dibuat: 'Dibuat pada 10 Feb 2026',
       mapel: 'Matematika X A',
@@ -37,9 +38,15 @@ const TabTugasGuru = ({ onKeEditTugas }) => {
     }
   ]);
 
+  // 2. Buat fungsi filter menggunakan searchTerm yang dikirim dari DetailCourseGuru
+  const filteredDaftarTugas = daftarTugas.filter(tugas =>
+    tugas.judul.toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+    tugas.mapel.toLowerCase().includes((searchTerm || '').toLowerCase())
+  );
+
   return (
     <div className="space-y-8 w-full">
-      {/* STATS CARDS (4 KOTAK STATISTIK) */}
+      {/* STATS CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 w-full">
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-[0_8px_20px_rgba(0,136,168,0.08)] flex flex-col justify-center items-center text-center">
           <h3 className="text-3xl font-bold text-[#17242E] mb-1">12</h3>
@@ -77,55 +84,77 @@ const TabTugasGuru = ({ onKeEditTugas }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-xs">
-              {daftarTugas.map((tugas) => (
-                <tr key={tugas.id} className="hover:bg-gray-50/50 transition">
-                  <td className="py-4 px-5">
-                    <p className="font-bold text-[#17242E]">{tugas.judul}</p>
-                    <p className="text-[11px] text-[#71808D] mt-0.5">{tugas.dibuat}</p>
-                  </td>
-                  <td className="py-4 px-5 text-[#71808D] font-medium flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-lg bg-cyan-50 text-[#0088A8] flex items-center justify-center">
-                      <FileText size={14} />
-                    </span>
-                    {tugas.mapel}
-                  </td>
-                  <td className="py-4 px-5 text-[#71808D] font-medium">{tugas.kelas}</td>
-                  <td className="py-4 px-5 text-[#71808D] font-medium flex items-center gap-2">
-                    <Calendar size={14} className="text-gray-400" />
-                    {tugas.tenggat}
-                  </td>
-                  <td className="py-4 px-5">
-                    {tugas.status === 'Aktif' && (
-                      <span className="px-3 py-1 rounded-full bg-[#E8F8F0] text-[#10B981] text-[11px] font-bold">Aktif</span>
-                    )}
-                    {tugas.status === 'Dijadwalkan' && (
-                      <span className="px-3 py-1 rounded-full bg-[#E0F7FA] text-[#0088A8] text-[11px] font-bold">Dijadwalkan</span>
-                    )}
-                    {tugas.status === 'Tutup' && (
-                      <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-500 text-[11px] font-bold">Tutup</span>
-                    )}
-                  </td>
-                  <td className="py-4 px-5 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      {/* TOMBOL IKON PULPEN (EDIT TUGAS) */}
-                      <button 
-                        onClick={onKeEditTugas}
-                        className="p-2 rounded-xl bg-cyan-50 text-[#0088A8] hover:bg-cyan-100 transition cursor-pointer"
-                        title="Edit Tugas"
+              {/* 3. Gunakan filteredDaftarTugas pada map, bukan daftarTugas */}
+              {filteredDaftarTugas.length > 0 ? (
+                filteredDaftarTugas.map((tugas) => (
+                  <tr key={tugas.id} className="hover:bg-gray-50/50 transition">
+                    <td className="py-4 px-5">
+                      <p 
+                        onClick={() => {
+                          console.log("Judul tugas diklik:", tugas.id);
+                          if (onPilihTugas) {
+                            onPilihTugas(tugas.id);
+                          }
+                        }}
+                        className="font-bold text-[#17242E] hover:text-[#0088A8] transition cursor-pointer"
                       >
-                        <Pencil size={15} />
-                      </button>
-                      <button 
-                        onClick={() => alert(`Hapus tugas: ${tugas.judul}`)}
-                        className="p-2 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition cursor-pointer"
-                        title="Hapus Tugas"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
+                        {tugas.judul}
+                      </p>
+                      <p className="text-[11px] text-[#71808D] mt-0.5">{tugas.dibuat}</p>
+                    </td>
+                    <td className="py-4 px-5 text-[#71808D] font-medium flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-lg bg-cyan-50 text-[#0088A8] flex items-center justify-center">
+                        <FileText size={14} />
+                      </span>
+                      {tugas.mapel}
+                    </td>
+                    <td className="py-4 px-5 text-[#71808D] font-medium">{tugas.kelas}</td>
+                    <td className="py-4 px-5 text-[#71808D] font-medium flex items-center gap-2">
+                      <Calendar size={14} className="text-gray-400" />
+                      {tugas.tenggat}
+                    </td>
+                    <td className="py-4 px-5">
+                      {tugas.status === 'Aktif' && (
+                        <span className="px-3 py-1 rounded-full bg-[#E8F8F0] text-[#10B981] text-[11px] font-bold">Aktif</span>
+                      )}
+                      {tugas.status === 'Dijadwalkan' && (
+                        <span className="px-3 py-1 rounded-full bg-[#E0F7FA] text-[#0088A8] text-[11px] font-bold">Dijadwalkan</span>
+                      )}
+                      {tugas.status === 'Tutup' && (
+                        <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-500 text-[11px] font-bold">Tutup</span>
+                      )}
+                    </td>
+                    <td className="py-4 px-5 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <button 
+                          onClick={() => {
+                            if (onKeEditTugas) {
+                              onKeEditTugas(tugas.id);
+                            }
+                          }}
+                          className="p-2 rounded-xl bg-cyan-50 text-[#0088A8] hover:bg-cyan-100 transition cursor-pointer" 
+                          title="Edit Tugas"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button 
+                          onClick={() => alert(`Hapus tugas: ${tugas.judul}`)}
+                          className="p-2 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition cursor-pointer"
+                          title="Hapus Tugas"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="6" className="py-8 text-center text-gray-400">
+                    Tugas tidak ditemukan.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

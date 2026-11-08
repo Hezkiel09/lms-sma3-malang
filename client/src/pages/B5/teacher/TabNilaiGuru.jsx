@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import { 
-  Search, 
-  TrendingUp, 
-  Award, 
-  TrendingDown, 
-  Clock, 
-  ChevronDown,
-  FileText
+  Search,
+  TrendingUp,
+  Award,
+  TrendingDown,
+  Clock,
+  ChevronDown
 } from 'lucide-react';
 
-const TabNilaiGuru = ({ onKeDetailNilai, onKeInputNilai }) => {
+// ==========================================
+// TAB REKAP NILAI GURU
+// ==========================================
+const TabNilaiGuru = ({ searchTerm = '', onKeDetailNilai, onKeEditNilai, onKeTinjauNilai }) => {
   const [filterAsesmen, setFilterAsesmen] = useState('Latihan Mandiri: Grafik Parabola');
   const [filterJenis, setFilterJenis] = useState('Tugas');
   const [cariSiswa, setCariSiswa] = useState('');
@@ -25,16 +27,24 @@ const TabNilaiGuru = ({ onKeDetailNilai, onKeInputNilai }) => {
     { id: 8, nama: 'Fajar Hidayat', nis: '0012352', asesmen: 'Latihan Mandiri: Grafik Parabola', jenis: 'TUGAS', dikumpulkan: '--', status: 'TERLEWAT', nilai: '--' },
   ]);
 
+  // Perbaikan: Gunakan daftarNilai dan gabungkan filter dari searchTerm atas dan input cariSiswa
+  const filteredSiswa = daftarNilai.filter(item => {
+    const matchGlobal = item.nama.toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+                        item.nis.toLowerCase().includes((searchTerm || '').toLowerCase());
+    const matchLocal = item.nama.toLowerCase().includes((cariSiswa || '').toLowerCase()) ||
+                       item.nis.toLowerCase().includes((cariSiswa || '').toLowerCase());
+    return matchGlobal && matchLocal;
+  });
+
   return (
     <div className="space-y-8 w-full">
-      
-      {/* FILTER & PENCARIAN BOX */}
+
       {/* FILTER & PENCARIAN BOX */}
       <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-[0_8px_20px_rgba(0,136,168,0.06)] grid grid-cols-1 md:grid-cols-3 gap-5">
         <div className="relative">
           <label className="block text-[10px] font-bold text-[#71808D] uppercase tracking-wider mb-2">Asesmen</label>
           <div className="relative w-full">
-            <select 
+            <select
               value={filterAsesmen}
               onChange={(e) => setFilterAsesmen(e.target.value)}
               className="w-full px-4 py-3 bg-cyan-50/30 rounded-2xl border border-cyan-100 text-xs font-semibold text-[#17242E] focus:outline-none appearance-none cursor-pointer pr-10"
@@ -49,7 +59,7 @@ const TabNilaiGuru = ({ onKeDetailNilai, onKeInputNilai }) => {
         <div className="relative">
           <label className="block text-[10px] font-bold text-[#71808D] uppercase tracking-wider mb-2">Jenis Asesmen</label>
           <div className="relative w-full">
-            <select 
+            <select
               value={filterJenis}
               onChange={(e) => setFilterJenis(e.target.value)}
               className="w-full px-4 py-3 bg-cyan-50/30 rounded-2xl border border-cyan-100 text-xs font-semibold text-[#17242E] focus:outline-none appearance-none cursor-pointer pr-10"
@@ -66,9 +76,9 @@ const TabNilaiGuru = ({ onKeDetailNilai, onKeInputNilai }) => {
           <label className="block text-[10px] font-bold text-[#71808D] uppercase tracking-wider mb-2">Cari Siswa</label>
           <div className="relative w-full">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-600" size={16} />
-            <input 
-              type="text" 
-              placeholder="Nama..." 
+            <input
+              type="text"
+              placeholder="Nama..."
               value={cariSiswa}
               onChange={(e) => setCariSiswa(e.target.value)}
               className="w-full pl-10 pr-4 py-3 bg-cyan-50/30 rounded-2xl border border-cyan-100 text-xs text-[#17242E] focus:outline-none placeholder-gray-400"
@@ -77,9 +87,8 @@ const TabNilaiGuru = ({ onKeDetailNilai, onKeInputNilai }) => {
         </div>
       </div>
 
-      {/* STATS CARDS (4 KOTAK STATISTIK NILAI) */}
+      {/* STATS CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 w-full">
-        
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-[0_8px_20px_rgba(0,136,168,0.08)] flex items-center justify-between">
           <div>
             <p className="text-[10px] font-bold text-[#71808D] uppercase tracking-wider mb-1">RATA-RATA NILAI</p>
@@ -119,7 +128,6 @@ const TabNilaiGuru = ({ onKeDetailNilai, onKeInputNilai }) => {
             <Clock size={20} />
           </div>
         </div>
-
       </div>
 
       {/* TABEL REKAP NILAI SISWA */}
@@ -138,67 +146,90 @@ const TabNilaiGuru = ({ onKeDetailNilai, onKeInputNilai }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-xs">
-              {daftarNilai.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50/50 transition">
-                  <td className="py-4 px-5">
-                    <p className="font-bold text-[#17242E]">{item.nama}</p>
-                    <p className="text-[10px] text-[#71808D] mt-0.5">NIS: {item.nis}</p>
-                  </td>
-                  <td className="py-4 px-5 text-[#17242E] font-medium">{item.asesmen}</td>
-                  <td className="py-4 px-5">
-                    <span className="px-2.5 py-0.5 rounded-full bg-cyan-50 text-[#0088A8] text-[10px] font-bold border border-cyan-100">
-                      {item.jenis}
-                    </span>
-                  </td>
-                  <td className="py-4 px-5 text-[#71808D]">{item.dikumpulkan}</td>
-                  <td className="py-4 px-5">
-                    {item.status === 'SUDAH DINILAI' && (
-                      <span className="px-3 py-1 rounded-full bg-[#E8F8F0] text-[#10B981] text-[10px] font-bold">Sudah Dinilai</span>
-                    )}
-                    {item.status === 'BELUM DINILAI' && (
-                      <span className="px-3 py-1 rounded-full bg-[#E0F7FA] text-[#0088A8] text-[10px] font-bold">Belum Dinilai</span>
-                    )}
-                    {item.status === 'TERLAMBAT' && (
-                      <span className="px-3 py-1 rounded-full bg-orange-50 text-orange-500 text-[10px] font-bold">Terlambat</span>
-                    )}
-                    {item.status === 'TERLEWAT' && (
-                      <span className="px-3 py-1 rounded-full bg-red-50 text-red-500 text-[10px] font-bold">Terlewat</span>
-                    )}
-                  </td>
-                  <td className="py-4 px-5">
-                    <span className={`font-bold text-sm px-3 py-1 rounded-xl ${item.nilai !== '--' ? 'bg-cyan-50/50 text-[#0088A8] border border-cyan-100' : 'text-gray-400 border border-dashed border-gray-200'}`}>
-                      {item.nilai}
-                    </span>
-                  </td>
-                  <td className="py-4 px-5 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      {item.nilai !== '--' ? (
-                        <>
-                          <button 
-                            onClick={onKeDetailNilai}
-                            className="px-3 py-1.5 rounded-xl bg-gray-100 text-[#17242E] hover:bg-gray-200 transition font-bold text-[11px] cursor-pointer"
-                          >
-                            Lihat Nilai
-                          </button>
-                          <button 
-                            onClick={onKeInputNilai}
-                            className="px-3 py-1.5 rounded-xl bg-[#054C5A] text-white hover:bg-[#033742] transition font-bold text-[11px] cursor-pointer shadow-xs"
-                          >
-                            Edit Nilai
-                          </button>
-                        </>
-                      ) : (
-                        <button 
-                          onClick={onKeInputNilai}
-                          className="px-4 py-1.5 rounded-xl bg-[#054C5A] text-white hover:bg-[#033742] transition font-bold text-[11px] cursor-pointer shadow-xs w-full"
-                        >
-                          Lihat
-                        </button>
+              {filteredSiswa.length > 0 ? (
+                filteredSiswa.map((item) => (
+                  <tr key={item.id} className="hover:bg-gray-50/50 transition">
+                    <td className="py-4 px-5">
+                      <p className="font-bold text-[#17242E]">{item.nama}</p>
+                      <p className="text-[10px] text-[#71808D] mt-0.5">NIS: {item.nis}</p>
+                    </td>
+                    <td className="py-4 px-5 text-[#17242E] font-medium">{item.asesmen}</td>
+                    <td className="py-4 px-5">
+                      <span className="px-2.5 py-0.5 rounded-full bg-cyan-50 text-[#0088A8] text-[10px] font-bold border border-cyan-100">
+                        {item.jenis}
+                      </span>
+                    </td>
+                    <td className="py-4 px-5 text-[#71808D]">{item.dikumpulkan}</td>
+                    <td className="py-4 px-5">
+                      {item.status === 'SUDAH DINILAI' && (
+                        <span className="px-3 py-1 rounded-full bg-[#E8F8F0] text-[#10B981] text-[10px] font-bold">Sudah Dinilai</span>
                       )}
-                    </div>
+                      {item.status === 'BELUM DINILAI' && (
+                        <span className="px-3 py-1 rounded-full bg-[#E0F7FA] text-[#0088A8] text-[10px] font-bold">Belum Dinilai</span>
+                      )}
+                      {item.status === 'TERLAMBAT' && (
+                        <span className="px-3 py-1 rounded-full bg-orange-50 text-orange-500 text-[10px] font-bold">Terlambat</span>
+                      )}
+                      {item.status === 'TERLEWAT' && (
+                        <span className="px-3 py-1 rounded-full bg-red-50 text-red-500 text-[10px] font-bold">Terlewat</span>
+                      )}
+                    </td>
+                    <td className="py-4 px-5">
+                      <span className={`font-bold text-sm px-3 py-1 rounded-xl ${item.nilai !== '--' ? 'bg-cyan-50/50 text-[#0088A8] border border-cyan-100' : 'text-gray-400 border border-dashed border-gray-200'}`}>
+                        {item.nilai}
+                      </span>
+                    </td>
+                    <td className="py-4 px-5 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        {item.nilai !== '--' ? (
+                          <>
+                            <button
+                              onClick={() => onKeDetailNilai && onKeDetailNilai(item)}
+                              className="px-3 py-1.5 rounded-xl bg-gray-100 text-[#17242E] hover:bg-gray-200 transition font-bold text-[11px] cursor-pointer"
+                            >
+                              Lihat Nilai
+                            </button>
+                            <button
+                              onClick={() => onKeEditNilai && onKeEditNilai(item)}
+                              className="px-3 py-1.5 rounded-xl bg-[#054C5A] text-white hover:bg-[#033742] transition font-bold text-[11px] cursor-pointer shadow-xs"
+                            >
+                              Edit Nilai
+                            </button>
+                          </>
+                        ) : item.status !== 'TERLEWAT' ? (
+                          <>
+                            <button
+                              onClick={() => onKeTinjauNilai && onKeTinjauNilai(item)}
+                              className="px-3 py-1.5 rounded-xl bg-gray-100 text-[#17242E] hover:bg-gray-200 transition font-bold text-[11px] cursor-pointer"
+                            >
+                              Lihat
+                            </button>
+                            <button
+                              onClick={() => onKeTinjauNilai && onKeTinjauNilai(item)}
+                              className="px-3 py-1.5 rounded-xl bg-[#054C5A] text-white hover:bg-[#033742] transition font-bold text-[11px] cursor-pointer shadow-xs"
+                            >
+                              Nilai
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => onKeTinjauNilai && onKeTinjauNilai(item)}
+                            className="px-4 py-1.5 rounded-xl bg-gray-100 text-[#17242E] hover:bg-gray-200 transition font-bold text-[11px] cursor-pointer"
+                          >
+                            Lihat
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="7" className="py-8 text-center text-gray-400">
+                    Siswa tidak ditemukan.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

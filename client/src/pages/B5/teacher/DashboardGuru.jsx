@@ -1,29 +1,51 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Home, 
-  Calendar as CalendarIcon, 
-  MessageSquare, 
-  LogOut, 
   Search, 
   Bell, 
-  BookOpen, 
-  FileText, 
   ChevronRight,
   MoreVertical
 } from 'lucide-react';
-import logoSmanti from '../../../assets/Logo.png';
 import bannerGuruImg from '../../../assets/banner.png';
 import DaftarKelas from './DaftarKelas';
 import DetailCourseGuru from './DetailCourseGuru';
 import KelolaCourseGuru from './KelolaCourseGuru';
 import EditAssignmentGuru from './EditAssignmentGuru';
 import DetailFileGuru from './DetailFileGuru';
-import DetailTugasGuru from './DetailTugasGuru'; // Pastikan path ini sesuai dengan letak file EditAssignmentGuru
+import DetailTugasGuru from './DetailTugasGuru';
+import SidebarGuru from './SidebarGuru'; 
 
 const DashboardGuru = () => {
   const [halamanAktif, setHalamanAktif] = useState('beranda');
   const [selectedMaterialId, setSelectedMaterialId] = useState(null);
   const [selectedAssignmentId, setSelectedAssignmentId] = useState(null);
+  const [kelasTerpilih, setKelasTerpilih] = useState(null);
+  
+  // State untuk pencarian di Beranda
+  const [keywordPencarian, setKeywordPencarian] = useState('');
+
+  // Data dummy Riwayat Tugas
+  const [riwayatTugas] = useState([
+    { id: 1, tugas: 'Lorem ipsum dolor', kelas: 'X A', mapel: 'Matematika', deadline: '12/05/2026', status: 'ACTIVE' },
+    { id: 2, tugas: 'Tugas Harian 3', kelas: 'XI B', mapel: 'Matematika', deadline: '15/05/2026', status: 'DRAFT' },
+  ]);
+
+  // Data dummy Riwayat Pengumpulan
+  const [riwayatPengumpulan] = useState([
+    { id: 1, nama: 'Siti Nurhaliza', inisial: 'SN', kelas: 'XII IPS 2', tugas: 'Tugas 1', submitted: '10:45 WIB', status: 'DONE' },
+  ]);
+
+  // Logika Filter berdasarkan ketikan di search bar beranda
+  const filteredRiwayatTugas = riwayatTugas.filter(item =>
+    item.tugas.toLowerCase().includes(keywordPencarian.toLowerCase()) ||
+    item.mapel.toLowerCase().includes(keywordPencarian.toLowerCase()) ||
+    item.kelas.toLowerCase().includes(keywordPencarian.toLowerCase())
+  );
+
+  const filteredRiwayatPengumpulan = riwayatPengumpulan.filter(item =>
+    item.nama.toLowerCase().includes(keywordPencarian.toLowerCase()) ||
+    item.kelas.toLowerCase().includes(keywordPencarian.toLowerCase()) ||
+    item.tugas.toLowerCase().includes(keywordPencarian.toLowerCase())
+  );
 
   // Sinkronisasi URL browser secara aman tanpa merusak fungsi state
   const ubahHalaman = (halaman, urlPath) => {
@@ -34,8 +56,15 @@ const DashboardGuru = () => {
   useEffect(() => {
     const handlePopState = () => {
       if (window.location.pathname === '/kelas') setHalamanAktif('kelas10');
+      else if (window.location.pathname === '/kelas/11') setHalamanAktif('kelas11');
+      else if (window.location.pathname === '/kelas/12') setHalamanAktif('kelas12');
       else if (window.location.pathname === '/kelas/detail') setHalamanAktif('detailCourse');
       else if (window.location.pathname === '/kelas/kelola') setHalamanAktif('kelolaCourse');
+      else if (window.location.pathname.startsWith('/kelas/edit-assignment/')) {
+        const id = window.location.pathname.replace('/kelas/edit-assignment/', '');
+        setSelectedAssignmentId(id);
+        setHalamanAktif('editAssignment');
+      }
       else if (window.location.pathname === '/kelas/edit-assignment') setHalamanAktif('editAssignment');
       else if (window.location.pathname.startsWith('/kelas/detail/tugas/')) {
         const id = window.location.pathname.replace('/kelas/detail/tugas/', '');
@@ -53,23 +82,70 @@ const DashboardGuru = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Render Halaman Daftar Kelas
+  // Render Halaman Daftar Kelas 10
   if (halamanAktif === 'kelas10') {
     return (
       <DaftarKelas 
+        tingkat="10"
         onKembali={() => ubahHalaman('beranda', '/dashboard')} 
-        onPilihKelas={() => ubahHalaman('detailCourse', '/kelas/detail')}
+        onPilihKelas={(dataKelas) => {
+          setKelasTerpilih(dataKelas);
+          ubahHalaman('detailCourse', '/kelas/detail');
+        }}
+      />
+    );
+  }
+
+  // Render Halaman Daftar Kelas 11
+  if (halamanAktif === 'kelas11') {
+    return (
+      <DaftarKelas 
+        tingkat="11"
+        onKembali={() => ubahHalaman('beranda', '/dashboard')} 
+        onPilihKelas={(dataKelas) => {
+          setKelasTerpilih(dataKelas);
+          ubahHalaman('detailCourse', '/kelas/detail');
+        }}
+      />
+    );
+  }
+
+  // Render Halaman Daftar Kelas 12
+  if (halamanAktif === 'kelas12') {
+    return (
+      <DaftarKelas 
+        tingkat="12"
+        onKembali={() => ubahHalaman('beranda', '/dashboard')} 
+        onPilihKelas={(dataKelas) => {
+          setKelasTerpilih(dataKelas);
+          ubahHalaman('detailCourse', '/kelas/detail');
+        }}
       />
     );
   }
 
   // Render Halaman Detail Course
   if (halamanAktif === 'detailCourse') {
+    const tingkatValue = kelasTerpilih 
+      ? (kelasTerpilih.id.includes('XII') || kelasTerpilih.nama.includes('XII') ? '12' 
+         : kelasTerpilih.id.includes('XI') || kelasTerpilih.nama.includes('XI') ? '11' 
+         : '10') 
+      : '10';
+
     return (
       <DetailCourseGuru 
-        onKembali={() => ubahHalaman('kelas10', '/kelas')}
+        kelasData={kelasTerpilih} 
+        tingkatKelas={tingkatValue} 
+        onKembali={() => {
+          if (tingkatValue === '12') ubahHalaman('kelas12', '/kelas/12');
+          else if (tingkatValue === '11') ubahHalaman('kelas11', '/kelas/11');
+          else ubahHalaman('kelas10', '/kelas');
+        }}
         onKeModeEdit={() => ubahHalaman('kelolaCourse', '/kelas/kelola')}
-        onKeEditTugas={() => ubahHalaman('editAssignment', '/kelas/edit-assignment')}
+        onKeEditTugas={(idTugas) => {
+          setSelectedAssignmentId(idTugas);
+          ubahHalaman('editAssignment', `/kelas/edit-assignment/${idTugas}`);
+        }}
         onPilihMateri={(id) => {
           setSelectedMaterialId(id);
           ubahHalaman('detailFile', `/kelas/detail/file/${id}`);
@@ -131,48 +207,13 @@ const DashboardGuru = () => {
   return (
     <div className="flex min-h-screen bg-white font-sans text-[#17242E] w-full">
       
-      {/* --- SIDEBAR --- */}
-      <aside className="w-80 bg-white p-6 flex flex-col justify-between border-r border-gray-100 min-h-screen shrink-0 sticky top-0 h-screen">
-        <div>
-          {/* Logo Brand */}
-          <div className="mt-4 mb-8 pl-2">
-            <img src={logoSmanti} alt="SMANTI Connect" className="h-10 object-contain" />
-          </div>
-
-          {/* Navigation Items */}
-          <nav className="space-y-0">
-            <button 
-              onClick={() => ubahHalaman('beranda', '/dashboard')}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#E0F7FA] text-[#007A99] font-bold text-sm w-full text-left cursor-pointer"
-            >
-              <Home size={24} className="text-[#0088A8]" />
-              <span>Beranda</span>
-            </button>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#71808D] hover:bg-gray-50 transition text-sm">
-              <BookOpen size={24} />
-              <span>Bank Soal</span>
-            </a>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#71808D] hover:bg-gray-50 transition text-sm">
-              <FileText size={24} />
-              <span>Rekap Nilai</span>
-            </a>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#71808D] hover:bg-gray-50 transition text-sm">
-              <CalendarIcon size={24} />
-              <span>Presensi</span>
-            </a>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#71808D] hover:bg-gray-50 transition text-sm">
-              <MessageSquare size={24} />
-              <span>Pesan</span>
-            </a>
-          </nav>
-        </div>
-
-        {/* Logout Button */}
-        <button className="flex items-center justify-between w-full px-4 py-3 rounded-xl bg-[#FFF0F0] text-[#E53935] font-semibold text-sm hover:bg-red-100 transition cursor-pointer">
-          <span>Keluar</span>
-          <LogOut size={22} />
-        </button>
-      </aside>
+      {/* --- SIDEBAR TERPISAH --- */}
+      <SidebarGuru 
+        menuAktif="beranda" 
+        onPilihMenu={(menu) => {
+          if (menu === 'beranda') ubahHalaman('beranda', '/dashboard');
+        }} 
+      />
 
       {/* --- MAIN CONTENT AREA --- */}
       <main className="flex-1 p-7 overflow-y-auto w-full bg-white rounded-tl-[32px] rounded-bl-[32px] shadow-[0_0_30px_rgba(0,136,168,0.12)] border-l border-[#DDF6F9]">
@@ -184,6 +225,8 @@ const DashboardGuru = () => {
             <input 
               type="text" 
               placeholder="Cari informasi..." 
+              value={keywordPencarian}
+              onChange={(e) => setKeywordPencarian(e.target.value)}
               className="w-full pl-11 pr-4 py-2 bg-white rounded-full text-sm border border-cyan-100 shadow-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 placeholder-gray-400"
             />
           </div>
@@ -238,7 +281,6 @@ const DashboardGuru = () => {
           <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">PILIHAN KELAS</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full">
             
-            {/* Kelas 10 */}
             <div 
               onClick={() => ubahHalaman('kelas10', '/kelas')}
               className="bg-white p-5 rounded-3xl shadow-[0_8px_20px_rgba(0,136,168,0.12)] border border-cyan-100/80 flex items-center justify-between hover:shadow-[0_12px_25px_rgba(0,136,168,0.2)] transition cursor-pointer group"
@@ -252,10 +294,12 @@ const DashboardGuru = () => {
               </div>
             </div>
 
-            {/* Kelas 11 */}
-            <div className="bg-white p-5 rounded-3xl shadow-[0_8px_20px_rgba(0,136,168,0.12)] border border-cyan-100/80 flex items-center justify-between hover:shadow-[0_12px_25px_rgba(0,136,168,0.2)] transition cursor-pointer">
+            <div 
+              onClick={() => ubahHalaman('kelas11', '/kelas/11')}
+              className="bg-white p-5 rounded-3xl shadow-[0_8px_20px_rgba(0,136,168,0.12)] border border-cyan-100/80 flex items-center justify-between hover:shadow-[0_12px_25px_rgba(0,136,168,0.2)] transition cursor-pointer group"
+            >
               <div>
-                <h4 className="font-bold text-base text-[#17242E]">Kelas 11</h4>
+                <h4 className="font-bold text-base text-[#17242E] group-hover:text-[#0088A8] transition">Kelas 11</h4>
                 <p className="text-[11px] text-[#71808D] mt-1">Buka halaman course untuk kelas 11</p>
               </div>
               <div className="w-9 h-9 rounded-full bg-[#E0F7FA] text-[#0088A8] flex items-center justify-center shrink-0">
@@ -263,10 +307,12 @@ const DashboardGuru = () => {
               </div>
             </div>
 
-            {/* Kelas 12 */}
-            <div className="bg-white p-5 rounded-3xl shadow-[0_8px_20px_rgba(0,136,168,0.12)] border border-cyan-100/80 flex items-center justify-between hover:shadow-[0_12px_25px_rgba(0,136,168,0.2)] transition cursor-pointer">
+            <div 
+              onClick={() => ubahHalaman('kelas12', '/kelas/12')}
+              className="bg-white p-5 rounded-3xl shadow-[0_8px_20px_rgba(0,136,168,0.12)] border border-cyan-100/80 flex items-center justify-between hover:shadow-[0_12px_25px_rgba(0,136,168,0.2)] transition cursor-pointer group"
+            >
               <div>
-                <h4 className="font-bold text-base text-[#17242E]">Kelas 12</h4>
+                <h4 className="font-bold text-base text-[#17242E] group-hover:text-[#0088A8] transition">Kelas 12</h4>
                 <p className="text-[11px] text-[#71808D] mt-1">Buka halaman course untuk kelas 12</p>
               </div>
               <div className="w-9 h-9 rounded-full bg-[#E0F7FA] text-[#0088A8] flex items-center justify-center shrink-0">
@@ -333,34 +379,28 @@ const DashboardGuru = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-xs">
-                <tr>
-                  <td className="py-3.5 px-4 font-semibold text-[#17242E]">Lorem ipsum dolor</td>
-                  <td className="py-3.5 px-4 text-[#71808D]">X A</td>
-                  <td className="py-3.5 px-4 text-[#71808D]">Matematika</td>
-                  <td className="py-3.5 px-4 text-[#71808D]">12/05/2026</td>
-                  <td className="py-3.5 px-4">
-                    <span className="px-2.5 py-1 rounded-md bg-[#B2EBF2] text-[#006064] text-[10px] font-bold">
-                      ACTIVE
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-center text-[#71808D] cursor-pointer hover:text-[#0088A8]">
-                    <MoreVertical size={16} className="mx-auto" />
-                  </td>
-                </tr>
-                <tr>
-                  <td className="py-3.5 px-4 font-semibold text-[#17242E]">Tugas Harian 3</td>
-                  <td className="py-3.5 px-4 text-[#71808D]">XI B</td>
-                  <td className="py-3.5 px-4 text-[#71808D]">Matematika</td>
-                  <td className="py-3.5 px-4 text-[#71808D]">15/05/2026</td>
-                  <td className="py-3.5 px-4">
-                    <span className="px-2.5 py-1 rounded-md bg-[#FFF3C4] text-[#8C6D00] text-[10px] font-bold">
-                      DRAFT
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-center text-[#71808D] cursor-pointer hover:text-[#0088A8]">
-                    <MoreVertical size={16} className="mx-auto" />
-                  </td>
-                </tr>
+                {filteredRiwayatTugas.length > 0 ? (
+                  filteredRiwayatTugas.map((item) => (
+                    <tr key={item.id}>
+                      <td className="py-3.5 px-4 font-semibold text-[#17242E]">{item.tugas}</td>
+                      <td className="py-3.5 px-4 text-[#71808D]">{item.kelas}</td>
+                      <td className="py-3.5 px-4 text-[#71808D]">{item.mapel}</td>
+                      <td className="py-3.5 px-4 text-[#71808D]">{item.deadline}</td>
+                      <td className="py-3.5 px-4">
+                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${item.status === 'ACTIVE' ? 'bg-[#B2EBF2] text-[#006064]' : 'bg-[#FFF3C4] text-[#8C6D00]'}`}>
+                          {item.status}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-center text-[#71808D] cursor-pointer hover:text-[#0088A8]">
+                        <MoreVertical size={16} className="mx-auto" />
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="6" className="py-6 text-center text-gray-400">Tugas tidak ditemukan.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -382,25 +422,33 @@ const DashboardGuru = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-xs">
-                <tr>
-                  <td className="py-3.5 px-4 font-semibold text-[#17242E] flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-cyan-100 text-[#0088A8] flex items-center justify-center font-bold text-[10px]">SN</span>
-                    Siti Nurhaliza
-                  </td>
-                  <td className="py-3.5 px-4 text-[#71808D]">XII IPS 2</td>
-                  <td className="py-3.5 px-4 text-[#71808D]">Tugas 1</td>
-                  <td className="py-3.5 px-4 text-[#71808D]">10:45 WIB</td>
-                  <td className="py-3.5 px-4">
-                    <span className="px-2.5 py-1 rounded-md bg-[#B2EBF2] text-[#006064] text-[10px] font-bold">
-                      DONE
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-center">
-                    <button className="px-4 py-1.5 bg-[#054C5A] text-white rounded-xl text-xs font-semibold hover:bg-[#033742] transition cursor-pointer">
-                      Nilai
-                    </button>
-                  </td>
-                </tr>
+                {filteredRiwayatPengumpulan.length > 0 ? (
+                  filteredRiwayatPengumpulan.map((item) => (
+                    <tr key={item.id}>
+                      <td className="py-3.5 px-4 font-semibold text-[#17242E] flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-cyan-100 text-[#0088A8] flex items-center justify-center font-bold text-[10px]">{item.inisial}</span>
+                        {item.nama}
+                      </td>
+                      <td className="py-3.5 px-4 text-[#71808D]">{item.kelas}</td>
+                      <td className="py-3.5 px-4 text-[#71808D]">{item.tugas}</td>
+                      <td className="py-3.5 px-4 text-[#71808D]">{item.submitted}</td>
+                      <td className="py-3.5 px-4">
+                        <span className="px-2.5 py-1 rounded-md bg-[#B2EBF2] text-[#006064] text-[10px] font-bold">
+                          {item.status}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <button className="px-4 py-1.5 bg-[#054C5A] text-white rounded-xl text-xs font-semibold hover:bg-[#033742] transition cursor-pointer">
+                          Nilai
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="6" className="py-6 text-center text-gray-400">Riwayat pengumpulan tidak ditemukan.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

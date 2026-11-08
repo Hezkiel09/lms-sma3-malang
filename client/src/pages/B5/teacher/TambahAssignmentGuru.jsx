@@ -1,9 +1,9 @@
 import React, { useRef, useState } from 'react';
 import { 
-  Home, Calendar as CalendarIcon, MessageSquare, LogOut, Search, Bell, 
-  BookOpen, FileText, ArrowLeft, UploadCloud, File as FileIcon, X 
+  ArrowLeft, UploadCloud, File as FileIcon, X 
 } from 'lucide-react';
-import logoSmanti from '../../../assets/Logo.png';
+
+import SidebarGuru from './SidebarGuru'; // <--- Komponen Sidebar Terpisah
 
 const BASE_URL = 'http://localhost:5000/api/v1/b5';
 
@@ -143,48 +143,16 @@ const TambahAssignmentGuru = ({ onKembali, onSaveSuccess, sectionId, courseId })
   };
 
   return (
-    <div className="flex min-h-screen bg-white font-sans text-[#17242E] w-full">
-      <aside className="w-80 bg-white p-6 flex flex-col justify-between border-r border-gray-100 min-h-screen shrink-0 sticky top-0 h-screen">
-        <div>
-          <div className="mt-4 mb-8 pl-2">
-            <img src={logoSmanti} alt="SMANTI Connect" className="h-10 object-contain" />
-          </div>
-          <nav className="space-y-0">
-            <button onClick={onKembali} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#E0F7FA] text-[#007A99] font-bold text-sm w-full text-left cursor-pointer">
-              <Home size={24} className="text-[#0088A8]" />
-              <span>Beranda</span>
-            </button>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#71808D] hover:bg-gray-50 transition text-sm"><BookOpen size={24} /><span>Bank Soal</span></a>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#71808D] hover:bg-gray-50 transition text-sm"><FileText size={24} /><span>Rekap Nilai</span></a>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#71808D] hover:bg-gray-50 transition text-sm"><CalendarIcon size={24} /><span>Presensi</span></a>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-[#71808D] hover:bg-gray-50 transition text-sm"><MessageSquare size={24} /><span>Pesan</span></a>
-          </nav>
-        </div>
-        <button className="flex items-center justify-between w-full px-4 py-3 rounded-xl bg-[#FFF0F0] text-[#E53935] font-semibold text-sm hover:bg-red-100 transition cursor-pointer">
-          <span>Keluar</span><LogOut size={22} />
-        </button>
-      </aside>
+    <div className="flex min-h-screen bg-white font-sans text-[#17242E] w-full relative">
+      {/* SIDEBAR TERPISAH */}
+      <SidebarGuru 
+        menuAktif="beranda" 
+        onPilihMenu={(menu) => {
+          if (menu === 'beranda' && onKembali) onKembali();
+        }} 
+      />
 
       <main className="flex-1 p-7 overflow-y-auto w-full bg-white rounded-tl-[32px] rounded-bl-[32px] shadow-[0_0_30px_rgba(0,136,168,0.12)] border-l border-[#DDF6F9]">
-        <header className="flex justify-between items-center mb-6 w-full">
-          <div className="relative w-full max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-600" size={20} />
-            <input type="text" placeholder="Cari informasi..." className="w-full pl-11 pr-4 py-2 bg-white rounded-full text-sm border border-cyan-100 shadow-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 placeholder-gray-400" />
-          </div>
-          <div className="flex items-center gap-4 shrink-0">
-            <button className="p-2 bg-[#E0F7FA] rounded-full text-[#0088A8] relative shadow-xs hover:bg-cyan-100 transition cursor-pointer">
-              <Bell size={18} /><span className="absolute top-1 right-1 w-2 h-2 bg-[#00A8CC] rounded-full"></span>
-            </button>
-            <div className="flex items-center gap-3">
-              <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=80" alt="Karina" className="w-9 h-9 rounded-full object-cover border border-cyan-200" />
-              <div className="text-xs">
-                <p className="font-bold text-[#17242E] leading-tight">Karina</p>
-                <p className="text-[#71808D] text-[11px]">Guru</p>
-              </div>
-            </div>
-          </div>
-        </header>
-
         <div className="mb-4 flex items-center gap-3">
           <button onClick={onKembali} className="p-2 rounded-xl bg-[#F8FAFC] border border-gray-200 text-[#71808D] hover:bg-cyan-50 hover:text-[#0088A8] transition cursor-pointer shadow-2xs">
             <ArrowLeft size={18} />
@@ -302,7 +270,7 @@ const TambahAssignmentGuru = ({ onKembali, onSaveSuccess, sectionId, courseId })
           {/* Lampiran */}
           <div>
             <label className="block text-xs font-bold text-[#71808D] mb-2">Lampiran (Opsional)</label>
-            
+             
             <input 
               ref={fileInputRef}
               type="file" 
@@ -379,7 +347,7 @@ const TambahAssignmentGuru = ({ onKembali, onSaveSuccess, sectionId, courseId })
             >
               Batal
             </button>
-            
+             
             <button 
               type="button"
               onClick={handleSimpanTugas}
