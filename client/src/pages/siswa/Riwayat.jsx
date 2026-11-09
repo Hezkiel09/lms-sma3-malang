@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, BookOpen, Check, TriangleAlert, X } from 'lucide-react';
 import PresensiTabs from '../../components/PresensiTabs';
-import { overviewMock } from '../../mocks/overviewMock';
+import { presensiSiswaApi } from '../../services/presensiSiswaApi';
+import { getUser } from '../../services/auth';
+import { getChildId } from '../ortu/PilihAnak';
 
 const DOW = ['SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB', 'MIN'];
 const LABEL = { hadir: 'Hadir', izin: 'Izin', sakit: 'Sakit', alpha: 'Alfa' };
@@ -120,7 +122,7 @@ function Calendar({ data }) {
 }
 
 // TODO: dropdown semester -> kirim from & to ke endpoint overview; "Lihat detail" -> halaman detail mapel
-function Subjects({ data }) {
+function Subjects({ data, basePath }) {
   const n = data.subjects_notice;
   return (
     <div className="panel">
@@ -153,7 +155,7 @@ function Subjects({ data }) {
               <div>
                 <b>{s.subject.name}</b>
                 <small>{s.teacher?.name}</small>
-                <Link to={`/siswa/presensi/riwayat/${s.subject.id}`}>Lihat detail <ChevronRight size={12} /></Link>
+                <Link to={`${basePath}/riwayat/${s.subject.id}`}>Lihat detail <ChevronRight size={12} /></Link>
               </div>
             </div>
             <span className="c h">{s.hadir}</span>
@@ -181,14 +183,25 @@ function Subjects({ data }) {
   );
 }
 
-export default function Riwayat() {
-  // Nanti diganti: GET /attendances/student/me/overview?month=YYYY-MM
+export default function Riwayat({ basePath = '/siswa/presensi' }) {
+  // studentId hanya dikirim kalau yang login orang tua
+  const studentId = getUser()?.role === 'parent' ? getChildId() : undefined;
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+
   useEffect(() => {
     let alive = true;
-    setLoading(true);
-    getOverview({ month, studentId }).then((d) => alive && setData(d)).catch((e) => alive && setError(e.message)).finally(() => alive && setLoading(false));
+    setData(null);
+    setError('');
+    presensiSiswaApi
+      .getOverview({ studentId })
+      .then((d) => alive && setData(d))
+      .catch((e) => alive && setError(e.message));
     return () => { alive = false; };
-  }, [month, studentId]);
+  }, [studentId]);
+
+  if (error) return <p className="error">{error}</p>;
+  if (!data) return <p>Memuat…</p>;
 
   return (
     <>
@@ -197,7 +210,7 @@ export default function Riwayat() {
       <PresensiTabs right={<MonthNav label={data.month_label} />} />
       <Summary s={data.summary} />
       <Calendar data={data} />
-      <Subjects data={data} />
+      <Subjects data={data} basePath={basePath} />
     </>
   );
 }

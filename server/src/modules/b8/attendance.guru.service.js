@@ -311,8 +311,6 @@ export async function getToday(userId, { date } = {}) {
   };
 }
 
-// UC-12: guru buka sesi untuk 1 jadwal + tanggal. Semua siswa kelas otomatis alpha
-// (belum mengisi), lalu siswa kelas dinotifikasi bila notifyOnOpen aktif (UC-19).
 export async function openSession(userId, input = {}) {
   const { scheduleId, date, openMode } = input;
   if (!scheduleId || !date) throw httpError(422, 'scheduleId dan date wajib diisi');
@@ -329,7 +327,7 @@ export async function openSession(userId, input = {}) {
 
   const notifyOnOpen = boolOpt(input.notifyOnOpen, true, 'notifyOnOpen');
   const notifyOnClose = boolOpt(input.notifyOnClose, true, 'notifyOnClose');
-  // Pengingat hanya masuk akal untuk presensi yang diisi siswa.
+
   const remindUnfilled = method === 'manual' ? false : boolOpt(input.remindUnfilled, true, 'remindUnfilled');
   const remindAfter = input.remindAfterMinutes ?? 15;
   if (!REMIND_OPTIONS.includes(remindAfter)) {
@@ -374,7 +372,6 @@ export async function openSession(userId, input = {}) {
       .single()
   );
 
-  // supabase-js tidak punya transaksi: kalau insert presensi gagal, sesi dihapus lagi.
   const { data: rows, error } = await b8()
     .from('attendances')
     .insert(
@@ -427,8 +424,6 @@ export async function openSession(userId, input = {}) {
   };
 }
 
-// Riwayat sesi milik guru + ringkasan per sesi.
-// Filter opsional: scheduleId, classId, subjectId, date, from, to, limit.
 export async function listMySessions(userId, { scheduleId, classId, subjectId, date, from, to, limit } = {}) {
   checkRange(from, to);
   const max = Math.min(Math.max(Number(limit) || 100, 1), 200);
@@ -479,7 +474,6 @@ export async function listMySessions(userId, { scheduleId, classId, subjectId, d
   });
 }
 
-// Halaman detail sesi: header, progres, kartu ringkasan, dan daftar siswa (UC-13, UC-14).
 export async function getSession(userId, role, id) {
   const session = unwrap(await b8().from('attendance_sessions').select('*').eq('id', id).maybeSingle());
   if (!session) throw httpError(404, 'Sesi tidak ditemukan');
@@ -514,8 +508,6 @@ export async function getSession(userId, role, id) {
   };
 }
 
-// UC-14: tutup sesi. Yang belum mengisi otomatis dihitung alfa; siswa dinotifikasi
-// beserta statusnya bila notifyOnClose aktif (UC-19).
 export async function closeSession(userId, id) {
   const teacher = await getTeacher(userId);
   const session = unwrap(await b8().from('attendance_sessions').select('*').eq('id', id).maybeSingle());
@@ -591,4 +583,34 @@ export async function closeSession(userId, id) {
     }
   } catch (e) { console.error('[notif] orang tua:', e.message); }
   return { ...closed, state: 'closed', summary, notified, parentNotified };
+}
+
+export async function editSession(userId, id, input = {}) {
+  const teacher = await getTeacher(userId);
+  const session = unwrap(await b8().from('attendance_sessions').select('*').eq('id', id).maybeSingle());
+  if (!session) throw httpError(404, 'Sesi tidak ditemukan');
+  if (session.opened_by !== teacher.id) throw httpError(403, 'Ini bukan sesi kamu');
+
+  const topic = requiredText(input.topic, 200, 'Materi');
+  const outcome = requiredText(input.learningOutcome, 1000, 'Sub capaian pembelajaran');
+
+  return unwrap(
+    await b8()
+      .from('attendance_sessions')
+      .update({ topic, learning_outcome: outcome })
+      .eq('id', id)
+      .select()
+      .single()
+  );
+}
+
+export async function deleteSession(userId, id) {
+  const teacher = await getTeacher(userId);
+  const session = unwrap(await b8().from('attendance_sessions').select('id, opened_by').eq('id', id).maybeSingle());
+  if (!session) throw httpError(404, 'Sesi tidak ditemukan');
+  if (session.opened_by !== teacher.id) throw httpError(403, 'Ini bukan sesi kamu');
+
+  unwrap(await b8().from('attendances').delete().eq('session_id', id));
+  unwrap(await b8().from('attendance_sessions').delete().eq('id', id));
+  return { id, deleted: true };
 }

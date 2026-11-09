@@ -1,7 +1,3 @@
-// Seeder data dummy untuk tes B8.
-//   npm run seed:b8          -> isi data dummy
-//   npm run seed:b8:clean    -> hapus semua data dummy
-// Jalankan dari folder server/. Semua data dummy berawalan "dummy"/"DUMMY".
 import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
 

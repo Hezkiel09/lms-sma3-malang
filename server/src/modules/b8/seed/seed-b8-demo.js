@@ -1,8 +1,3 @@
-// Seeder DEMO (nama, kelas, mapel, dan jam yang bervariasi).
-//   npm run seed:b8:demo          -> isi data demo + jadwal "live" untuk hari ini
-//   npm run seed:b8:demo:live     -> hanya geser jadwal "live" ke jam sekarang (jalankan sebelum demo)
-//   npm run seed:b8:demo:clean    -> hapus semua data demo
-// Jalankan dari folder server/. Tidak menyentuh data dummy lama (seed-b8-dummy.js).
 import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
 

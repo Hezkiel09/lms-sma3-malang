@@ -1,6 +1,9 @@
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { BookOpen, Clock, Check, TriangleAlert, ChevronRight, MessageSquare } from 'lucide-react';
-import { getSubjectDetailMock } from '../../mocks/subjectDetailMock';
+import { presensiSiswaApi } from '../../services/presensiSiswaApi';
+import { getUser } from '../../services/auth';
+import { getChildId } from '../ortu/PilihAnak';
 
 function Breadcrumb() {
   return (
@@ -14,8 +17,23 @@ function Breadcrumb() {
 
 export default function DetailMapel() {
   const { subjectId } = useParams();
-  // Nanti diganti: GET /attendances/student/me/subjects/:subjectId (opsional from, to, limit)
-  const data = getSubject(subjectId, { studentId })
+  const studentId = getUser()?.role === 'parent' ? getChildId() : undefined;
+  const [data, setData] = useState(undefined); // undefined = memuat, null = tidak ditemukan
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let alive = true;
+    setData(undefined);
+    setError('');
+    presensiSiswaApi
+      .getSubject(subjectId, { studentId })
+      .then((d) => alive && setData(d))
+      .catch((e) => alive && (e.status === 404 ? setData(null) : setError(e.message)));
+    return () => { alive = false; };
+  }, [subjectId, studentId]);
+
+  if (error) return <p className="error">{error}</p>;
+  if (data === undefined) return <p>Memuat…</p>;
 
   if (!data) {
     return (
@@ -56,11 +74,11 @@ export default function DetailMapel() {
           {summary.level && <em>{summary.level}</em>}
         </div>
       </div>
-      
+
       <div className="panel">
         <h3>Riwayat Pertemuan</h3>
         <p className="sub">Rincian materi dan kehadiran {data.student.name} pada setiap pertemuan</p>
-        
+
         <div className="dm-tbl">
           <div className="dm-tr dm-th">
             <span>PERTEMUAN</span>

@@ -4,7 +4,7 @@ import { notifyMany } from './notification.service.js';
 import { selectByIds, emptySummary } from './b8.utils.js';
 import { sessionClock } from './b8.time.js';
 
-const THRESHOLD = 80; // batas minimum kehadiran sekolah (%)
+const THRESHOLD = 80;
 
 const isValidDate = (s) =>
   typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(new Date(s).getTime());
@@ -15,7 +15,6 @@ function checkRange(from, to) {
   if (from && to && from > to) throw httpError(422, 'Rentang tanggal tidak valid (from lebih besar dari to)');
 }
 
-// PostgREST membatasi 1000 baris per request: ambil bertahap.
 async function fetchAll(build) {
   const out = [];
   for (let start = 0; ; start += 1000) {
@@ -32,8 +31,6 @@ async function getTeacher(userId) {
   return t;
 }
 
-// Rekap presensi per siswa per pertemuan (halaman Rekap Presensi).
-// Hanya sesi yang sudah ditutup yang dihitung. Persentase = hadir / jumlah pertemuan.
 export async function getRecap(userId, role, { classId, subjectId, from, to } = {}) {
   if (!classId || !subjectId) throw httpError(422, 'classId dan subjectId wajib diisi');
   checkRange(from, to);
@@ -131,7 +128,6 @@ export async function getRecap(userId, role, { classId, subjectId, from, to } = 
   };
 }
 
-// Tombol "Ingatkan N siswa": notifikasi ke siswa yang belum mengisi (belum ada recorded_at).
 export async function remindStudents(userId, sessionId) {
   const teacher = await getTeacher(userId);
   const session = unwrap(await b8().from('attendance_sessions').select('*').eq('id', sessionId).maybeSingle());

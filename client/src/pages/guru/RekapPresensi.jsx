@@ -428,12 +428,40 @@ export default function RekapPresensi() {
           presensiGuruApi.getRiwayatPresensi(token),
           presensiGuruApi.getTeaching(token),
         ]);
+        
+      let records = Array.isArray(historyResult)
+  ? historyResult
+  : Array.isArray(historyResult?.sessions)
+    ? historyResult.sessions
+    : [];
 
-      const records = Array.isArray(historyResult)
-        ? historyResult
-        : Array.isArray(historyResult?.sessions)
-          ? historyResult.sessions
-          : [];
+if (PRESENSI_SOURCE === "api") {
+  // Mode API: susun sesi + daftar siswa dari /attendances/recap
+  const perClass = await Promise.all(
+    (teachingResult?.classes || [])
+      .filter((c) => c.subjects?.[0])
+      .map(async (c) => {
+        const subject = c.subjects[0];
+        const r = await presensiGuruApi.getRecap(token, {
+          classId: c.id,
+          subjectId: subject.id,
+        });
+        return r.meetings.map((m, i) => ({
+          id: m.id,
+          date: m.date,
+          meeting_number: m.number,
+          state: "closed",
+          schedule: { class: { id: c.id }, subject: { id: subject.id } },
+          attendances: r.students.map((s) => ({
+            student: { id: s.id, name: s.name, nis: s.nis },
+            status: s.meetings[i]?.status ?? null,
+            recorded_at: true,
+          })),
+        }));
+      })
+  );
+  records = perClass.flat();
+}
 
       setHistory(records);
       setTeaching(teachingResult);

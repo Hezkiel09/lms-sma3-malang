@@ -120,22 +120,3 @@ BEGIN
       CHECK (type IS NULL OR type = ANY (ARRAY['presensi','nilai','chat','pengumuman','sistem']));
   END IF;
 END $$;
-
--- ============================================================
--- BAGIAN OPSIONAL - nyentuh schema `master` (shared sama B5-B7)
--- JANGAN dijalankan sendiri tanpa konfirmasi tim, soalnya kalau di
--- data yang sudah ada ternyata ada username/nis yang kembar, perintah
--- di bawah ini bakal GAGAL (constraint violation) dan perlu
--- dibersihkan datanya dulu bareng-bareng.
--- ============================================================
-
--- UNIQUE (username) di master.users - dibutuhkan karena login (termasuk
--- NIS buat akun ortu) bergantung ke username yang unik, tapi sekarang
--- gak ada constraint-nya sama sekali.
--- ALTER TABLE master.users
---   ADD CONSTRAINT users_username_key UNIQUE (username);
-
--- UNIQUE (nis) di master.students - NIS dipakai sebagai username akun
--- ortu, jadi harus unik juga di level data siswa.
--- ALTER TABLE master.students
---   ADD CONSTRAINT students_nis_key UNIQUE (nis);

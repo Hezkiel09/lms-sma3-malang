@@ -407,7 +407,13 @@ export const presensiGuruApi = {
   // ========================================
   // READ - RIWAYAT PRESENSI
   // ========================================
-
+  async getRecap(token, { classId, subjectId, from, to } = {}) {
+    const q = new URLSearchParams(
+      Object.entries({ classId, subjectId, from, to }).filter(([, v]) => v)
+    ).toString();
+    return request(`/attendances/recap?${q}`, token);
+  },
+  
   async getRiwayatPresensi(token) {
     if (PRESENSI_SOURCE === "api") {
       return request(
@@ -1151,3 +1157,4 @@ export const presensiGuruApi = {
     };
   },
 };
+

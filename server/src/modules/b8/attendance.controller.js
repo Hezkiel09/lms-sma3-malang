@@ -3,7 +3,6 @@ import * as guru from './attendance.guru.service.js';
 import * as student from './attendance.student.service.js';
 import { ok, handle } from './b8.http.js';
 
-// Sisi guru (dibuat ulang sesuai UI)
 export const openSession = handle(async (req, res) =>
   ok(res, await guru.openSession(req.user.id, req.body), 'Sesi presensi dibuka', 201)
 );
@@ -37,12 +36,10 @@ export const getTeaching = handle(async (req, res) =>
   ok(res, await guru.getTeaching(req.user.id))
 );
 
-// Sisi siswa dan lainnya (tidak berubah)
 export const activeForMe = handle(async (req, res) =>
   ok(res, await service.activeForMe(req.user.id))
 );
 
-// Sisi siswa (dibuat ulang sesuai UI)
 export const checkin = handle(async (req, res) => {
   const result = await student.checkin(req.user.id, req.params.id, req.body);
   return ok(res, result, result.changed ? 'Presensi tersimpan' : 'Tidak ada perubahan');
