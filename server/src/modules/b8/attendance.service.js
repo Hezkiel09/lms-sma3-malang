@@ -397,6 +397,7 @@ export async function checkin(userId, sessionId, { status, notes } = {}) {
   const session = unwrap(await b8().from('attendance_sessions').select('*').eq('id', sessionId).maybeSingle());
   if (!session) throw httpError(404, 'Sesi tidak ditemukan');
   if (session.status !== 'open') throw httpError(409, 'Sesi sudah ditutup');
+  if (session.opens_at && new Date(session.opens_at) > new Date()) throw httpError(409, 'Presensi belum dibuka');
   if (session.method === 'manual') throw httpError(409, 'Presensi sesi ini dicatat manual oleh guru');
 
   const schedule = unwrap(await master().from('schedules').select('class_id').eq('id', session.schedule_id).maybeSingle());

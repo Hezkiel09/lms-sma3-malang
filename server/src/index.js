@@ -4,6 +4,7 @@ import cors from 'cors';
 import { supabase } from './config/supabase.js';
 import masterRoutes from './modules/master/master.routes.js';
 import b8Routes from './modules/b8/b8.routes.js';
+import { dispatchScheduledOpenings } from './modules/b8/attendance.guru.service.js';
 
 dotenv.config();
 
@@ -32,3 +33,11 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server is running on port http://localhost:${PORT}`);
 });
+
+setInterval(async () => {
+  try {
+    await dispatchScheduledOpenings();
+  } catch (e) {
+    console.error('[scheduler]', e.message);
+  }
+}, 60 * 1000);

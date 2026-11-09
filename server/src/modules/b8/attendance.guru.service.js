@@ -133,7 +133,7 @@ function tally(rows, state) {
   for (const r of rows) {
     if (r.recorded_at && r.status in out) out[r.status] += 1;
   }
-  if (state === 'open') out.pending = unfilled;
+  if (state === 'open' || state === 'scheduled') out.pending = unfilled;
   else out.alpha += unfilled;
   out.filledPercent = out.total ? Math.round((out.filled / out.total) * 100) : 0;
   return out;
@@ -141,7 +141,7 @@ function tally(rows, state) {
 
 function rowView(r, student, state, method) {
   const pending = !r.recorded_at;
-  const shown = pending ? (state === 'open' ? 'pending' : 'alpha') : r.status;
+  const shown = pending ? (state === 'open' || state === 'scheduled' ? 'pending' : 'alpha') : r.status;
   const time = pending ? null : wib(new Date(r.recorded_at)).time;
   const sourceText = pending ? null : r.source === 'siswa' ? `${time} · Diisi siswa` : 'Dicatat guru';
   return {
@@ -165,7 +165,7 @@ function sessionBase(session, schedule, sessionNumber) {
     schedule,
     session_number: sessionNumber ?? null,
     state: clock.state,
-    state_label: clock.state === 'open' ? 'Sedang Berlangsung' : 'Selesai',
+    state_label: clock.state === 'scheduled' ? 'Terjadwal' : clock.state === 'open' ? 'Sedang Berlangsung' : 'Selesai',
     remaining_minutes: clock.remainingMinutes,
     remaining_label: clock.remainingLabel,
     day_name: DAY_NAMES[weekdayOfDate(session.date)],
@@ -321,8 +321,8 @@ export async function openSession(userId, input = {}) {
 
   const method = input.method ?? 'siswa';
   if (!METHODS.includes(method)) throw httpError(422, `method harus salah satu dari: ${METHODS.join(', ')}`);
-  if (openMode !== undefined && openMode !== 'now') {
-    throw httpError(422, 'Pembukaan terjadwal belum tersedia, gunakan openMode "now"');
+  if (openMode !== undefined && !['now', 'scheduled'].includes(openMode)) {
+    throw httpError(422, 'openMode harus "now" atau "scheduled"');
   }
 
   const notifyOnOpen = boolOpt(input.notifyOnOpen, true, 'notifyOnOpen');
@@ -340,6 +340,12 @@ export async function openSession(userId, input = {}) {
   if (found.teacher_id !== teacher.id) throw httpError(403, 'Ini bukan jadwal mengajar kamu');
   if (!found.class_id) throw httpError(422, 'Jadwal ini belum punya kelas');
   const [schedule] = await decorateSchedules([found]);
+  let opensAt = null;
+  if (openMode === 'scheduled') {
+    opensAt = new Date(`${date}T${toHHMM(schedule.start_time)}:00+07:00`);
+    if (Number.isNaN(opensAt.getTime())) throw httpError(422, 'Jam mulai jadwal tidak valid');
+    if (opensAt <= new Date()) opensAt = null; // jam mulai sudah lewat, langsung dibuka
+  }
 
   const dup = unwrap(
     await b8().from('attendance_sessions').select('id').eq('schedule_id', scheduleId).eq('date', date).limit(1)
@@ -363,6 +369,7 @@ export async function openSession(userId, input = {}) {
         topic,
         learning_outcome: outcome,
         method,
+        opens_at: opensAt ? opensAt.toISOString() : null,
         notify_on_open: notifyOnOpen,
         remind_unfilled: remindUnfilled,
         remind_after_minutes: remindAfter,
@@ -393,7 +400,7 @@ export async function openSession(userId, input = {}) {
 
   const numbers = await sessionNumbers([schedule]);
   let notified = 0;
-  if (notifyOnOpen) {
+  if (notifyOnOpen && !opensAt) {
     const t = timeInfo(schedule);
     const subjectName = schedule.subject?.name ?? 'pelajaran';
     const where = `${schedule.class?.name ?? 'Kelas'} · Sesi ${numbers[schedule.id] ?? '-'} (${t.start} - ${t.end})`;
@@ -613,4 +620,54 @@ export async function deleteSession(userId, id) {
   unwrap(await b8().from('attendances').delete().eq('session_id', id));
   unwrap(await b8().from('attendance_sessions').delete().eq('id', id));
   return { id, deleted: true };
+}
+
+// Dipanggil scheduler tiap menit: sesi terjadwal yang sudah masuk jamnya → kirim notifikasi "presensi dibuka".
+export async function dispatchScheduledOpenings() {
+  const nowIso = new Date().toISOString();
+  const due = unwrap(
+    await b8()
+      .from('attendance_sessions')
+      .select('*')
+      .eq('status', 'open')
+      .not('opens_at', 'is', null)
+      .lte('opens_at', nowIso)
+      .is('open_notified_at', null)
+  );
+
+  let notified = 0;
+  for (const s of due) {
+    // Klaim dulu supaya tidak terkirim dobel kalau ada lebih dari satu proses server.
+    const claimed = unwrap(
+      await b8()
+        .from('attendance_sessions')
+        .update({ open_notified_at: nowIso })
+        .eq('id', s.id)
+        .is('open_notified_at', null)
+        .select('id')
+    );
+    if (!claimed.length || !s.notify_on_open) continue;
+
+    const found = unwrap(await master().from('schedules').select('*').eq('id', s.schedule_id).maybeSingle());
+    if (!found) continue;
+    const [schedule] = await decorateSchedules([found]);
+    const students = unwrap(await master().from('students').select('user_id').eq('class_id', schedule.class_id));
+    const numbers = await sessionNumbers([schedule]);
+    const t = timeInfo(schedule);
+    const where = `${schedule.class?.name ?? 'Kelas'} · Sesi ${numbers[schedule.id] ?? '-'} (${t.start} - ${t.end})`;
+
+    notified += await notifyMany(
+      students.map((x) => x.user_id),
+      {
+        title: `Presensi ${schedule.subject?.name ?? 'pelajaran'} dibuka`,
+        message:
+          s.method === 'manual'
+            ? `Presensi ${where} sedang berlangsung. Kehadiranmu dicatat oleh guru.`
+            : `Presensi ${where} sedang berlangsung. Isi kehadiranmu sebelum ditutup guru.`,
+        type: 'presensi',
+        data: { action: s.method === 'manual' ? 'lihat_riwayat' : 'isi_presensi', sessionId: s.id },
+      }
+    );
+  }
+  return { opened: due.length, notified };
 }

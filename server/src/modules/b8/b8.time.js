@@ -68,6 +68,9 @@ export function sessionClock(session, schedule, now = new Date()) {
   const w = wib(now);
   const endMin = toMinutes(schedule?.end_time);
   if (session.status === 'closed') return { state: 'closed', remainingMinutes: null, remainingLabel: null };
+  if (session.opens_at && now < new Date(session.opens_at)) {
+    return { state: 'scheduled', remainingMinutes: null, remainingLabel: null, opensAt: session.opens_at };
+  }
   const pastDay = session.date < w.date;
   const pastEnd = session.date === w.date && endMin !== null && w.minutes >= endMin;
   if (pastDay || pastEnd) return { state: 'ended', remainingMinutes: null, remainingLabel: null };

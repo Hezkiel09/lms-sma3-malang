@@ -121,6 +121,7 @@ function JadwalCard({ jadwal, selected, onSelect }) {
     open: "Sedang Berlangsung",
     ended: "Sesi Berakhir",
     closed: "Selesai",
+    scheduled: "Terjadwal",
   };
 
   return (

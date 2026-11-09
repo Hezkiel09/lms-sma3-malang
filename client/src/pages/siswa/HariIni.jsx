@@ -26,7 +26,7 @@ const OPT = {
   izin: { icon: FileText, desc: 'Saya izin tidak hadir' },
   sakit: { icon: Activity, desc: 'Saya tidak hadir karena sakit' },
 };
-const STATE_BADGE = { open: 'Sedang Berlangsung', submitted: 'Presensi Terkirim', ended: 'Sesi Berakhir' };
+const STATE_BADGE = { open: 'Sedang Berlangsung', submitted: 'Presensi Terkirim', ended: 'Sesi Berakhir', scheduled: 'Belum Dibuka', };
 
 // Kartu yang jam pelajarannya sudah lewat disembunyikan (kecuali Alfa, kalau diaktifkan di atas)
 const isVisible = (card) =>
@@ -62,7 +62,7 @@ function SessionCard({ card, onSubmit }) {
       : card.state === 'ended'
         ? `Berakhir pukul ${card.time.end}`
         : `Sesi berakhir pukul ${card.time.end}`;
-
+    card.state === 'scheduled' ? `Dibuka pukul ${card.time.start}` : null;
   return (
     <>
       <div className="card">
@@ -165,7 +165,7 @@ function SessionCard({ card, onSubmit }) {
         )}
       </div>
 
-      {card.state !== 'open' && !isAlpha && (
+      {card.state !== 'open' && card.state !== 'scheduled' && !isAlpha (
         <div className="card stats-card">
           <h3>Kehadiran Kelas di {card.subject.name} Hari Ini</h3>
           <p className="sub">Total dari {card.class_summary.total} siswa {card.class_name}.</p>

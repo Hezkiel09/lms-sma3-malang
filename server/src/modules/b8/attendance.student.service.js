@@ -148,9 +148,10 @@ export async function getTodayForMe(userId) {
         }
       : null;
 
-    let state;
-    if (clock.state === 'open') state = recorded ? 'submitted' : 'open';
-    else state = 'ended';
+      let state;
+      if (clock.state === 'scheduled') state = 'scheduled';
+      else if (clock.state === 'open') state = recorded ? 'submitted' : 'open';
+      else state = 'ended';
 
     const card = {
       ...base,
@@ -226,6 +227,7 @@ export async function checkin(userId, sessionId, { status, notes } = {}) {
   );
   if (!schedule || schedule.class_id !== student.class_id) throw httpError(403, 'Sesi ini bukan untuk kelas kamu');
   const clock = sessionClock(session, schedule);
+  if (clock.state === 'scheduled') throw httpError(409, 'Presensi belum dibuka');
   if (clock.state === 'closed') throw httpError(409, 'Sesi sudah ditutup');
   if (clock.state === 'ended') throw httpError(409, 'Waktu pengisian presensi untuk sesi ini sudah habis');
 
@@ -312,7 +314,7 @@ async function loadEffectiveRows(studentId, from, to) {
     if (r.recorded_at || !session) status = r.status;
     else {
       const clock = sessionClock(session, schedule);
-      if (clock.state === 'open') continue; // masih bisa diisi
+      if (clock.state === 'open' || clock.state === 'scheduled') continue;
       status = 'alpha';
     }
     out.push({

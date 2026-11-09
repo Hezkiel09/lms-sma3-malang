@@ -268,6 +268,7 @@ export default function BuatPresensi() {
   const [learningOutcome, setLearningOutcome] = useState("");
 
   const [method, setMethod] = useState("siswa");
+  const [openMode, setOpenMode] = useState("now");
   const [notifyOnOpen, setNotifyOnOpen] = useState(true);
   const [remindUnfilled, setRemindUnfilled] = useState(true);
   const [notifyOnClose, setNotifyOnClose] = useState(true);
@@ -418,7 +419,7 @@ export default function BuatPresensi() {
           topic: topic.trim(),
           learningOutcome: learningOutcome.trim(),
           method,
-          openMode: "now",
+          openMode,
           notifyOnOpen,
           remindUnfilled: method === "siswa"
             ? remindUnfilled
@@ -703,23 +704,27 @@ export default function BuatPresensi() {
             >
               <Label>Waktu pembukaan</Label>
               <div className="bp-chips">
-                <button type="button" className="bp-chip selected">
-                  Buka sekarang
-                </button>
-                <button
-                  type="button"
-                  disabled
-                  className="bp-chip"
-                  style={{ opacity: .45, cursor: "not-allowed" }}
-                  title="Belum didukung Backend"
-                >
-                  Buka otomatis pukul {selected?.time?.start || "-"}
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    className={`bp-chip ${openMode === "now" ? "selected" : ""}`}
+                    onClick={() => setOpenMode("now")}
+                  >
+                    Buka sekarang
+                  </button>
+                  <button
+                    type="button"
+                    className={`bp-chip ${openMode === "scheduled" ? "selected" : ""}`}
+                    onClick={() => setOpenMode("scheduled")}
+                  >
+                    Buka otomatis pukul {selected?.time?.start || "-"}
+                  </button>
+                  </div>
 
-              <p className="bp-muted" style={{ marginTop: 12 }}>
-                Pembukaan terjadwal belum tersedia pada Backend.
-              </p>
+                  <p className="bp-muted" style={{ marginTop: 12 }}>
+                    {openMode === "scheduled"
+                      ? "Sesi disimpan sekarang dan otomatis terbuka untuk siswa pada jam mulai pelajaran."
+                      : "Siswa bisa langsung mengisi presensi setelah sesi dibuat."}
+                  </p>
 
               <Setting
                 title="Beri tahu siswa saat presensi dibuka"
@@ -811,7 +816,7 @@ export default function BuatPresensi() {
                   ? "Manual oleh guru"
                   : "Diisi siswa"}
               />
-              <SummaryRow label="Pembukaan" value="Sekarang" />
+              <SummaryRow label="Pembukaan" value="openMode" />
               <SummaryRow
                 label="Pengingat"
                 value={
