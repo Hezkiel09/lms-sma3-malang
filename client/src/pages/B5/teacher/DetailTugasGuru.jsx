@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from "react";
 import {
-  Search,
-  Bell,
   Download,
   ArrowLeft,
   FileText,
@@ -16,6 +14,7 @@ import DetailNilaiGuru from "./DetailNilaiGuru";
 import TinjauNilaiGuru from "./TinjauNilaiGuru";
 import EditNilaiGuru from "./EditNilaiGuru";
 import SidebarGuru from "./SidebarGuru"; 
+import TopbarGuru from "./TopbarGuru"; // <--- TAMBAHAN IMPORT TOPBAR
 
 // ==========================================
 // DATA DUMMY TUGAS
@@ -231,6 +230,8 @@ const DetailTugasGuru = ({
   onDelete,
   onViewSubmission,
   onGrade,
+  onKeProfil,      // <--- TAMBAHAN PROPS PROFIL
+  onPilihNotif     // <--- TAMBAHAN PROPS NOTIFIKASI
 }) => {
   const [assignment, setAssignment] = useState(null);
   const [halamanAktif, setHalamanAktif] = useState('tabel'); // 'tabel', 'detailNilai', 'tinjauNilai'
@@ -401,37 +402,16 @@ const DetailTugasGuru = ({
         ) : (
           <>
             {/* ================================= */}
-            {/* TOPBAR */}
+            {/* TOPBAR GURU */}
             {/* ================================= */}
 
-            <header className="flex justify-between items-center mb-6 w-full">
-              <div className="relative w-full max-w-md">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-600" size={20} />
-                <input 
-                  type="text" 
-                  placeholder="Cari informasi..." 
-                  className="w-full pl-11 pr-4 py-2 bg-white rounded-full text-sm border border-cyan-100 shadow-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 placeholder-gray-400"
-                />
-              </div>
-
-              <div className="flex items-center gap-4 shrink-0">
-                <button className="p-2 bg-[#E0F7FA] rounded-full text-[#0088A8] relative shadow-xs hover:bg-cyan-100 transition cursor-pointer">
-                  <Bell size={18} />
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-[#00A8CC] rounded-full"></span>
-                </button>
-                <div className="flex items-center gap-3">
-                  <img 
-                    src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=80" 
-                    alt="Karina" 
-                    className="w-9 h-9 rounded-full object-cover border border-cyan-200"
-                  />
-                  <div className="text-xs">
-                    <p className="font-bold text-[#17242E] leading-tight">Karina</p>
-                    <p className="text-[#71808D] text-[11px]">Guru</p>
-                  </div>
-                </div>
-              </div>
-            </header>
+            <TopbarGuru 
+              searchTerm={search}
+              onSearchChange={(val) => setSearch(val)}
+              placeholder="Cari informasi..."
+              onKeProfil={onKeProfil}
+              onPilihNotif={onPilihNotif}
+            />
 
             {/* ================================= */}
             {/* BREADCRUMB & TOMBOL KEMBALI */}

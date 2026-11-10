@@ -1,16 +1,15 @@
 import React, { useRef, useState, useEffect } from 'react';
 import {
-  Search,
-  Bell,
-  CloudUpload,
   ArrowLeft,
-  X,
+  CloudUpload,
   File as FileIcon,
+  X,
   Trash2,
   Save,
 } from 'lucide-react';
 
 import SidebarGuru from './SidebarGuru'; // <--- Komponen Sidebar Terpisah
+import TopbarGuru from './TopbarGuru';     // <--- Komponen Topbar Terpisah
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
@@ -27,7 +26,7 @@ const formatFileSize = (bytes) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-const EditFileGuru = ({ materialId, onKembali, onSaveSuccess }) => {
+const EditFileGuru = ({ materialId, onKembali, onSaveSuccess, onKeProfil, onPilihNotif }) => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
@@ -46,6 +45,7 @@ const EditFileGuru = ({ materialId, onKembali, onSaveSuccess }) => {
   const [deletingFileId, setDeletingFileId] = useState(null);
   const [formError, setFormError] = useState('');
   const [fileError, setFileError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const fileInputRef = useRef(null);
 
@@ -240,35 +240,15 @@ const EditFileGuru = ({ materialId, onKembali, onSaveSuccess }) => {
 
       {/* MAIN CONTENT AREA */}
       <main className="flex-1 p-7 overflow-y-auto w-full bg-white rounded-tl-[32px] rounded-bl-[32px] shadow-[0_0_30px_rgba(0,136,168,0.12)] border-l border-[#DDF6F9]">
-        {/* TOPBAR */}
-        <header className="flex justify-between items-center mb-6 w-full">
-          <div className="relative w-full max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-600" size={20} />
-            <input
-              type="text"
-              placeholder="Cari informasi..."
-              className="w-full pl-11 pr-4 py-2 bg-white rounded-full text-sm border border-cyan-100 shadow-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 placeholder-gray-400"
-            />
-          </div>
-
-          <div className="flex items-center gap-4 shrink-0">
-            <button className="p-2 bg-[#E0F7FA] rounded-full text-[#0088A8] relative shadow-xs hover:bg-cyan-100 transition cursor-pointer">
-              <Bell size={18} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-[#00A8CC] rounded-full"></span>
-            </button>
-            <div className="flex items-center gap-3">
-              <img
-                src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=80"
-                alt="Karina"
-                className="w-9 h-9 rounded-full object-cover border border-cyan-200"
-              />
-              <div className="text-xs">
-                <p className="font-bold text-[#17242E] leading-tight">Karina</p>
-                <p className="text-[#71808D] text-[11px]">Guru</p>
-              </div>
-            </div>
-          </div>
-        </header>
+        
+        {/* TOPBAR GURU */}
+        <TopbarGuru 
+          searchTerm={searchTerm}
+          onSearchChange={(val) => setSearchTerm(val)}
+          placeholder="Cari informasi..."
+          onKeProfil={onKeProfil}
+          onPilihNotif={onPilihNotif}
+        />
 
         {/* BREADCRUMB */}
         <div className="mb-4 flex items-center gap-3">

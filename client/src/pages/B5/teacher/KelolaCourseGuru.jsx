@@ -1,10 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Calendar as CalendarIcon,
   MessageSquare,
-  Search,
-  Bell,
-  BookOpen,
   FileText,
   ChevronDown,
   ChevronUp,
@@ -23,10 +19,10 @@ import {
   Check,
   FolderPlus,
   Save,
-  Home
 } from 'lucide-react';
 
-import SidebarGuru from './SidebarGuru'; // <--- Komponen Sidebar Terpisah
+import SidebarGuru from './SidebarGuru'; 
+import TopbarGuru from './TopbarGuru';
 import TambahMateri from './TambahMateri';
 import EditFileGuru from './EditFileGuru';
 import EditAssignmentGuru from './EditAssignmentGuru';
@@ -37,7 +33,7 @@ import DetailTugasGuru from './DetailTugasGuru';
 // ID course Matematika X A untuk keperluan demo
 const COURSE_ID = 'bf720e90-1886-4c01-9868-249181f900dc';
 
-const KelolaCourseGuru = ({ onKembali }) => {
+const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
   // State API
   const [loadingAPI, setLoadingAPI] = useState(true);
   const [errorAPI, setErrorAPI] = useState('');
@@ -63,6 +59,7 @@ const KelolaCourseGuru = ({ onKembali }) => {
   // State Daftar Bab dan Sub-bagian
   const [daftarBab, setDaftarBab] = useState([]);
   const [selectedSectionId, setSelectedSectionId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Mengambil data Section dan Materi dari backend
   useEffect(() => {
@@ -302,6 +299,8 @@ const KelolaCourseGuru = ({ onKembali }) => {
           setSelectedMaterialId(newMaterialId);
           setSubHalaman('detailFile');
         }}
+        onKeProfil={onKeProfil}
+        onPilihNotif={onPilihNotif}
       />
     );
   }
@@ -323,6 +322,8 @@ const KelolaCourseGuru = ({ onKembali }) => {
           setSelectedMaterialId(null);
           setSubHalaman(null);
         }}
+        onKeProfil={onKeProfil}
+        onPilihNotif={onPilihNotif}
       />
     );
   }
@@ -348,6 +349,8 @@ const KelolaCourseGuru = ({ onKembali }) => {
           setSelectedAssignmentId(newId);
           setSubHalaman('detailAssignment');
         }}
+        onKeProfil={onKeProfil}
+        onPilihNotif={onPilihNotif}
       />
     );
   }
@@ -371,6 +374,8 @@ const KelolaCourseGuru = ({ onKembali }) => {
           setSelectedAssignmentId(id);
           setSubHalaman('detailAssignment');
         }}
+        onKeProfil={onKeProfil}
+        onPilihNotif={onPilihNotif}
       />
     );
   }
@@ -385,6 +390,8 @@ const KelolaCourseGuru = ({ onKembali }) => {
           fetchTugas();
           setSubHalaman(null);
         }}
+        onKeProfil={onKeProfil}
+        onPilihNotif={onPilihNotif}
       />
     );
   }
@@ -404,6 +411,8 @@ const KelolaCourseGuru = ({ onKembali }) => {
           setSelectedMaterialId(id);
           setSubHalaman('detailFile');
         }}
+        onKeProfil={onKeProfil}
+        onPilihNotif={onPilihNotif}
       />
     );
   }
@@ -420,6 +429,15 @@ const KelolaCourseGuru = ({ onKembali }) => {
         />
 
         <main onClick={() => { setActiveMaterialPopover(null); setActiveAssignmentPopover(null); }} className="flex-1 p-7 overflow-y-auto w-full bg-white rounded-tl-[32px] rounded-bl-[32px] shadow-[0_0_30px_rgba(0,136,168,0.12)] border-l border-[#DDF6F9]">
+          
+          <TopbarGuru 
+            searchTerm={searchTerm}
+            onSearchChange={(val) => setSearchTerm(val)}
+            placeholder="Cari informasi..."
+            onKeProfil={onKeProfil}
+            onPilihNotif={onPilihNotif}
+          />
+
           <div className="mb-4">
             <p className="text-[11px] text-[#71808D]">
               BERANDA &nbsp;/&nbsp; KELAS 10 &nbsp;/&nbsp;
@@ -536,43 +554,15 @@ const KelolaCourseGuru = ({ onKembali }) => {
 
       {/* MAIN CONTENT */}
       <main className="flex-1 p-7 overflow-y-auto w-full bg-white rounded-tl-[32px] rounded-bl-[32px] shadow-[0_0_30px_rgba(0,136,168,0.12)] border-l border-[#DDF6F9]">
-        {/* TOPBAR */}
-        <header className="flex justify-between items-center mb-6 w-full">
-          <div className="relative w-full max-w-md">
-            <Search
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-600"
-              size={20}
-            />
-
-            <input
-              type="text"
-              placeholder="Cari informasi..."
-              className="w-full pl-11 pr-4 py-2 bg-white rounded-full text-sm border border-cyan-100 shadow-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 placeholder-gray-400"
-            />
-          </div>
-
-          <div className="flex items-center gap-4 shrink-0">
-            <button className="p-2 bg-[#E0F7FA] rounded-full text-[#0088A8] relative shadow-xs hover:bg-cyan-100 transition cursor-pointer">
-              <Bell size={18} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-[#00A8CC] rounded-full"></span>
-            </button>
-
-            <div className="flex items-center gap-3">
-              <img
-                src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=80"
-                alt="Karina"
-                className="w-9 h-9 rounded-full object-cover border border-cyan-200"
-              />
-
-              <div className="text-xs">
-                <p className="font-bold text-[#17242E] leading-tight">
-                  Karina
-                </p>
-                <p className="text-[#71808D] text-[11px]">Guru</p>
-              </div>
-            </div>
-          </div>
-        </header>
+        
+        {/* TOPBAR GURU */}
+        <TopbarGuru 
+          searchTerm={searchTerm}
+          onSearchChange={(val) => setSearchTerm(val)}
+          placeholder="Cari informasi..."
+          onKeProfil={onKeProfil}
+          onPilihNotif={onPilihNotif}
+        />
 
         {/* BREADCRUMB */}
         <div className="mb-4 flex items-center gap-3">

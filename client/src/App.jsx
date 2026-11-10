@@ -10,6 +10,7 @@ import {
 } from 'react-router-dom';
 
 import DashboardGuru from './pages/B5/teacher/DashboardGuru';
+import ProfilGuru from './pages/B5/teacher/ProfilGuru';
 import DaftarKelas from './pages/B5/teacher/DaftarKelas';
 import DetailCourseGuru from './pages/B5/teacher/DetailCourseGuru';
 import KelolaCourseGuru from './pages/B5/teacher/KelolaCourseGuru';
@@ -31,6 +32,7 @@ function App() {
         path="/"
         element={<Navigate to="/dashboard" replace />}
       />
+      <Route path="/profil" element={<ProfilGuru />} />
 
       {/* Halaman Dashboard Guru */}
       <Route
