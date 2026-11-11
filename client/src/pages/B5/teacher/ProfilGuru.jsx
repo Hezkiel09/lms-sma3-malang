@@ -105,7 +105,7 @@ const ProfilGuru = ({ onKembali, onLogout }) => {
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-semibold text-[#71808D] block mb-1">Alamat Email Institusi</label>
+                  <label className="text-[11px] font-semibold text-[#71808D] block mb-1">Alamat Surel Institusi</label>
                   <input 
                     type="email" 
                     disabled 

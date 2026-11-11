@@ -51,7 +51,7 @@ const EditNilaiGuru = ({ studentData, onSimpanPerubahan, onBatal }) => {
   };
 
   const handleDownload = (fileName) => {
-    alert("Mengunduh berkas: " + fileName);
+    alert("Mengunduh file: " + fileName);
   };
 
   return (
@@ -91,7 +91,7 @@ const EditNilaiGuru = ({ studentData, onSimpanPerubahan, onBatal }) => {
       {/* HEADER JUDUL */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-[#17242E]">Tinjau &amp; Nilai Pengumpulan</h1>
-        <p className="text-xs text-[#71808D] mt-1">Tinjau jawaban/file siswa, berikan anotasi, masukkan nilai, dan simpan penilaian atau minta revisi.</p>
+        <p className="text-xs text-[#71808D] mt-1">Tinjau jawaban atau file siswa, berikan anotasi, masukkan nilai, lalu simpan penilaian atau minta revisi.</p>
       </div>
 
       {/* KONTEN UTAMA: GRID 2 KOLOM */}
@@ -142,11 +142,11 @@ const EditNilaiGuru = ({ studentData, onSimpanPerubahan, onBatal }) => {
 
           </div>
 
-          {/* CARD BERKAS YANG DIKUMPULKAN */}
+          {/* CARD FILE YANG DIKUMPULKAN */}
           <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-2xs space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-xs font-extrabold text-[#71808D] uppercase tracking-wider">Berkas yang Dikumpulkan</h3>
-              <span className="text-[11px] text-[#71808D]">1 Berkas Terkait</span>
+              <h3 className="text-xs font-extrabold text-[#71808D] uppercase tracking-wider">File yang Dikumpulkan</h3>
+              <span className="text-[11px] text-[#71808D]">1 file terkait</span>
             </div>
 
             <div className="flex items-center justify-between p-4 bg-[#E0F7FA]/30 border border-cyan-100 rounded-2xl">
@@ -247,7 +247,7 @@ const EditNilaiGuru = ({ studentData, onSimpanPerubahan, onBatal }) => {
             </div>
 
             <div className="space-y-2 pt-2">
-              <label className="text-[10px] font-bold text-[#71808D] tracking-wider uppercase">FEEDBACK (OPSIONAL)</label>
+              <label className="text-[10px] font-bold text-[#71808D] tracking-wider uppercase">UMPAN BALIK (OPSIONAL)</label>
               <textarea 
                 rows="5"
                 value={feedback}

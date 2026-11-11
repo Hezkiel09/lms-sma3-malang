@@ -319,7 +319,7 @@ const DetailTugasGuru = ({
 
   const handleDownload = (url, fileName) => {
     if (!url) {
-      alert("File belum terhubung. Silakan hubungkan URL file dari backend.");
+      alert("File belum terhubung. Silakan hubungkan alamat file melalui sistem.");
       return;
     }
 
@@ -516,7 +516,7 @@ const DetailTugasGuru = ({
                       </p>
 
                       <p className="mt-1 text-[10px] text-[#005969]">
-                        {assignment.attachmentSize} • PDF File
+                        {assignment.attachmentSize} • File PDF
                       </p>
                     </div>
 
@@ -529,7 +529,7 @@ const DetailTugasGuru = ({
                         )
                       }
                       className="px-1 text-lg text-[#005969] hover:text-[#009fc5] cursor-pointer"
-                      title="Download lampiran"
+                      title="Unduh lampiran"
                     >
                       <Download size={17} />
                     </button>
@@ -576,7 +576,7 @@ const DetailTugasGuru = ({
                   </div>
 
                   <p className="mt-2 text-[10px] text-[#005969]">
-                    {participationRate}% Participation Rate
+                    {participationRate}% tingkat partisipasi
                   </p>
                 </article>
               </div>
@@ -689,7 +689,7 @@ const DetailTugasGuru = ({
                               onClick={() =>
                                 handleDownload(siswa.fileUrl, siswa.file)
                               }
-                              title="Download file siswa"
+                              title="Unduh file siswa"
                               className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#e5f6fa] text-[#005969] hover:bg-[#cceff5] cursor-pointer"
                             >
                               <FileText size={17} />

@@ -68,7 +68,7 @@ const TinjauNilaiGuru = ({ studentData, onKembali, onSimpanSukses }) => {
 
   const handleDownload = () => {
     if (!currentStudent.fileUrl) {
-      alert("Mengunduh berkas siswa: " + currentStudent.fileName);
+      alert("Mengunduh file siswa: " + currentStudent.fileName);
       return;
     }
     const link = document.createElement("a");
@@ -117,7 +117,7 @@ const TinjauNilaiGuru = ({ studentData, onKembali, onSimpanSukses }) => {
       {/* HEADER JUDUL */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-[#17242E]">Tinjau &amp; Nilai Pengumpulan</h1>
-        <p className="text-xs text-[#71808D] mt-1">Tinjau jawaban/file siswa, berikan anotasi, masukkan nilai, dan simpan penilaian atau minta revisi.</p>
+        <p className="text-xs text-[#71808D] mt-1">Tinjau jawaban atau file siswa, berikan anotasi, masukkan nilai, lalu simpan penilaian atau minta revisi.</p>
       </div>
 
       {/* KONTEN UTAMA: GRID 2 KOLOM */}
@@ -171,11 +171,11 @@ const TinjauNilaiGuru = ({ studentData, onKembali, onSimpanSukses }) => {
 
           </div>
 
-          {/* CARD BERKAS YANG DIKUMPULKAN */}
+          {/* CARD FILE YANG DIKUMPULKAN */}
           <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-2xs space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-xs font-bold text-[#71808D] uppercase tracking-wider">Berkas yang Dikumpulkan</h3>
-              <span className="text-[11px] text-[#71808D]">1 Berkas Terkait</span>
+              <h3 className="text-xs font-bold text-[#71808D] uppercase tracking-wider">File yang Dikumpulkan</h3>
+              <span className="text-[11px] text-[#71808D]">1 file terkait</span>
             </div>
 
             <div className="flex items-center justify-between p-4 bg-[#E0F7FA]/30 border border-cyan-100 rounded-2xl">
@@ -199,14 +199,14 @@ const TinjauNilaiGuru = ({ studentData, onKembali, onSimpanSukses }) => {
 
           {/* CARD UNGGAH KOREKSI FILE */}
           <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-2xs space-y-4">
-            <h3 className="text-xs font-bold text-[#71808D] uppercase tracking-wider">Unggah Koreksi File</h3>
+            <h3 className="text-xs font-bold text-[#71808D] uppercase tracking-wider">Unggah File Koreksi</h3>
             
             <label className="border-2 border-dashed border-cyan-200 hover:border-[#0088A8] bg-cyan-50/30 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition">
               <div className="w-12 h-12 rounded-full bg-cyan-100 text-[#0088A8] flex items-center justify-center mb-3">
                 <UploadCloud size={24} />
               </div>
-              <p className="text-xs font-bold text-[#17242E]">Klik untuk mengunggah atau seret dan lepas</p>
-              <p className="text-[11px] text-[#71808D] mt-1">PDF, DOC, ZIP or PPTX (Maks 10MB)</p>
+              <p className="text-xs font-bold text-[#17242E]">Klik untuk mengunggah atau seret dan lepaskan file ke sini</p>
+              <p className="text-[11px] text-[#71808D] mt-1">PDF, DOC, ZIP, atau PPTX (maks. 10 MB)</p>
               <input 
                 type="file" 
                 className="hidden" 
@@ -246,7 +246,7 @@ const TinjauNilaiGuru = ({ studentData, onKembali, onSimpanSukses }) => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[11px] font-bold text-[#71808D] tracking-wider uppercase">Feedback (Opsional)</label>
+              <label className="text-[11px] font-bold text-[#71808D] tracking-wider uppercase">Umpan Balik (Opsional)</label>
               <textarea 
                 rows="4"
                 value={feedback}

@@ -6,6 +6,18 @@ import {
 import SidebarGuru from './SidebarGuru'; // <--- Komponen Sidebar Terpisah
 import TopbarGuru from './TopbarGuru';     // <--- Komponen Topbar Terpisah
 
+const terjemahkanStatusMateri = (status) => {
+  const statusTerjemahan = {
+    published: 'Diterbitkan',
+    draft: 'Draf',
+    active: 'Aktif',
+    inactive: 'Nonaktif',
+  };
+  const statusNormal = String(status || 'published').toLowerCase();
+
+  return statusTerjemahan[statusNormal] || status;
+};
+
 const DetailFileGuru = ({ materialId, courseId, onKembali, onDelete, onKeProfil, onPilihNotif }) => {
   const [material, setMaterial] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -196,7 +208,7 @@ const DetailFileGuru = ({ materialId, courseId, onKembali, onDelete, onKeProfil,
                 </div>
               ) : (
                 <div className="p-6 border border-dashed border-gray-200 rounded-2xl text-center bg-gray-50/50">
-                  <p className="text-xs text-gray-400">Tidak ada lampiran file pada materi ini.</p>
+                  <p className="text-xs text-gray-400">Tidak ada file lampiran pada materi ini.</p>
                 </div>
               )}
             </div>
@@ -207,7 +219,7 @@ const DetailFileGuru = ({ materialId, courseId, onKembali, onDelete, onKeProfil,
             
             {/* CARD LAMPIRAN MURNI DINAMIS */}
             <div className="bg-white p-5 rounded-3xl border border-gray-200 shadow-2xs space-y-3">
-              <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Berkas Terlampir</h3>
+              <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-400">File Terlampir</h3>
               {material?.material_files && material.material_files.length > 0 ? (
                 material.material_files.map((file) => {
                   const fileLink = file.file_url.startsWith('http') 
@@ -232,7 +244,7 @@ const DetailFileGuru = ({ materialId, courseId, onKembali, onDelete, onKeProfil,
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="p-2.5 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl transition cursor-pointer shadow-xs shrink-0 ml-2"
-                        title="Download File"
+                        title="Unduh file"
                       >
                         <Download size={14} />
                       </a>
@@ -240,7 +252,7 @@ const DetailFileGuru = ({ materialId, courseId, onKembali, onDelete, onKeProfil,
                   );
                 })
               ) : (
-                <p className="text-xs text-gray-400 italic">Tidak ada berkas terlampir.</p>
+                <p className="text-xs text-gray-400 italic">Tidak ada file terlampir.</p>
               )}
             </div>
 
@@ -266,7 +278,7 @@ const DetailFileGuru = ({ materialId, courseId, onKembali, onDelete, onKeProfil,
                 <div>
                   <p className="text-[10px] font-bold text-gray-400 tracking-wide">STATUS</p>
                   <div className="flex items-center gap-1.5 text-[#2E7D32] font-semibold mt-0.5">
-                    <CheckCircle size={14} className="text-[#2E7D32]" /> {material?.status || 'Published'}
+                    <CheckCircle size={14} className="text-[#2E7D32]" /> {terjemahkanStatusMateri(material?.status)}
                   </div>
                 </div>
               </div>

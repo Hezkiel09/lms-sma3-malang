@@ -534,11 +534,11 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
   // Daftar aktivitas atau sumber
   const daftarAktivitas = [
     { id: 'Tugas', title: 'Tugas', icon: ClipboardList },
-    { id: 'Link (URL)', title: 'Link (URL)', icon: ExternalLink },
+    { id: 'Link (URL)', title: 'Tautan (URL)', icon: ExternalLink },
     { id: 'File', title: 'File', icon: File },
-    { id: 'Page', title: 'Page', icon: FileCode },
-    { id: 'Text and media area', title: 'Text and media area', icon: Edit2 },
-    { id: 'Quiz', title: 'Quiz', icon: HelpCircle },
+    { id: 'Page', title: 'Halaman', icon: FileCode },
+    { id: 'Text and media area', title: 'Teks dan media', icon: Edit2 },
+    { id: 'Quiz', title: 'Kuis', icon: HelpCircle },
     { id: 'Forum', title: 'Forum', icon: MessageSquare }
   ];
 
@@ -690,7 +690,7 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
                             onClick={(e) =>
                               handleStartEditJudul(bab.id, bab.judul, e)
                             }
-                            title="Ubah Nama Bab"
+                            title="Edit Nama Bab"
                           />
                         </div>
                       )}
@@ -1032,7 +1032,7 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
                                         e
                                       )
                                     }
-                                    title="Ubah Nama Sub-bagian"
+                                    title="Edit Nama Sub-bagian"
                                   />
                                 </div>
                               )}
@@ -1290,9 +1290,9 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
             <div className="flex justify-between items-center pt-4 border-t border-gray-100">
               <span className="text-xs text-gray-500 font-medium">
                 <span className="font-bold text-[#17242E]">
-                  {pilihanAktivitas}
+                  {daftarAktivitas.find((item) => item.id === pilihanAktivitas)?.title || pilihanAktivitas}
                 </span>{' '}
-                terpilih (Section ID: {selectedSectionId})
+                terpilih (ID Bagian: {selectedSectionId})
               </span>
 
               <button
@@ -1311,7 +1311,7 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
                 }}
                 className="px-7 py-2.5 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
               >
-                Add
+                Tambah
               </button>
             </div>
           </div>

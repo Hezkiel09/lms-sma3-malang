@@ -179,7 +179,7 @@ const TambahAssignmentGuru = ({ onKembali, onSaveSuccess, sectionId, courseId })
             </label>
             <input 
               type="text" 
-              placeholder="e.g., Latihan Mandiri: Grafik Parabola" 
+              placeholder="Contoh: Latihan Mandiri: Grafik Parabola"
               value={judul} 
               onChange={(e) => setJudul(e.target.value)} 
               className="w-full px-4 py-3 bg-[#E0F7FA]/30 rounded-xl text-xs font-medium text-[#17242E] border border-cyan-100 focus:outline-none" 
@@ -191,7 +191,7 @@ const TambahAssignmentGuru = ({ onKembali, onSaveSuccess, sectionId, courseId })
             <label className="block text-xs font-bold text-[#71808D] mb-2">Instruksi</label>
             <div className="border border-cyan-100 rounded-xl overflow-hidden">
               <div className="bg-white border-b border-gray-100 p-2 flex gap-3 text-xs text-gray-500 font-bold">
-                <span>Insert</span><span>Format</span><span>Tools</span><span>Table</span><span>Help</span>
+                <span>Sisipkan</span><span>Format</span><span>Alat</span><span>Tabel</span><span>Bantuan</span>
               </div>
               <textarea 
                 rows={4} 
@@ -227,7 +227,7 @@ const TambahAssignmentGuru = ({ onKembali, onSaveSuccess, sectionId, courseId })
             </div>
             <div>
               <label className="block text-[11px] font-bold text-[#71808D] mb-1">
-                TANGGAL SELESAI (DEADLINE) <span className="text-red-500">*</span>
+                TANGGAL SELESAI (TENGGAT) <span className="text-red-500">*</span>
               </label>
               <input 
                 type="date" 
@@ -293,8 +293,8 @@ const TambahAssignmentGuru = ({ onKembali, onSaveSuccess, sectionId, courseId })
               }`}
             >
               <UploadCloud size={28} className="mx-auto text-[#0088A8] mb-2" />
-              <p className="text-xs font-semibold text-[#17242E]">Klik untuk mengunggah atau seret dan lepas</p>
-              <p className="text-[10px] text-cyan-600 mt-1">PDF, DOC, ZIP or PPTX (Maks 10MB)</p>
+              <p className="text-xs font-semibold text-[#17242E]">Klik untuk mengunggah atau seret dan lepaskan file ke sini</p>
+              <p className="text-[10px] text-cyan-600 mt-1">PDF, DOC, ZIP, atau PPTX (maks. 10 MB)</p>
             </div>
 
             {selectedFiles.length > 0 && (

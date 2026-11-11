@@ -65,7 +65,7 @@ const TabNilaiGuru = ({ searchTerm = '', onKeDetailNilai, onKeEditNilai, onKeTin
               className="w-full px-4 py-3 bg-cyan-50/30 rounded-2xl border border-cyan-100 text-xs font-semibold text-[#17242E] focus:outline-none appearance-none cursor-pointer pr-10"
             >
               <option>Tugas</option>
-              <option>Quiz</option>
+              <option>Kuis</option>
               <option>Ujian</option>
             </select>
             <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />

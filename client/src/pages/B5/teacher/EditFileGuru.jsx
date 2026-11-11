@@ -343,10 +343,10 @@ const EditFileGuru = ({ materialId, onKembali, onSaveSuccess, onKeProfil, onPili
           {/* LAMPIRAN SAAT INI (EXISTING FILES) */}
           <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-2xs space-y-3">
             <label className="block text-xs font-bold text-[#17242E]">
-              Berkas Terlampir Saat Ini ({existingFiles.length})
+              File Terlampir Saat Ini ({existingFiles.length})
             </label>
             {existingFiles.length === 0 ? (
-              <p className="text-xs text-gray-400 italic">Belum ada berkas terlampir.</p>
+              <p className="text-xs text-gray-400 italic">Belum ada file terlampir.</p>
             ) : (
               <div className="space-y-2">
                 {existingFiles.map((file) => (
@@ -416,10 +416,10 @@ const EditFileGuru = ({ materialId, onKembali, onSaveSuccess, onKeProfil, onPili
             >
               <CloudUpload size={28} className="mx-auto text-[#0088A8] mb-2" />
               <p className="text-xs font-semibold text-[#17242E]">
-                Klik untuk mengunggah atau seret dan lepas
+                Klik untuk mengunggah atau seret dan lepaskan file ke sini
               </p>
               <p className="text-[10px] text-cyan-600 mt-1">
-                PDF, DOC, DOCX, ZIP, PPT, atau PPTX (Maks 10MB per file)
+                PDF, DOC, DOCX, ZIP, PPT, atau PPTX (maks. 10 MB per file)
               </p>
             </div>
 

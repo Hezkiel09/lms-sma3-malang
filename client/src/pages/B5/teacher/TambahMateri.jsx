@@ -152,7 +152,7 @@ const TambahMateri = ({
     }
 
     if (fileError) {
-      setFormError('Perbaiki pilihan file sebelum menyimpan materi.');
+      setFormError('Periksa pilihan file sebelum menyimpan materi.');
       return;
     }
 
@@ -235,7 +235,7 @@ const TambahMateri = ({
 
         {/* TITLE SECTION */}
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-[#17242E]">Tambah File</h2>
+          <h2 className="text-2xl font-bold text-[#17242E]">Tambah Materi</h2>
           <p className="text-xs text-[#71808D] mt-1">
             Buat materi pembelajaran baru untuk diakses oleh siswa.
           </p>
@@ -281,11 +281,11 @@ const TambahMateri = ({
 
               {/* Toolbar Editor */}
               <div className="flex flex-wrap items-center gap-1 p-2 bg-gray-50 border-b border-gray-200 text-gray-600 text-xs">
-                <span className="px-2 py-1 text-gray-500 font-semibold hover:bg-gray-200 rounded cursor-pointer">Insert</span>
+                <span className="px-2 py-1 text-gray-500 font-semibold hover:bg-gray-200 rounded cursor-pointer">Sisipkan</span>
                 <span className="px-2 py-1 text-gray-500 font-semibold hover:bg-gray-200 rounded cursor-pointer">Format</span>
-                <span className="px-2 py-1 text-gray-500 font-semibold hover:bg-gray-200 rounded cursor-pointer">Tools</span>
-                <span className="px-2 py-1 text-gray-500 font-semibold hover:bg-gray-200 rounded cursor-pointer">Table</span>
-                <span className="px-2 py-1 text-gray-500 font-semibold hover:bg-gray-200 rounded cursor-pointer">Help</span>
+                <span className="px-2 py-1 text-gray-500 font-semibold hover:bg-gray-200 rounded cursor-pointer">Alat</span>
+                <span className="px-2 py-1 text-gray-500 font-semibold hover:bg-gray-200 rounded cursor-pointer">Tabel</span>
+                <span className="px-2 py-1 text-gray-500 font-semibold hover:bg-gray-200 rounded cursor-pointer">Bantuan</span>
 
                 <div className="h-4 w-px bg-gray-300 mx-1" />
 
@@ -341,7 +341,7 @@ const TambahMateri = ({
           {/* UPLOAD FILE: KLIK DAN DRAG-AND-DROP */}
           <div>
             <label className="block text-xs font-bold text-[#17242E] mb-2">
-              Upload File Materi
+              Unggah File Materi
             </label>
 
             <input
@@ -386,11 +386,11 @@ const TambahMateri = ({
               <p className="text-xs font-bold text-[#17242E]">
                 {isDragging
                   ? 'Lepaskan file di sini'
-                  : 'Klik untuk mengunggah atau seret dan lepas'}
+                  : 'Klik untuk mengunggah atau seret dan lepaskan file ke sini'}
               </p>
 
               <p className="text-[10px] text-[#71808D] mt-1">
-                PDF, DOC, DOCX, ZIP, PPT, PPTX (Maks. 10 MB/file, 5 file)
+                PDF, DOC, DOCX, ZIP, PPT, atau PPTX (maks. 10 MB/file, 5 file)
               </p>
             </div>
 
@@ -468,7 +468,7 @@ const TambahMateri = ({
                   onChange={() => setStatusPublikasi('draft')}
                   className="accent-[#0088A8]"
                 />
-                Simpan sebagai Draft
+                Simpan sebagai Draf
               </label>
             </div>
           </div>

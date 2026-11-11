@@ -28,7 +28,7 @@ const DetailNilaiGuru = ({ studentData, onKembali, onEditNilai }) => {
   };
 
   const handleDownload = (fileName) => {
-    alert("Mengunduh berkas: " + fileName);
+    alert("Mengunduh file: " + fileName);
   };
 
   return (
@@ -120,11 +120,11 @@ const DetailNilaiGuru = ({ studentData, onKembali, onEditNilai }) => {
 
       </div>
 
-      {/* BERKAS YANG DIKUMPULKAN */}
+      {/* FILE YANG DIKUMPULKAN */}
       <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-2xs space-y-4 mb-6">
         <div className="flex justify-between items-center">
-          <h3 className="text-xs font-extrabold text-[#71808D] uppercase tracking-wider">Berkas yang Dikumpulkan</h3>
-          <span className="text-[11px] text-[#71808D]">1 Berkas Terkait</span>
+          <h3 className="text-xs font-extrabold text-[#71808D] uppercase tracking-wider">File yang Dikumpulkan</h3>
+          <span className="text-[11px] text-[#71808D]">1 file terkait</span>
         </div>
 
         <div className="flex items-center justify-between p-4 bg-[#E0F7FA]/30 border border-cyan-100 rounded-2xl">

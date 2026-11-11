@@ -209,7 +209,7 @@ const EditAssignmentGuru = ({ assignmentId, onKembali, onSaveSuccess, onKeProfil
       return;
     }
     if (!deadlineDate) {
-      setSaveError('Tanggal selesai/deadline wajib diisi.');
+      setSaveError('Tanggal selesai/tenggat wajib diisi.');
       return;
     }
 
@@ -319,7 +319,7 @@ const EditAssignmentGuru = ({ assignmentId, onKembali, onSaveSuccess, onKeProfil
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-[#17242E]">Edit Tugas</h2>
           <p className="text-xs text-[#71808D] mt-1">
-            Ubah informasi tugas, instruksi, tenggat waktu pengumpulan, dan kelola file lampiran.
+            Edit informasi tugas, instruksi, tenggat waktu pengumpulan, dan kelola file lampiran.
             {sectionTitle && <span className="font-semibold text-cyan-800"> (Bab: {sectionTitle})</span>}
           </p>
         </div>
@@ -353,11 +353,11 @@ const EditAssignmentGuru = ({ assignmentId, onKembali, onSaveSuccess, onKeProfil
             <label className="block text-xs font-bold text-[#71808D] mb-2">Instruksi</label>
             <div className="border border-cyan-100 rounded-xl overflow-hidden">
               <div className="bg-white border-b border-gray-100 p-2 flex gap-3 text-xs text-gray-500 font-bold">
-                <span>Insert</span>
+                <span>Sisipkan</span>
                 <span>Format</span>
-                <span>Tools</span>
-                <span>Table</span>
-                <span>Help</span>
+                <span>Alat</span>
+                <span>Tabel</span>
+                <span>Bantuan</span>
               </div>
               <textarea
                 rows={4}
@@ -525,10 +525,10 @@ const EditAssignmentGuru = ({ assignmentId, onKembali, onSaveSuccess, onKeProfil
               />
               <UploadCloud size={28} className="mx-auto text-[#0088A8] mb-2" />
               <p className="text-xs font-semibold text-[#17242E]">
-                Klik untuk mengunggah atau seret dan lepas file di sini
+                Klik untuk mengunggah atau seret dan lepaskan file ke sini
               </p>
               <p className="text-[10px] text-cyan-600 mt-1">
-                PDF, DOC, ZIP, PPTX, XLS, Gambar (Maks 10MB per file)
+                PDF, DOC, ZIP, PPTX, XLS, gambar (maks. 10 MB per file)
               </p>
             </div>
 

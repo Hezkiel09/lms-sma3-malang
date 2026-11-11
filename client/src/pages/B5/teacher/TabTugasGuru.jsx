@@ -50,7 +50,7 @@ const TabTugasGuru = ({ searchTerm = '', onKeEditTugas, onPilihTugas }) => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 w-full">
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-[0_8px_20px_rgba(0,136,168,0.08)] flex flex-col justify-center items-center text-center">
           <h3 className="text-3xl font-bold text-[#17242E] mb-1">12</h3>
-          <p className="text-[10px] font-bold text-[#71808D] uppercase tracking-wider">TOTAL TUGAS</p>
+          <p className="text-[10px] font-bold text-[#71808D] uppercase tracking-wider">JUMLAH TUGAS</p>
         </div>
 
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-[0_8px_20px_rgba(0,136,168,0.08)] flex flex-col justify-center items-center text-center">

@@ -24,13 +24,13 @@ const DashboardGuru = () => {
 
   // Data dummy Riwayat Tugas
   const [riwayatTugas] = useState([
-    { id: 1, tugas: 'Lorem ipsum dolor', kelas: 'X A', mapel: 'Matematika', deadline: '12/05/2026', status: 'ACTIVE' },
+    { id: 1, tugas: 'Latihan Grafik Parabola', kelas: 'X A', mapel: 'Matematika', deadline: '12/05/2026', status: 'ACTIVE' },
     { id: 2, tugas: 'Tugas Harian 3', kelas: 'XI B', mapel: 'Matematika', deadline: '15/05/2026', status: 'DRAFT' },
   ]);
 
   // Data dummy Riwayat Pengumpulan
   const [riwayatPengumpulan] = useState([
-    { id: 1, nama: 'Siti Nurhaliza', inisial: 'SN', kelas: 'XII IPS 2', tugas: 'Tugas 1', submitted: '10:45 WIB', status: 'DONE' },
+    { id: 1, nama: 'Siti Nurhaliza', inisial: 'SN', kelas: 'XII IPS 2', tugas: 'Tugas 1', submitted: '10:45 WIB', status: 'Selesai' },
   ]);
 
   // Logika Filter berdasarkan ketikan di search bar beranda
@@ -283,7 +283,7 @@ const DashboardGuru = () => {
           <div className="hidden lg:flex absolute right-4 bottom-0 h-full items-end justify-end pointer-events-none z-10">
             <img
               src={bannerGuruImg}
-              alt="Teacher 3D"
+              alt="Ilustrasi guru 3D"
               className="h-[110%] w-auto object-contain object-bottom max-w-[220px]"
             />
           </div>
@@ -300,7 +300,7 @@ const DashboardGuru = () => {
             >
               <div>
                 <h4 className="font-bold text-base text-[#17242E] group-hover:text-[#0088A8] transition">Kelas 10</h4>
-                <p className="text-[11px] text-[#71808D] mt-1">Buka halaman course untuk kelas 10</p>
+                <p className="text-[11px] text-[#71808D] mt-1">Buka halaman kelas untuk kelas 10</p>
               </div>
               <div className="w-9 h-9 rounded-full bg-[#E0F7FA] text-[#0088A8] flex items-center justify-center shrink-0">
                 <ChevronRight size={18} />
@@ -313,7 +313,7 @@ const DashboardGuru = () => {
             >
               <div>
                 <h4 className="font-bold text-base text-[#17242E] group-hover:text-[#0088A8] transition">Kelas 11</h4>
-                <p className="text-[11px] text-[#71808D] mt-1">Buka halaman course untuk kelas 11</p>
+                <p className="text-[11px] text-[#71808D] mt-1">Buka halaman kelas untuk kelas 11</p>
               </div>
               <div className="w-9 h-9 rounded-full bg-[#E0F7FA] text-[#0088A8] flex items-center justify-center shrink-0">
                 <ChevronRight size={18} />
@@ -326,7 +326,7 @@ const DashboardGuru = () => {
             >
               <div>
                 <h4 className="font-bold text-base text-[#17242E] group-hover:text-[#0088A8] transition">Kelas 12</h4>
-                <p className="text-[11px] text-[#71808D] mt-1">Buka halaman course untuk kelas 12</p>
+                <p className="text-[11px] text-[#71808D] mt-1">Buka halaman kelas untuk kelas 12</p>
               </div>
               <div className="w-9 h-9 rounded-full bg-[#E0F7FA] text-[#0088A8] flex items-center justify-center shrink-0">
                 <ChevronRight size={18} />
@@ -336,13 +336,13 @@ const DashboardGuru = () => {
           </div>
         </section>
 
-        {/* SECTION: COURSE SUMMARY (4 STATS) */}
+        {/* SECTION: RINGKASAN KELAS (4 STATISTIK) */}
         <section className="mb-8 w-full">
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">COURSE SUMMARY</p>
+          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">RINGKASAN KELAS</p>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 w-full">
 
             <div className="bg-white p-5 rounded-3xl shadow-[0_8px_20px_rgba(0,136,168,0.12)] border border-cyan-100/80">
-              <p className="text-[10px] font-bold text-[#71808D] uppercase tracking-wider">TOTAL MATA PELAJARAN</p>
+              <p className="text-[10px] font-bold text-[#71808D] uppercase tracking-wider">JUMLAH MATA PELAJARAN</p>
               <p className="text-2xl font-bold text-[#17242E] mt-2">12</p>
               <div className="w-full bg-gray-100 h-1.5 rounded-full mt-3 overflow-hidden">
                 <div className="bg-[#0088A8] h-full w-2/3 rounded-full"></div>
@@ -350,7 +350,7 @@ const DashboardGuru = () => {
             </div>
 
             <div className="bg-white p-5 rounded-3xl shadow-[0_8px_20px_rgba(0,136,168,0.12)] border border-cyan-100/80">
-              <p className="text-[10px] font-bold text-[#71808D] uppercase tracking-wider">TOTAL MATERI</p>
+              <p className="text-[10px] font-bold text-[#71808D] uppercase tracking-wider">JUMLAH MATERI</p>
               <p className="text-2xl font-bold text-[#17242E] mt-2">48</p>
               <div className="w-full bg-gray-100 h-1.5 rounded-full mt-3 overflow-hidden">
                 <div className="bg-[#0088A8] h-full w-4/5 rounded-full"></div>
@@ -358,7 +358,7 @@ const DashboardGuru = () => {
             </div>
 
             <div className="bg-white p-5 rounded-3xl shadow-[0_8px_20px_rgba(0,136,168,0.12)] border border-cyan-100/80">
-              <p className="text-[10px] font-bold text-[#71808D] uppercase tracking-wider">TOTAL ASSIGNMENT</p>
+              <p className="text-[10px] font-bold text-[#71808D] uppercase tracking-wider">JUMLAH TUGAS</p>
               <p className="text-2xl font-bold text-[#17242E] mt-2">24</p>
               <div className="w-full bg-gray-100 h-1.5 rounded-full mt-3 overflow-hidden">
                 <div className="bg-[#0088A8] h-full w-1/2 rounded-full"></div>
@@ -366,7 +366,7 @@ const DashboardGuru = () => {
             </div>
 
             <div className="bg-white p-5 rounded-3xl shadow-[0_8px_20px_rgba(0,136,168,0.12)] border border-cyan-100/80">
-              <p className="text-[10px] font-bold text-[#71808D] uppercase tracking-wider">TOTAL PENGUMPULAN</p>
+              <p className="text-[10px] font-bold text-[#71808D] uppercase tracking-wider">JUMLAH PENGUMPULAN</p>
               <p className="text-2xl font-bold text-[#17242E] mt-2">864</p>
               <div className="w-full bg-gray-100 h-1.5 rounded-full mt-3 overflow-hidden">
                 <div className="bg-[#0088A8] h-full w-11/12 rounded-full"></div>
@@ -397,7 +397,7 @@ const DashboardGuru = () => {
                   <th className="py-3 px-4">TUGAS</th>
                   <th className="py-3 px-4">KELAS</th>
                   <th className="py-3 px-4">MATA PELAJARAN</th>
-                  <th className="py-3 px-4">DEADLINE</th>
+                  <th className="py-3 px-4">TENGGAT</th>
                   <th className="py-3 px-4">STATUS</th>
                 </tr>
               </thead>
@@ -439,7 +439,7 @@ const DashboardGuru = () => {
                               : 'bg-[#FFF3C4] text-[#8C6D00]'
                             }`}
                         >
-                          {item.status}
+                          {item.status === 'ACTIVE' ? 'Aktif' : 'Draf'}
                         </span>
                       </td>
                     </tr>
@@ -466,7 +466,7 @@ const DashboardGuru = () => {
                   <th className="py-3 px-4">NAMA SISWA</th>
                   <th className="py-3 px-4">KELAS</th>
                   <th className="py-3 px-4">TUGAS</th>
-                  <th className="py-3 px-4">SUBMITTED</th>
+                  <th className="py-3 px-4">DIKUMPULKAN</th>
                   <th className="py-3 px-4">STATUS</th>
                 </tr>
               </thead>
