@@ -20,6 +20,7 @@ import RekapPresensi from './pages/guru/RekapPresensi';
 import OrtuLayout from './components/OrtuLayout';
 import Beranda from './pages/ortu/Beranda';
 import PilihAnak from './pages/ortu/PilihAnak';
+import PesanGuru from './pages/ortu/PesanGuru';
 
 // Lanjutkan pembaruan token otomatis kalau halaman dimuat ulang saat sudah login.
 resumeSession();
@@ -60,10 +61,11 @@ export default function App() {
         {/* ROUTE ORANG TUA */}
         <Route element={<RequireRole role="parent" />}>
           <Route path="/ortu" element={<OrtuLayout />}>
-          <Route index element={<Beranda />} />
-          <Route path="presensi" element={<Riwayat basePath="/ortu/presensi" />} />
-          <Route path="presensi/riwayat/:subjectId" element={<DetailMapel basePath="/ortu/presensi" />} />
-          <Route path="anak" element={<PilihAnak />} />
+            <Route index element={<Beranda />} />
+            <Route path="presensi" element={<Riwayat basePath="/ortu/presensi" />} />
+            <Route path="presensi/riwayat/:subjectId" element={<DetailMapel basePath="/ortu/presensi" />} />
+            <Route path="anak" element={<PilihAnak />} />
+            <Route path="pesan" element={<PesanGuru />} />
           </Route>
         </Route>
       </Routes>

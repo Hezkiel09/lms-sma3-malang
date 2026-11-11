@@ -10,7 +10,7 @@ const nav = [
   { to: '/ortu', label: 'Beranda', icon: LayoutDashboard, end: true },
   { to: '/ortu/nilai', label: 'Rekap Nilai', icon: FileText, soon: true },
   { to: '/ortu/presensi', label: 'Presensi Anak', icon: CalendarDays },
-  { to: '/ortu/pesan', label: 'Pesan dengan Guru', icon: MessageSquare, soon: true },
+  { to: '/ortu/pesan', label: 'Pesan dengan Guru', icon: MessageSquare },
 ];
 
 export default function OrtuLayout() {
@@ -56,7 +56,7 @@ export default function OrtuLayout() {
 
           <div className="topbar-right">
             <NotifMenu />
-            <ProfileMenu student={student} />
+            <ProfileMenu student={student} roleLabel="Orang tua/Wali" showClass={false} />
           </div>
         </header>
         <Outlet />

@@ -21,7 +21,7 @@ function Avatar({ initial, large }) {
   );
 }
 
-export default function ProfileMenu({ student }) {
+export default function ProfileMenu({ student, roleLabel = 'Siswa', showClass = true }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -58,7 +58,7 @@ export default function ProfileMenu({ student }) {
         <Avatar src={avatarSrc} initial={initial} />
         <span className="pf-info">
           <b>{firstName}</b>
-          <small>Siswa · Kelas {kelas}</small>
+          <small>{showClass ? `${roleLabel} · Kelas ${kelas}` : roleLabel}</small>
         </span>
         <ChevronDown size={18} className={`pf-chev ${open ? 'up' : ''}`} />
       </button>
@@ -69,8 +69,8 @@ export default function ProfileMenu({ student }) {
             <Avatar src={avatarSrc} initial={initial} large />
             <div>
               <b>{fullName}</b>
-              <small>Siswa · Kelas {kelas}</small>
-              <small>NIS {nis}</small>
+              <small>{showClass ? `${roleLabel} · Kelas ${kelas}` : roleLabel}</small> 
+              {showClass && <small>NIS {nis}</small>}
             </div>
           </div>
 
