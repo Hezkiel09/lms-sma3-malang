@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Bell, Search } from 'lucide-react';
 
 const TopbarGuru = ({ searchTerm, onSearchChange, placeholder = "Cari informasi...", onKeProfil, onPilihNotif }) => {
@@ -13,7 +13,7 @@ const TopbarGuru = ({ searchTerm, onSearchChange, placeholder = "Cari informasi.
   const fotoProfil = null; 
 
   return (
-    <header className="flex justify-between items-center mb-6 w-full relative px-2">
+    <header className="flex justify-between items-center mb-6 w-full relative px-2 pl-12 lg:pl-2">
       {/* SEARCH BAR */}
       <div className="relative w-full max-w-md"> 
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-600" size={20} />
