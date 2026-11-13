@@ -236,15 +236,30 @@ const DetailTugasGuru = ({
   const [assignment, setAssignment] = useState(null);
   const [halamanAktif, setHalamanAktif] = useState('tabel'); // 'tabel', 'detailNilai', 'tinjauNilai'
   const [siswaTerpilih, setSiswaTerpilih] = useState(null);
-  const [students] = useState(dummyStudents);
+  const [students, setStudents] = useState([]);
   const [filter, setFilter] = useState("Semua");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [summary, setSummary] = useState({
+    totalSiswa: 0,
+    jumlahDiserahkan: 0,
+    jumlahBelum: 0,
+    jumlahDinilai: 0,
+    participationRate: 0,
+  });
 
   useEffect(() => {
     if (!assignmentId) {
       setAssignment(dummyAssignment);
+      setStudents(dummyStudents);
+      setSummary({
+        totalSiswa: 32,
+        jumlahDiserahkan: 28,
+        jumlahBelum: 4,
+        jumlahDinilai: 12,
+        participationRate: 87.5,
+      });
       setLoading(false);
       return;
     }
@@ -253,17 +268,49 @@ const DetailTugasGuru = ({
       try {
         setLoading(true);
         setError("");
-        const res = await fetch(`http://localhost:5000/api/v1/b5/assignments/${assignmentId}`);
-        if (!res.ok) {
+        const [res, resSubs] = await Promise.all([
+          fetch(`http://localhost:5000/api/v1/b5/assignments/${assignmentId}`),
+          fetch(`http://localhost:5000/api/v1/b5/assignments/${assignmentId}/submissions`)
+        ]);
+
+        if (res.ok) {
+          const result = await res.json();
+          setAssignment(result.data);
+        } else {
           setAssignment(dummyAssignment);
-          setLoading(false);
-          return;
         }
-        const result = await res.json();
-        setAssignment(result.data);
+
+        if (resSubs.ok) {
+          const subsResult = await resSubs.json();
+          const subsList = subsResult.data?.submissions || [];
+          if (subsList.length > 0) {
+            setStudents(subsList);
+            const sum = subsResult.data?.summary || {};
+            setSummary({
+              totalSiswa: sum.total_submissions || subsList.length,
+              jumlahDiserahkan: sum.total_submitted || 0,
+              jumlahBelum: (sum.total_submissions || subsList.length) - (sum.total_submitted || 0),
+              jumlahDinilai: sum.total_graded || 0,
+              participationRate: sum.total_submissions > 0 ? Math.round((sum.total_submitted / sum.total_submissions) * 100) : 0,
+            });
+          } else {
+            // Pengumpulan tugas siswa (UC-10) belum ada di database
+            setStudents([]);
+            setSummary({
+              totalSiswa: 0,
+              jumlahDiserahkan: 0,
+              jumlahBelum: 0,
+              jumlahDinilai: 0,
+              participationRate: 0,
+            });
+          }
+        } else {
+          setStudents(dummyStudents);
+        }
       } catch (err) {
         console.warn("Menggunakan data dummy karena backend:", err);
         setAssignment(dummyAssignment);
+        setStudents(dummyStudents);
       } finally {
         setLoading(false);
       }
@@ -288,11 +335,11 @@ const DetailTugasGuru = ({
   // DATA RINGKASAN
   // ========================================
 
-  const totalSiswa = 32;
-  const jumlahDiserahkan = 28;
-  const jumlahBelum = 4;
-  const jumlahDinilai = 12;
-  const participationRate = 87.5;
+  const totalSiswa = summary.totalSiswa;
+  const jumlahDiserahkan = summary.jumlahDiserahkan;
+  const jumlahBelum = summary.jumlahBelum;
+  const jumlahDinilai = summary.jumlahDinilai;
+  const participationRate = summary.participationRate;
 
   // ========================================
   // FILTER SISWA
@@ -387,6 +434,9 @@ const DetailTugasGuru = ({
             onBatal={() => setHalamanAktif('detailNilai')} // Kembali ke detail nilai jika dibatalkan
             onSimpanPerubahan={(updatedData) => {
               setSiswaTerpilih(updatedData);
+              setStudents((prev) =>
+                prev.map((s) => (s.id === updatedData.id ? { ...s, ...updatedData } : s))
+              );
               setHalamanAktif('detailNilai'); // Kembali ke detail nilai setelah disimpan
             }}
           />
@@ -396,6 +446,9 @@ const DetailTugasGuru = ({
             onKembali={() => setHalamanAktif('tabel')}
             onSimpanSukses={(updatedData) => {
               setSiswaTerpilih(updatedData);
+              setStudents((prev) =>
+                prev.map((s) => (s.id === updatedData.id ? { ...s, ...updatedData } : s))
+              );
               setHalamanAktif('detailNilai');
             }}
           />
@@ -712,19 +765,27 @@ const DetailTugasGuru = ({
 
                         {/* AKSI */}
                         <td className="px-4 py-4 text-right">
-                          {siswa.status === "Sudah dinilai" ? (
+                          {siswa.status === "Sudah dinilai" || siswa.status === "SUDAH DINILAI" ? (
                             <button
                               type="button"
                               onClick={() => {
                                 setSiswaTerpilih({
-                                  nama: siswa.name,
+                                  ...siswa,
+                                  id: siswa.id,
+                                  submission_id: siswa.id,
+                                  nama: siswa.name || siswa.nama,
                                   nis: siswa.nis,
-                                  asesmen: assignment?.title || "Latihan Mandiri: Grafik Parabola",
+                                  asesmen: assignment?.title || "Tugas",
                                   score: siswa.score,
                                   status: "SUDAH DINILAI",
-                                  dikumpulkan: siswa.submittedAt ? `${siswa.submittedAt}, ${siswa.time}` : '22 Jan 2026, 11:05 AM',
-                                  fileName: siswa.file || "Tugas_Grafikparabola_dedi_kurniawan.pdf",
-                                  fileSize: "2.4 MB"
+                                  dikumpulkan: siswa.submitted_at_formatted || (siswa.submittedAt ? `${siswa.submittedAt}, ${siswa.time}` : 'Sudah dikumpulkan'),
+                                  fileName: siswa.fileName || siswa.file || "jawaban_siswa.pdf",
+                                  fileSize: siswa.fileSize || "1.5 MB",
+                                  fileUrl: siswa.fileUrl || "",
+                                  feedback: siswa.feedback || "",
+                                  fileKoreksiName: siswa.fileKoreksiName || null,
+                                  fileKoreksiUrl: siswa.fileKoreksiUrl || null,
+                                  correction_files: siswa.correction_files || []
                                 });
                                 setHalamanAktif('detailNilai');
                               }}
@@ -732,18 +793,24 @@ const DetailTugasGuru = ({
                             >
                               Lihat Pengumpulan
                             </button>
-                          ) : siswa.file ? (
+                          ) : (siswa.file || siswa.fileName || siswa.submittedAt || siswa.status === 'Diserahkan' || siswa.status === 'Terlambat') ? (
                             <button
                               type="button"
                               onClick={() => {
                                 setSiswaTerpilih({
-                                  nama: siswa.name,
+                                  ...siswa,
+                                  id: siswa.id,
+                                  submission_id: siswa.id,
+                                  nama: siswa.name || siswa.nama,
                                   nis: siswa.nis,
-                                  asesmen: assignment?.title || "Latihan Mandiri: Grafik Parabola",
-                                  status: siswa.status === "Terlambat" ? "TERLAMBAT" : "DISERAHKAN",
-                                  dikumpulkan: siswa.submittedAt ? `${siswa.submittedAt}, ${siswa.time}` : '--',
-                                  fileName: siswa.file || "Tugas_Grafikparabola_dedi_kurniawan.pdf",
-                                  fileSize: "2.4 MB"
+                                  asesmen: assignment?.title || "Tugas",
+                                  status: (siswa.status === "Terlambat" || siswa.status === "TERLAMBAT") ? "TERLAMBAT" : "DISERAHKAN",
+                                  dikumpulkan: siswa.submitted_at_formatted || (siswa.submittedAt ? `${siswa.submittedAt}, ${siswa.time}` : '--'),
+                                  fileName: siswa.fileName || siswa.file || "jawaban_siswa.pdf",
+                                  fileSize: siswa.fileSize || "1.5 MB",
+                                  fileUrl: siswa.fileUrl || "",
+                                  feedback: siswa.feedback || "",
+                                  score: siswa.score,
                                 });
                                 setHalamanAktif('tinjauNilai');
                               }}
@@ -762,7 +829,30 @@ const DetailTugasGuru = ({
                           colSpan={6}
                           className="px-4 py-12 text-center text-sm text-slate-400"
                         >
-                          Tidak ada siswa yang sesuai dengan filter.
+                          {students.length === 0 ? (
+                            <div className="py-6 flex flex-col items-center justify-center">
+                              <p className="font-semibold text-slate-600">Belum ada siswa yang mengumpulkan tugas ini.</p>
+                              <p className="text-xs text-slate-400 mt-1">Data pengumpulan tugas akan tampil di sini saat siswa mengumpulkan tugas via UC-10.</p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setStudents(dummyStudents);
+                                  setSummary({
+                                    totalSiswa: 32,
+                                    jumlahDiserahkan: 28,
+                                    jumlahBelum: 4,
+                                    jumlahDinilai: 12,
+                                    participationRate: 87.5,
+                                  });
+                                }}
+                                className="mt-4 px-3 py-1.5 rounded-lg border border-[#005969] text-[#005969] hover:bg-[#e5f6fa] text-xs font-semibold cursor-pointer"
+                              >
+                                Tampilkan Simulasi Siswa (Demo)
+                              </button>
+                            </div>
+                          ) : (
+                            "Tidak ada siswa yang sesuai dengan filter."
+                          )}
                         </td>
                       </tr>
                     )}

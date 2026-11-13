@@ -1,35 +1,51 @@
 import React from 'react';
 import { 
   FileText, Download, 
-  ArrowLeft, X 
+  ArrowLeft 
 } from 'lucide-react';
 
 // ==========================================
-// HALAMAN DETAIL NILAI GURU (SUDAH DINILAI)
+// HALAMAN DETAIL NILAI GURU (SUDAH DINILAI) - UC-07
 // ==========================================
 const DetailNilaiGuru = ({ studentData, onKembali, onEditNilai }) => {
   // Data default dengan pengaman jika studentData kosong
   const currentStudent = {
-    name: studentData?.nama || "Dedi Kurniawan",
+    id: studentData?.id || studentData?.submission_id,
+    submission_id: studentData?.submission_id || studentData?.id,
+    name: studentData?.nama || studentData?.name || "Dedi Kurniawan",
     nis: studentData?.nis || "0012348",
-    kelas: "X - A",
+    kelas: studentData?.kelas || "X - A",
     tugas: studentData?.asesmen || "Latihan Mandiri: Grafik Parabola",
     waktuPengumpulan: studentData?.dikumpulkan && studentData?.dikumpulkan !== '--' 
       ? studentData.dikumpulkan 
       : '22 Jan 2026, 11:05 AM',
-    status: "SUDAH DINILAI",
-    score: studentData?.score || 80,
-    kkm: 75,
-    fileName: studentData?.fileName || "Tugas_Grafikparabola_dedi_kurniawan.pdf",
+    status: studentData?.status || "SUDAH DINILAI",
+    score: studentData?.score !== null && studentData?.score !== undefined ? studentData.score : (studentData?.nilai || 80),
+    kkm: studentData?.kkm || 75,
+    fileName: studentData?.fileName || studentData?.file || "Tugas_jawaban.pdf",
     fileSize: studentData?.fileSize || "2.4 MB",
     fileUrl: studentData?.fileUrl || "",
-    feedback: studentData?.feedback || "Pemahaman yang sangat baik tentang konsep inti. Langkah-langkah derivasinya logis dan terdokumentasi dengan baik. Namun, harap kerjakan konsistensi notasi matematika Anda di bagian akhir.",
-    fileKoreksiName: "Koreksi_Tugas_Grafikparabola_dedi_kurniawan.pdf"
+    feedback: studentData?.feedback || "Pemahaman yang sangat baik tentang konsep inti materi. Langkah pengerjaan logis dan terdokumentasi dengan baik.",
+    fileKoreksiName: studentData?.fileKoreksiName || null,
+    fileKoreksiUrl: studentData?.fileKoreksiUrl || null,
   };
 
-  const handleDownload = (fileName) => {
-    alert("Mengunduh file: " + fileName);
+  const handleDownload = (fileUrl, fileName) => {
+    if (!fileUrl) {
+      alert("Berkas belum tersedia untuk diunduh.");
+      return;
+    }
+    const link = document.createElement("a");
+    link.href = fileUrl;
+    link.download = fileName || "file";
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   };
+
+  const initial = currentStudent.name ? currentStudent.name.charAt(0).toUpperCase() : 'S';
 
   return (
     <div className="w-full font-sans text-[#17242E]">
@@ -56,10 +72,10 @@ const DetailNilaiGuru = ({ studentData, onKembali, onEditNilai }) => {
         <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-gray-200 shadow-2xs relative flex flex-col justify-between">
           
           <div className="flex items-start justify-between">
-            {/* KIRI: AVATAR IKON & DETAIL LENGKAP SISWA */}
+            {/* KIRI: AVATAR INISIAL & DETAIL LENGKAP SISWA */}
             <div className="flex items-start gap-5">
-              <div className="w-14 h-14 rounded-full bg-[#E0F7FA]/70 border border-cyan-200 text-[#0088A8] flex items-center justify-center shrink-0 mt-0.5">
-                <X size={22} className="text-[#0088A8]" />
+              <div className="w-14 h-14 rounded-full bg-[#E0F7FA]/70 border border-cyan-200 text-[#0088A8] flex items-center justify-center shrink-0 mt-0.5 font-bold text-xl">
+                {initial}
               </div>
               
               <div className="space-y-4">
@@ -88,7 +104,7 @@ const DetailNilaiGuru = ({ studentData, onKembali, onEditNilai }) => {
             {/* BADGE STATUS */}
             <div>
               <span className="px-4 py-1.5 rounded-full bg-[#0088A8] text-white text-[10px] font-bold tracking-wider inline-block">
-                {currentStudent.status}
+                {String(currentStudent.status).toUpperCase()}
               </span>
             </div>
           </div>
@@ -98,7 +114,7 @@ const DetailNilaiGuru = ({ studentData, onKembali, onEditNilai }) => {
             <button 
               onClick={() => {
                 if (onEditNilai) {
-                  onEditNilai(currentStudent); // Memanggil fungsi edit nilai yang membawa data siswa
+                  onEditNilai(currentStudent);
                 }
               }}
               className="px-6 py-2.5 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs"
@@ -134,11 +150,11 @@ const DetailNilaiGuru = ({ studentData, onKembali, onEditNilai }) => {
             </div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-[#17242E] truncate">{currentStudent.fileName}</p>
-              <p className="text-[10px] text-[#71808D] mt-0.5">DOKUMEN PDF • {currentStudent.fileSize}</p>
+              <p className="text-[10px] text-[#71808D] mt-0.5">DOKUMEN • {currentStudent.fileSize}</p>
             </div>
           </div>
           <button 
-            onClick={() => handleDownload(currentStudent.fileName)}
+            onClick={() => handleDownload(currentStudent.fileUrl, currentStudent.fileName)}
             className="flex items-center gap-2 px-4 py-2.5 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs shrink-0"
           >
             <Download size={15} /> Unduh
@@ -151,41 +167,43 @@ const DetailNilaiGuru = ({ studentData, onKembali, onEditNilai }) => {
         <h3 className="text-xs font-extrabold text-[#71808D] uppercase tracking-wider">Umpan Balik Guru</h3>
         <div className="p-4 bg-[#E0F7FA]/30 border border-cyan-100 rounded-2xl">
           <p className="text-xs text-[#17242E] leading-relaxed">
-            {currentStudent.feedback}
+            {currentStudent.feedback || "Tidak ada catatan umpan balik."}
           </p>
         </div>
       </div>
 
-      {/* FILE KOREKSI */}
-      <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-2xs space-y-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h3 className="text-xs font-extrabold text-[#71808D] uppercase tracking-wider">File Koreksi</h3>
-            <p className="text-[11px] text-[#71808D] mt-0.5">Hasil koreksi tinjauan guru</p>
+      {/* FILE KOREKSI (JIKA TERSEDIA) */}
+      {currentStudent.fileKoreksiName && (
+        <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-2xs space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-xs font-extrabold text-[#71808D] uppercase tracking-wider">File Koreksi</h3>
+              <p className="text-[11px] text-[#71808D] mt-0.5">Hasil koreksi evaluasi guru</p>
+            </div>
+            <span className="px-3.5 py-1.5 rounded-full bg-[#0088A8] text-white text-[10px] font-bold tracking-wider">
+              SUDAH DIKOREKSI
+            </span>
           </div>
-          <span className="px-3.5 py-1.5 rounded-full bg-[#0088A8] text-white text-[10px] font-bold tracking-wider">
-            SUDAH DIKOREKSI
-          </span>
-        </div>
 
-        <div className="p-4 border border-gray-200 rounded-2xl flex items-center justify-between">
-          <div className="flex items-center gap-3.5 min-w-0">
-            <div className="p-3 bg-cyan-100/60 text-[#0088A8] rounded-xl shrink-0">
-              <FileText size={22} />
+          <div className="p-4 border border-gray-200 rounded-2xl flex items-center justify-between">
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="p-3 bg-cyan-100/60 text-[#0088A8] rounded-xl shrink-0">
+                <FileText size={22} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-[#17242E] truncate">{currentStudent.fileKoreksiName}</p>
+                <p className="text-[10px] text-[#71808D] mt-0.5">PDF / Dokumen • Hasil koreksi guru</p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-[#17242E] truncate">{currentStudent.fileKoreksiName}</p>
-              <p className="text-[10px] text-[#71808D] mt-0.5">PDF • Hasil koreksi guru</p>
-            </div>
+            <button 
+              onClick={() => handleDownload(currentStudent.fileKoreksiUrl, currentStudent.fileKoreksiName)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs shrink-0"
+            >
+              <Download size={15} /> Unduh
+            </button>
           </div>
-          <button 
-            onClick={() => handleDownload(currentStudent.fileKoreksiName)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs shrink-0"
-          >
-            <Download size={15} /> Unduh
-          </button>
         </div>
-      </div>
+      )}
 
     </div>
   );

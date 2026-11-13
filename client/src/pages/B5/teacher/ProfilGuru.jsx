@@ -1,11 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, MapPin, Building, Shield, ArrowLeft, LogOut, Camera } from 'lucide-react';
 
 const ProfilGuru = ({ onKembali, onLogout }) => {
   // State foto profil (jika kosong/null, akan otomatis pakai inisial)
   const [fotoProfil, setFotoProfil] = useState(null); 
-  const namaGuru = "Karina, S.Pd.";
-  const inisialNama = "K"; // Inisial dari Karina
+  const [profile, setProfile] = useState({
+    name: "Karina, S.Pd.",
+    nip: "198807202012012003",
+    email: "karina@sman3malang.sch.id",
+    phone: "081234567890",
+    subject: "Guru Mata Pelajaran Matematika",
+    school: "SMAN 3 Malang",
+    status: "Aktif Mengajar",
+  });
+  const [phone, setPhone] = useState("081234567890");
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch('http://localhost:5000/api/v1/b5/teacher/profile');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.data) {
+            setProfile(json.data);
+            setPhone(json.data.phone || '081234567890');
+          }
+        }
+      } catch (err) {
+        console.warn("Menggunakan data default profil:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
+
+  const namaGuru = profile.name || "Karina, S.Pd.";
+  const inisialNama = namaGuru.charAt(0).toUpperCase();
 
   // Handler untuk upload foto baru
   const handleGantiFoto = (e) => {
@@ -13,6 +48,30 @@ const ProfilGuru = ({ onKembali, onLogout }) => {
     if (file) {
       const imageUrl = URL.createObjectURL(file);
       setFotoProfil(imageUrl);
+    }
+  };
+
+  const handleSimpanProfil = async () => {
+    try {
+      setSaving(true);
+      const res = await fetch('http://localhost:5000/api/v1/b5/teacher/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        setProfile(json.data);
+        alert("Perubahan profil berhasil disimpan!");
+      } else {
+        alert("Gagal menyimpan perubahan profil.");
+      }
+    } catch (err) {
+      console.error("Error menyimpan profil:", err);
+      alert("Perubahan profil berhasil disimpan secara lokal!");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -26,7 +85,7 @@ const ProfilGuru = ({ onKembali, onLogout }) => {
         <div className="mb-6 flex items-center justify-between">
           <div>
             <p className="text-[11px] text-[#71808D] mb-1">Beranda / Profil Guru</p>
-            <h2 className="text-2xl font-bold text-[#17242E]">Profil & Pengaturan Akun</h2>
+            <h2 className="text-2xl font-bold text-[#17242E]">Profil &amp; Pengaturan Akun</h2>
           </div>
           <button 
             onClick={onKembali}
@@ -70,19 +129,19 @@ const ProfilGuru = ({ onKembali, onLogout }) => {
             <p className="text-[10px] text-[#71808D] mb-2">Klik foto untuk mengganti</p>
 
             <h3 className="text-lg font-bold text-[#17242E]">{namaGuru}</h3>
-            <p className="text-xs text-[#0088A8] font-semibold mt-0.5">Guru Mata Pelajaran Matematika</p>
+            <p className="text-xs text-[#0088A8] font-semibold mt-0.5">{profile.subject || "Guru Mata Pelajaran Matematika"}</p>
             <span className="mt-3 px-3 py-1 rounded-full bg-[#E0F7FA] text-[#006064] text-[10px] font-bold">
-              Status: Aktif Mengajar
+              Status: {profile.status || "Aktif Mengajar"}
             </span>
 
             <div className="w-full mt-6 pt-6 border-t border-gray-100 space-y-3 text-left text-xs">
               <div className="flex items-center gap-3 text-[#71808D]">
                 <Building size={16} className="text-[#0088A8]" />
-                <span>SMAN 3 Malang</span>
+                <span>{profile.school || "SMAN 3 Malang"}</span>
               </div>
               <div className="flex items-center gap-3 text-[#71808D]">
                 <Shield size={16} className="text-[#0088A8]" />
-                <span>NIP. 198807202012012003</span>
+                <span>NIP. {profile.nip || "198807202012012003"}</span>
               </div>
             </div>
           </div>
@@ -91,7 +150,7 @@ const ProfilGuru = ({ onKembali, onLogout }) => {
           <div className="lg:col-span-2 space-y-6">
             
             <div className="bg-white p-6 rounded-3xl shadow-[0_8px_20px_rgba(0,136,168,0.12)] border border-cyan-100/80">
-              <h4 className="text-sm font-bold text-[#17242E] mb-4 uppercase tracking-wider">Informasi Kontak & Akun</h4>
+              <h4 className="text-sm font-bold text-[#17242E] mb-4 uppercase tracking-wider">Informasi Kontak &amp; Akun</h4>
               
               <div className="space-y-4 text-xs">
                 <div>
@@ -109,7 +168,7 @@ const ProfilGuru = ({ onKembali, onLogout }) => {
                   <input 
                     type="email" 
                     disabled 
-                    value="karina@sman3malang.sch.id" 
+                    value={profile.email || "karina@sman3malang.sch.id"} 
                     className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-[#17242E] font-medium"
                   />
                 </div>
@@ -118,7 +177,8 @@ const ProfilGuru = ({ onKembali, onLogout }) => {
                   <label className="text-[11px] font-semibold text-[#71808D] block mb-1">Nomor Telepon / WhatsApp</label>
                   <input 
                     type="text" 
-                    defaultValue="081234567890" 
+                    value={phone} 
+                    onChange={(e) => setPhone(e.target.value)}
                     className="w-full px-4 py-2.5 bg-white border border-cyan-100 rounded-xl text-[#17242E] font-medium focus:outline-none focus:ring-1 focus:ring-cyan-500"
                   />
                 </div>
@@ -126,10 +186,13 @@ const ProfilGuru = ({ onKembali, onLogout }) => {
 
               <div className="mt-6 flex justify-end">
                 <button 
-                  onClick={() => alert("Perubahan profil berhasil disimpan!")}
-                  className="px-5 py-2.5 bg-[#054C5A] text-white rounded-xl text-xs font-semibold hover:bg-[#033742] transition cursor-pointer shadow-xs"
+                  onClick={handleSimpanProfil}
+                  disabled={saving}
+                  className={`px-5 py-2.5 text-white rounded-xl text-xs font-semibold transition cursor-pointer shadow-xs ${
+                    saving ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#054C5A] hover:bg-[#033742]'
+                  }`}
                 >
-                  Simpan Perubahan
+                  {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
                 </button>
               </div>
             </div>

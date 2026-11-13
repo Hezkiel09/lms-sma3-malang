@@ -1,8 +1,10 @@
-
 import { Router } from 'express';
 import materialsRoutes from './materials/materials.routes.js';
 import sectionsRoutes from './sections/sections.routes.js';
 import assignmentsRoutes from './assignments/assignments.routes.js';
+import submissionsRoutes from './submissions/submissions.routes.js';
+import teacherRoutes from './teacher/teacher.routes.js';
+import notificationsRoutes from './notifications/notifications.routes.js';
 import * as materialsController from './materials/materials.controller.js';
 import * as assignmentsController from './assignments/assignments.controller.js';
 
@@ -43,11 +45,21 @@ router.get(
 // Base Path: /api/v1/b5/materials
 router.use('/materials', materialsRoutes);
 
-// Sub-router fitur Tugas (UC-04 & UC-06)
+// Sub-router fitur Tugas (UC-04, UC-05, UC-06, UC-07)
 // Base Path: /api/v1/b5/assignments
+// (termasuk GET /:assignmentId/submissions untuk UC-07)
 router.use('/assignments', assignmentsRoutes);
 
-// TODO: Sub-router fitur Pengumpulan Tugas (Submissions)
-// Akan dikembangkan pada UC pengumpulan tugas siswa.
+// Sub-router fitur Submissions (UC-07)
+// Base Path: /api/v1/b5/submissions
+router.use('/submissions', submissionsRoutes);
+
+// Sub-router Profil Guru
+// Base Path: /api/v1/b5/teacher
+router.use('/teacher', teacherRoutes);
+
+// Sub-router Notifikasi
+// Base Path: /api/v1/b5/notifications
+router.use('/notifications', notificationsRoutes);
 
 export default router;
