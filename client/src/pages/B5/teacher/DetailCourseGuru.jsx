@@ -406,6 +406,7 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
         {tabAktif === 'tugas' && subHalamanTugas === 'daftar' && (
           <TabTugasGuru
             searchTerm={keywordPencarian}
+            courseId={COURSE_ID}
             onKeEditTugas={(idTugas) => {
               console.log("Mengarahkan ke edit tugas dengan ID:", idTugas);
               if (onKeEditTugas) {

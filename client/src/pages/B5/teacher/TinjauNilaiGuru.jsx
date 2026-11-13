@@ -6,75 +6,123 @@ import {
 } from 'lucide-react';
 
 // ==========================================
-// HALAMAN TINJAU & NILAI GURU
+// HALAMAN TINJAU & NILAI GURU (UC-07)
 // ==========================================
 const TinjauNilaiGuru = ({ studentData, onKembali, onSimpanSukses }) => {
-  // State untuk input nilai dan feedback
-  const [nilai, setNilai] = useState(
-  studentData?.score ?? ''
-);
-  const [feedback, setFeedback] = useState('');
+  // State untuk input nilai, feedback, dan file koreksi
+  const [nilai, setNilai] = useState(studentData?.score ?? '');
+  const [feedback, setFeedback] = useState(studentData?.feedback || '');
   const [fileKoreksi, setFileKoreksi] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   // Data default dengan pengaman jika studentData kosong
   const currentStudent = {
-  name: studentData?.nama || "Dedi Kurniawan",
-  nis: studentData?.nis || "0012345",
-  kelas: studentData?.kelas || "X - A",
-  tugas: studentData?.asesmen || "Latihan Mandiri: Grafik Parabola",
-  waktuPengumpulan:
-    studentData?.dikumpulkan &&
-    studentData.dikumpulkan !== '--'
-      ? studentData.dikumpulkan
-      : 'Belum mengumpulkan',
-  status: studentData?.status || "DISERAHKAN",
-  fileName:
-    studentData?.fileName ||
-    "Tugas_Grafikparabola_dedi_kurniawan.pdf",
-  fileSize: studentData?.fileSize || "2.4 MB",
-  fileUrl: studentData?.fileUrl || "",
-  score: studentData?.score ?? null,
-  feedback: studentData?.feedback || ""
-};
-
-  const handleSimpanNilai = (e) => {
-  e.preventDefault();
-
-  const nilaiAngka = Number(nilai);
-
-  if (
-    nilai === '' ||
-    !Number.isFinite(nilaiAngka) ||
-    nilaiAngka < 0 ||
-    nilaiAngka > 100
-  ) {
-    alert('Masukkan nilai yang valid antara 0 sampai 100.');
-    return;
-  }
-
-  const dataNilai = {
-    ...currentStudent,
-    score: nilaiAngka,
-    feedback: feedback,
-    status: "SUDAH DINILAI"
+    id: studentData?.id || studentData?.submission_id,
+    submission_id: studentData?.submission_id || studentData?.id,
+    name: studentData?.nama || studentData?.name || "Dedi Kurniawan",
+    nis: studentData?.nis || "0012345",
+    kelas: studentData?.kelas || "X - A",
+    tugas: studentData?.asesmen || "Latihan Mandiri: Grafik Parabola",
+    waktuPengumpulan:
+      studentData?.dikumpulkan && studentData.dikumpulkan !== '--'
+        ? studentData.dikumpulkan
+        : 'Belum mengumpulkan',
+    status: studentData?.status || "DISERAHKAN",
+    fileName:
+      studentData?.fileName ||
+      studentData?.file ||
+      "Tugas_Grafikparabola_dedi_kurniawan.pdf",
+    fileSize: studentData?.fileSize || "2.4 MB",
+    fileUrl: studentData?.fileUrl || "",
+    score: studentData?.score ?? null,
+    feedback: studentData?.feedback || "",
+    fileKoreksiName: studentData?.fileKoreksiName || null,
+    fileKoreksiUrl: studentData?.fileKoreksiUrl || null,
   };
 
-  if (onSimpanSukses) {
-    onSimpanSukses(dataNilai);
-  } else {
-    alert('Nilai berhasil diproses.');
-  }
-};
+  const handleSimpanNilai = async (e) => {
+    e.preventDefault();
+
+    const nilaiAngka = Number(nilai);
+
+    if (
+      nilai === '' ||
+      !Number.isFinite(nilaiAngka) ||
+      nilaiAngka < 0 ||
+      nilaiAngka > 100
+    ) {
+      alert('Masukkan nilai yang valid antara 0 sampai 100.');
+      return;
+    }
+
+    const subId = currentStudent.submission_id;
+    const isUuid = typeof subId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(subId);
+
+    if (isUuid) {
+      try {
+        setLoading(true);
+        let res;
+        if (fileKoreksi) {
+          const formData = new FormData();
+          formData.append('score', String(nilaiAngka));
+          if (feedback) formData.append('feedback', feedback);
+          formData.append('files', fileKoreksi);
+          res = await fetch(`http://localhost:5000/api/v1/b5/submissions/${subId}/grade`, {
+            method: 'PUT',
+            body: formData,
+          });
+        } else {
+          res = await fetch(`http://localhost:5000/api/v1/b5/submissions/${subId}/grade`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ score: nilaiAngka, feedback }),
+          });
+        }
+
+        const json = await res.json();
+        if (!res.ok) {
+          alert(json.message || 'Gagal menyimpan nilai.');
+          setLoading(false);
+          return;
+        }
+
+        alert('Nilai tugas berhasil disimpan ke database!');
+        if (onSimpanSukses) {
+          onSimpanSukses(json.data);
+        }
+      } catch (err) {
+        console.error('Error saat menyimpan nilai:', err);
+        alert('Terjadi kesalahan koneksi saat menyimpan nilai.');
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // Fallback jika menggunakan data lokal
+      const dataNilai = {
+        ...currentStudent,
+        score: nilaiAngka,
+        feedback: feedback,
+        status: "SUDAH DINILAI",
+        fileKoreksiName: fileKoreksi ? fileKoreksi.name : currentStudent.fileKoreksiName,
+      };
+
+      alert('Nilai berhasil disimpan.');
+      if (onSimpanSukses) {
+        onSimpanSukses(dataNilai);
+      }
+    }
+  };
 
   const handleDownload = () => {
     if (!currentStudent.fileUrl) {
-      alert("Mengunduh berkas siswa: " + currentStudent.fileName);
+      alert("Berkas siswa belum terhubung dengan URL unduhan.");
       return;
     }
     const link = document.createElement("a");
     link.href = currentStudent.fileUrl;
     link.download = currentStudent.fileName;
     link.target = "_blank";
+    link.rel = "noopener noreferrer";
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -100,13 +148,13 @@ const TinjauNilaiGuru = ({ studentData, onKembali, onSimpanSukses }) => {
         {/* TOMBOL NAVIGASI SEBELUMNYA / BERIKUTNYA */}
         <div className="flex items-center gap-2">
           <button 
-            onClick={() => alert("Navigasi ke siswa sebelumnya")}
+            onClick={() => alert("Fitur navigasi antar siswa tersedia saat daftar siswa aktif.")}
             className="px-4 py-2 rounded-full border border-cyan-200 text-xs font-bold text-[#007A99] hover:bg-cyan-50 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
           >
             <ChevronLeft size={16} /> Sebelumnya
           </button>
           <button 
-            onClick={() => alert("Navigasi ke siswa berikutnya")}
+            onClick={() => alert("Fitur navigasi antar siswa tersedia saat daftar siswa aktif.")}
             className="px-4 py-2 rounded-full border border-cyan-200 text-xs font-bold text-[#007A99] hover:bg-cyan-50 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
           >
             Berikutnya <ChevronRight size={16} />
@@ -117,7 +165,7 @@ const TinjauNilaiGuru = ({ studentData, onKembali, onSimpanSukses }) => {
       {/* HEADER JUDUL */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-[#17242E]">Tinjau &amp; Nilai Pengumpulan</h1>
-        <p className="text-xs text-[#71808D] mt-1">Tinjau jawaban/file siswa, berikan anotasi, masukkan nilai, dan simpan penilaian atau minta revisi.</p>
+        <p className="text-xs text-[#71808D] mt-1">Tinjau jawaban/file siswa, berikan umpan balik, masukkan nilai, dan simpan penilaian.</p>
       </div>
 
       {/* KONTEN UTAMA: GRID 2 KOLOM */}
@@ -162,10 +210,10 @@ const TinjauNilaiGuru = ({ studentData, onKembali, onSimpanSukses }) => {
             {/* BADGE STATUS DI KANAN ATAS */}
             <div>
               <span className={`px-4 py-1.5 rounded-full text-white text-[10px] font-bold tracking-wider inline-block ${
-                currentStudent.status === 'SUDAH DINILAI' ? 'bg-[#10B981]' : 
-                currentStudent.status === 'TERLAMBAT' ? 'bg-orange-500' : 'bg-[#0088A8]'
+                currentStudent.status === 'SUDAH DINILAI' || currentStudent.status === 'Sudah dinilai' ? 'bg-[#10B981]' : 
+                currentStudent.status === 'TERLAMBAT' || currentStudent.status === 'Terlambat' ? 'bg-orange-500' : 'bg-[#0088A8]'
               }`}>
-                {currentStudent.status}
+                {String(currentStudent.status).toUpperCase()}
               </span>
             </div>
 
@@ -185,7 +233,7 @@ const TinjauNilaiGuru = ({ studentData, onKembali, onSimpanSukses }) => {
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-bold text-[#17242E] truncate">{currentStudent.fileName}</p>
-                  <p className="text-[10px] text-[#71808D] mt-0.5">DOKUMEN PDF • {currentStudent.fileSize}</p>
+                  <p className="text-[10px] text-[#71808D] mt-0.5">DOKUMEN • {currentStudent.fileSize}</p>
                 </div>
               </div>
               <button 
@@ -199,14 +247,14 @@ const TinjauNilaiGuru = ({ studentData, onKembali, onSimpanSukses }) => {
 
           {/* CARD UNGGAH KOREKSI FILE */}
           <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-2xs space-y-4">
-            <h3 className="text-xs font-bold text-[#71808D] uppercase tracking-wider">Unggah Koreksi File</h3>
+            <h3 className="text-xs font-bold text-[#71808D] uppercase tracking-wider">Unggah Koreksi File (Opsional)</h3>
             
             <label className="border-2 border-dashed border-cyan-200 hover:border-[#0088A8] bg-cyan-50/30 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition">
               <div className="w-12 h-12 rounded-full bg-cyan-100 text-[#0088A8] flex items-center justify-center mb-3">
                 <UploadCloud size={24} />
               </div>
               <p className="text-xs font-bold text-[#17242E]">Klik untuk mengunggah atau seret dan lepas</p>
-              <p className="text-[11px] text-[#71808D] mt-1">PDF, DOC, ZIP or PPTX (Maks 10MB)</p>
+              <p className="text-[11px] text-[#71808D] mt-1">PDF, DOC, ZIP, PPTX, XLS, PNG, JPG (Maks 10MB)</p>
               <input 
                 type="file" 
                 className="hidden" 
@@ -214,7 +262,7 @@ const TinjauNilaiGuru = ({ studentData, onKembali, onSimpanSukses }) => {
               />
             </label>
             {fileKoreksi && (
-              <p className="text-xs text-cyan-800 font-semibold">File terpilih: {fileKoreksi.name}</p>
+              <p className="text-xs text-cyan-800 font-semibold">File terpilih: {fileKoreksi.name} ({(fileKoreksi.size / 1024).toFixed(1)} KB)</p>
             )}
           </div>
 
@@ -258,9 +306,12 @@ const TinjauNilaiGuru = ({ studentData, onKembali, onSimpanSukses }) => {
 
             <button 
               onClick={handleSimpanNilai}
-              className="w-full py-3.5 bg-[#054C5A] hover:bg-[#033742] text-white rounded-2xl text-xs font-bold transition cursor-pointer shadow-md flex items-center justify-center gap-2"
+              disabled={loading}
+              className={`w-full py-3.5 text-white rounded-2xl text-xs font-bold transition cursor-pointer shadow-md flex items-center justify-center gap-2 ${
+                loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#054C5A] hover:bg-[#033742]'
+              }`}
             >
-              Simpan Nilai
+              {loading ? 'Menyimpan Nilai...' : 'Simpan Nilai'}
             </button>
           </div>
 
@@ -275,19 +326,19 @@ const TinjauNilaiGuru = ({ studentData, onKembali, onSimpanSukses }) => {
               <div className="relative">
                 <span className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[#0088A8]"></span>
                 <p className="text-xs font-bold text-[#17242E]">Ditetapkan</p>
-                <p className="text-[10px] text-[#71808D] mt-0.5">20 Jan 2026, 10:00 AM</p>
+                <p className="text-[10px] text-[#71808D] mt-0.5">Sesuai tenggat tugas</p>
               </div>
 
               <div className="relative">
                 <span className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[#0088A8]"></span>
                 <p className="text-xs font-bold text-[#17242E]">Dikumpulkan</p>
-                <p className="text-[10px] text-[#71808D] mt-0.5">22 Jan 2026, 11:05 AM</p>
+                <p className="text-[10px] text-[#71808D] mt-0.5">{currentStudent.waktuPengumpulan}</p>
               </div>
 
               <div className="relative">
                 <span className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[#0088A8]"></span>
                 <p className="text-xs font-bold text-[#17242E]">Sedang Ditinjau</p>
-                <p className="text-[10px] text-[#71808D] mt-0.5">Sedang diedit</p>
+                <p className="text-[10px] text-[#71808D] mt-0.5">Dalam proses evaluasi</p>
               </div>
             </div>
           </div>
