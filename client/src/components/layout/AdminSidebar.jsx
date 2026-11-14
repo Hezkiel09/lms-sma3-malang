@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import {
   LayoutDashboard,
   Users,
@@ -24,6 +25,13 @@ const menuItems = [
 ];
 
 export default function AdminSidebar({ isOpen, onClose }) {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
   return (
     <>
       {/* Mobile backdrop */}
@@ -111,13 +119,14 @@ export default function AdminSidebar({ isOpen, onClose }) {
             <span>Beralih ke Portal Guru</span>
           </NavLink>
 
-          <NavLink
-            to="/login"
-            className="flex items-center justify-between rounded-xl bg-red-50/80 px-4 py-2.5 text-sm font-semibold text-red-500 hover:bg-red-100/80 transition-colors"
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="w-full flex items-center justify-between rounded-xl bg-red-50/80 px-4 py-2.5 text-sm font-semibold text-red-500 hover:bg-red-100/80 transition-colors cursor-pointer"
           >
             <span>Keluar</span>
             <LogOut className="h-4 w-4" />
-          </NavLink>
+          </button>
         </div>
       </aside>
     </>

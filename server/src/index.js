@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import { supabase } from './config/supabase.js';
 import masterRoutes from './modules/master/master.routes.js';
+import authRoutes from './modules/auth/auth.routes.js';
+import { seedAdmin } from './scripts/seedAdmin.js';
 
 dotenv.config();
 
@@ -22,10 +24,18 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// Router Auth & Profil
+app.use('/api/v1/auth', authRoutes);
+
 // Router Master Data
 app.use('/api/v1/master', masterRoutes);
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server is running on port http://localhost:${PORT}`);
+  try {
+    await seedAdmin();
+  } catch (err) {
+    console.error('Seed admin gagal:', err.message);
+  }
 });

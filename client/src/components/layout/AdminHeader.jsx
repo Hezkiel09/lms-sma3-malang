@@ -1,6 +1,11 @@
 import { Menu, Search, Bell } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 export default function AdminHeader({ onToggleSidebar }) {
+  const { user } = useAuth();
+  const displayName = user?.name || 'Administrator';
+  const displayRole = user?.role === 'admin' ? 'Administrator' : user?.role || 'Admin';
+
   return (
     <header className="sticky top-0 z-30 flex h-20 w-full items-center justify-between border-b border-slate-100 bg-white/95 px-4 backdrop-blur-sm sm:px-8">
       {/* Left: Mobile hamburger & Wide Pill Search Bar */}
@@ -31,16 +36,14 @@ export default function AdminHeader({ onToggleSidebar }) {
           <Bell className="h-5 w-5 fill-cyan-700/20" />
         </button>
 
-        {/* User profile (Karina) */}
+        {/* User profile */}
         <div className="flex items-center gap-3 cursor-pointer select-none">
-          <img
-            src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80"
-            alt="Karina"
-            className="h-10 w-10 rounded-full object-cover ring-2 ring-slate-100"
-          />
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#008994] text-white font-bold text-sm shadow-xs ring-2 ring-slate-100">
+            {displayName.charAt(0).toUpperCase()}
+          </div>
           <div className="hidden sm:block text-left">
-            <p className="text-sm font-bold text-slate-800 leading-tight">Karina</p>
-            <p className="text-xs text-slate-400">Orang tua/Wali</p>
+            <p className="text-sm font-bold text-slate-800 leading-tight">{displayName}</p>
+            <p className="text-xs text-slate-400">{displayRole}</p>
           </div>
         </div>
       </div>
