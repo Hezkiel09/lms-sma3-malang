@@ -1,0 +1,422 @@
+
+/* ==================================
+   HALAMAN BUAT SOAL
+================================== */
+
+.buatsoal-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background: #f7f9f9;
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  color: #20252a;
+}
+
+.buatsoal-page {
+  flex: 1;
+  min-width: 0;
+  padding: 32px 48px 35px;
+  box-sizing: border-box;
+}
+
+.buatsoal-page * {
+  box-sizing: border-box;
+}
+
+/* ==================================
+   HEADER
+================================== */
+
+.buatsoal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 25px;
+  margin-bottom: 27px;
+}
+
+.buatsoal-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+  font-size: 13px;
+  color: #858585;
+}
+
+.buatsoal-breadcrumb b {
+  color: #00647a;
+  font-size: 21px;
+  font-weight: 500;
+}
+
+.buatsoal-breadcrumb strong {
+  color: #005b70;
+  font-weight: 500;
+}
+
+.buatsoal-header h1 {
+  font-size: 29px;
+  font-weight: 700;
+  color: #191919;
+  margin: 0 0 10px;
+}
+
+.buatsoal-header p {
+  font-size: 15px;
+  color: #818181;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.btn-kembali-mapel {
+  flex-shrink: 0;
+  padding: 14px 23px;
+  border: 1px solid #a9e3ed;
+  background: #e7f6f9;
+  color: #00596c;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.btn-kembali-mapel:hover {
+  background: #d4f0f5;
+}
+
+/* ==================================
+   INFORMASI KELAS
+================================== */
+
+.buatsoal-info-card {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 25px;
+  padding: 22px 20px;
+  background: #ffffff;
+  border: 1px solid #e7e7e7;
+  border-radius: 17px;
+  margin-bottom: 25px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.info-item span {
+  font-size: 14px;
+  color: #858585;
+}
+
+.info-item strong {
+  font-size: 16px;
+  color: #222222;
+  font-weight: 650;
+}
+
+/* ==================================
+   KARTU UTAMA
+================================== */
+
+.buatsoal-main-card {
+  background: #ffffff;
+  border: 1px solid #e7e7e7;
+  border-radius: 17px;
+  padding: 26px 23px;
+}
+
+.buatsoal-title h2 {
+  font-size: 18px;
+  color: #202020;
+  margin: 0 0 10px;
+  font-weight: 700;
+}
+
+.buatsoal-title p {
+  font-size: 14px;
+  color: #858585;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ==================================
+   TAHAPAN
+================================== */
+
+.buatsoal-steps {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 21px 0 20px;
+}
+
+.buatsoal-steps span {
+  padding: 7px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.buatsoal-steps b {
+  color: #005d70;
+  font-size: 23px;
+  font-weight: 500;
+}
+
+.step-done {
+  color: #005b70;
+  background: #e5f5f8;
+}
+
+.step-active {
+  background: #00596a;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* ==================================
+   GRID INPUT MANUAL DAN EXCEL
+================================== */
+
+.buatsoal-method-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.method-card {
+  display: flex;
+  flex-direction: column;
+  padding: 23px;
+  border: 1px solid #a7e3ee;
+  border-radius: 17px;
+  min-width: 0;
+  min-height: 415px;
+  box-shadow: 0 3px 8px rgba(0, 80, 100, 0.03);
+}
+
+/* ==================================
+   IKON
+================================== */
+
+.method-icon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 57px;
+  height: 57px;
+  background: #e5f5f8;
+  border-radius: 16px;
+  color: #00657b;
+  margin-bottom: 23px;
+}
+
+.method-card h2 {
+  font-size: 20px;
+  color: #202020;
+  font-weight: 700;
+  margin: 0 0 11px;
+}
+
+.method-description {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #858585;
+  margin: 0 0 20px;
+}
+
+/* ==================================
+   TOMBOL INPUT MANUAL
+================================== */
+
+.manual-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.manual-buttons button {
+  width: 100%;
+  min-height: 49px;
+  padding: 12px 15px;
+  background: #e6f6f9;
+  color: #00596d;
+  border: 1px solid #a6e3ee;
+  border-radius: 13px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.manual-buttons button:hover {
+  background: #cceef4;
+  border-color: #5cc7dc;
+  transform: translateY(-1px);
+}
+
+/* ==================================
+   IMPOR EXCEL
+================================== */
+
+.excel-instructions {
+  background: #f6f8f8;
+  border-radius: 13px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+}
+
+.excel-instructions p {
+  font-size: 14px;
+  color: #333333;
+  margin: 5px 0 13px;
+  line-height: 1.4;
+}
+
+.excel-instructions p:last-child {
+  margin-bottom: 5px;
+}
+
+.btn-import-excel {
+  width: 100%;
+  min-height: 49px;
+  padding: 12px 15px;
+  background: #005767;
+  border: none;
+  border-radius: 13px;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+  margin-top: auto;
+}
+
+.btn-import-excel:hover {
+  background: #004553;
+}
+
+/* ==================================
+   INFORMASI BAWAH
+================================== */
+
+.buatsoal-bottom-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid #e8e8e8;
+  margin-top: 20px;
+  padding-top: 20px;
+}
+
+.info-icon {
+  font-size: 20px;
+  color: #00657b;
+}
+
+.buatsoal-bottom-info p {
+  margin: 0;
+  color: #858585;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ==================================
+   FOOTER
+================================== */
+
+.buatsoal-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 7px;
+  margin-top: 22px;
+}
+
+.buatsoal-footer span {
+  color: #555555;
+  font-size: 19px;
+}
+
+.buatsoal-footer p {
+  font-size: 13px;
+  color: #858585;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ==================================
+   RESPONSIVE
+================================== */
+
+@media (max-width: 1100px) {
+  .buatsoal-page {
+    padding: 28px 25px;
+  }
+
+  .buatsoal-method-grid {
+    gap: 14px;
+  }
+
+  .method-card {
+    padding: 19px;
+  }
+}
+
+@media (max-width: 800px) {
+  .buatsoal-method-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .buatsoal-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .buatsoal-info-card {
+    gap: 20px;
+  }
+
+  .method-card {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 550px) {
+  .buatsoal-page {
+    padding: 20px 14px;
+  }
+
+  .buatsoal-header h1 {
+    font-size: 24px;
+  }
+
+  .buatsoal-info-card {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .buatsoal-main-card {
+    padding: 19px 14px;
+  }
+
+  .buatsoal-steps {
+    gap: 8px;
+  }
+
+  .buatsoal-steps span {
+    font-size: 10px;
+    padding: 7px 10px;
+  }
+
+  .buatsoal-bottom-info {
+    align-items: flex-start;
+  }
+}
