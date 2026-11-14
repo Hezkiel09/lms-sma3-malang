@@ -265,9 +265,34 @@ export const getAllTeachersService = async () => {
 };
 
 export const updateTeacherService = async (id, payload) => {
+  const { data: currentTeacher, error: findError } = await supabase
+    .schema('master')
+    .from('teachers')
+    .select('id, user_id, name, nip, phone')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (findError) throw findError;
+  if (!currentTeacher) throw new Error('Guru tidak ditemukan');
+
+  // Jika NIP diubah, periksa duplikasi
+  if (payload.nip && payload.nip !== currentTeacher.nip) {
+    const { data: existingNip } = await supabase
+      .schema('master')
+      .from('teachers')
+      .select('id')
+      .eq('nip', payload.nip)
+      .neq('id', id)
+      .maybeSingle();
+    if (existingNip) {
+      throw new Error(`NIP ${payload.nip} sudah digunakan oleh guru lain`);
+    }
+  }
+
   const updates = Object.fromEntries(
     Object.entries(payload).filter(([key]) => ['name', 'nip', 'phone'].includes(key)),
   );
+
   const { data, error } = await supabase
     .schema('master')
     .from('teachers')
@@ -277,17 +302,75 @@ export const updateTeacherService = async (id, payload) => {
     .maybeSingle();
 
   if (error) throw error;
-  if (!data) throw new Error('Guru tidak ditemukan');
+
+  // Sinkronkan nama ke master.users dan auth metadata
+  if (payload.name && currentTeacher.user_id) {
+    try {
+      await supabase
+        .schema('master')
+        .from('users')
+        .update({ name: payload.name.trim() })
+        .eq('id', currentTeacher.user_id);
+
+      await supabaseAdmin.auth.admin.updateUserById(currentTeacher.user_id, {
+        user_metadata: { name: payload.name.trim() },
+      });
+    } catch (syncErr) {
+      console.warn('Gagal sinkron nama guru ke user/auth:', syncErr.message);
+    }
+  }
+
+  // Update password di Supabase Auth jika diberikan
+  if (payload.password && currentTeacher.user_id) {
+    if (payload.password.length < 6) {
+      throw new Error('Kata sandi baru minimal 6 karakter');
+    }
+    const { error: pwdError } = await supabaseAdmin.auth.admin.updateUserById(currentTeacher.user_id, {
+      password: payload.password,
+    });
+    if (pwdError) throw pwdError;
+  }
+
   return data;
 };
 
 export const deleteTeacherService = async (id) => deleteAccountProfile('teachers', id, 'Guru');
 
 export const createTeacherService = async ({ email, password, name, nip, phone }) => {
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const cleanName = (name || '').trim();
+  const cleanNip = (nip || '').trim();
+
+  // 1. Validasi duplikasi NIP di master.teachers
+  if (cleanNip) {
+    const { data: existingNip } = await supabase
+      .schema('master')
+      .from('teachers')
+      .select('id')
+      .eq('nip', cleanNip)
+      .maybeSingle();
+    if (existingNip) {
+      throw new Error(`NIP ${cleanNip} sudah terdaftar di sistem`);
+    }
+  }
+
+  // 2. Validasi duplikasi Email di master.users
+  const { data: existingUser } = await supabase
+    .schema('master')
+    .from('users')
+    .select('id')
+    .eq('email', cleanEmail)
+    .maybeSingle();
+  if (existingUser) {
+    throw new Error(`Email ${cleanEmail} sudah terdaftar di sistem`);
+  }
+
+  // 3. Buat akun di Supabase Auth
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-    email,
+    email: cleanEmail,
     password,
     email_confirm: true,
+    user_metadata: { name: cleanName, role: 'teacher' },
   });
 
   if (authError) throw authError;
@@ -295,24 +378,26 @@ export const createTeacherService = async ({ email, password, name, nip, phone }
   const userId = authData.user.id;
 
   try {
+    // 4. Masukkan ke master.users
     const { error: userError } = await supabase
       .schema('master')
       .from('users')
       .insert([
         { 
           id: userId, 
-          email, 
-          name, 
+          email: cleanEmail, 
+          name: cleanName, 
           role: 'teacher' 
         }
       ]);
 
     if (userError) throw userError;
 
+    // 5. Masukkan ke master.teachers
     const { data: teacherData, error: teacherError } = await supabase
       .schema('master')
       .from('teachers')
-      .insert([{ user_id: userId, name, nip: nip || null, phone: phone || null }])
+      .insert([{ user_id: userId, name: cleanName, nip: cleanNip || null, phone: phone || null }])
       .select()
       .single();
 
@@ -320,7 +405,9 @@ export const createTeacherService = async ({ email, password, name, nip, phone }
 
     return teacherData;
   } catch (err) {
-    await supabaseAdmin.auth.admin.deleteUser(userId);
+    // Rollback pembersihan agar tidak meninggalkan akun orphan
+    await supabase.schema('master').from('users').delete().eq('id', userId).catch(() => {});
+    await supabaseAdmin.auth.admin.deleteUser(userId).catch(() => {});
     throw err;
   }
 };
@@ -355,9 +442,36 @@ export const getAllStudentsService = async () => {
 };
 
 export const updateStudentService = async (id, payload) => {
+  const { data: currentStudent, error: findError } = await supabase
+    .schema('master')
+    .from('students')
+    .select('id, user_id, name, nis, class_id, parent_id')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (findError) throw findError;
+  if (!currentStudent) throw new Error('Siswa tidak ditemukan');
+
+  // Jika NIS diubah, periksa duplikasi
+  if (payload.nis && payload.nis !== currentStudent.nis) {
+    const { data: existingNis } = await supabase
+      .schema('master')
+      .from('students')
+      .select('id')
+      .eq('nis', payload.nis)
+      .neq('id', id)
+      .maybeSingle();
+    if (existingNis) {
+      throw new Error(`NIS ${payload.nis} sudah digunakan oleh siswa lain`);
+    }
+  }
+
   const updates = Object.fromEntries(
     Object.entries(payload).filter(([key]) => ['name', 'nis', 'class_id', 'parent_id'].includes(key)),
   );
+  if (updates.class_id === '') updates.class_id = null;
+  if (updates.parent_id === '') updates.parent_id = null;
+
   const { data, error } = await supabase
     .schema('master')
     .from('students')
@@ -367,95 +481,214 @@ export const updateStudentService = async (id, payload) => {
     .maybeSingle();
 
   if (error) throw error;
-  if (!data) throw new Error('Siswa tidak ditemukan');
+
+  // Sinkronkan nama ke master.users dan auth metadata
+  if (payload.name && currentStudent.user_id) {
+    try {
+      await supabase
+        .schema('master')
+        .from('users')
+        .update({ name: payload.name.trim() })
+        .eq('id', currentStudent.user_id);
+
+      await supabaseAdmin.auth.admin.updateUserById(currentStudent.user_id, {
+        user_metadata: { name: payload.name.trim() },
+      });
+    } catch (syncErr) {
+      console.warn('Gagal sinkron nama siswa ke user/auth:', syncErr.message);
+    }
+  }
+
+  // Update password di Supabase Auth jika diberikan
+  if (payload.password && currentStudent.user_id) {
+    if (payload.password.length < 6) {
+      throw new Error('Kata sandi baru minimal 6 karakter');
+    }
+    const { error: pwdError } = await supabaseAdmin.auth.admin.updateUserById(currentStudent.user_id, {
+      password: payload.password,
+    });
+    if (pwdError) throw pwdError;
+  }
+
   return data;
 };
 
 export const deleteStudentService = async (id) => deleteAccountProfile('students', id, 'Siswa');
 
 export const createStudentService = async ({ email, password, name, nis, class_id }) => {
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const cleanName = (name || '').trim();
+  const cleanNis = (nis || '').trim();
+
+  // 1. Validasi duplikasi NIS di master.students
+  if (cleanNis) {
+    const { data: existingNis } = await supabase
+      .schema('master')
+      .from('students')
+      .select('id')
+      .eq('nis', cleanNis)
+      .maybeSingle();
+    if (existingNis) {
+      throw new Error(`NIS ${cleanNis} sudah terdaftar di sistem`);
+    }
+  }
+
+  // 2. Validasi duplikasi Email di master.users
+  const { data: existingUser } = await supabase
+    .schema('master')
+    .from('users')
+    .select('id')
+    .eq('email', cleanEmail)
+    .maybeSingle();
+  if (existingUser) {
+    throw new Error(`Email ${cleanEmail} sudah terdaftar di sistem`);
+  }
+
+  // 3. Buat akun di Supabase Auth
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-    email,
+    email: cleanEmail,
     password,
     email_confirm: true,
+    user_metadata: { name: cleanName, role: 'student' },
   });
   if (authError) throw authError;
 
   const userId = authData.user.id;
 
   try {
+    // 4. Masukkan ke master.users
     const { error: userError } = await supabase
       .schema('master')
       .from('users')
-      .insert([{ id: userId, email, name, role: 'student' }]);
+      .insert([{ id: userId, email: cleanEmail, name: cleanName, role: 'student' }]);
 
     if (userError) throw userError;
 
+    // 5. Cek apakah ada data orang tua yang sudah terdaftar dengan NIS ini
+    let parentId = null;
+    if (cleanNis) {
+      const { data: parent } = await supabase
+        .schema('master')
+        .from('parents')
+        .select('id')
+        .eq('nis', cleanNis)
+        .maybeSingle();
+      if (parent) {
+        parentId = parent.id;
+      }
+    }
+
+    // 6. Masukkan ke master.students
     const { data: studentData, error: studentError } = await supabase
       .schema('master')
       .from('students')
-      .insert([{ user_id: userId, name, nis, class_id: class_id || null }])
+      .insert([{ user_id: userId, name: cleanName, nis: cleanNis, class_id: class_id || null, parent_id: parentId }])
       .select()
       .single();
 
     if (studentError) throw studentError;
     return studentData;
   } catch (err) {
-    await supabaseAdmin.auth.admin.deleteUser(userId);
+    // Rollback pembersihan
+    await supabase.schema('master').from('users').delete().eq('id', userId).catch(() => {});
+    await supabaseAdmin.auth.admin.deleteUser(userId).catch(() => {});
     throw err;
   }
 };
 
 // --- ORANG TUA ---
 export const createParentService = async ({ nis, password, name, phone }) => {
-  const virtualEmail = `ortu.${nis}@sman3malang.sch.id`;
+  const cleanNis = (nis || '').trim();
+  const cleanName = (name || '').trim();
+  const virtualEmail = `ortu.${cleanNis}@sman3malang.sch.id`.toLowerCase();
 
+  // 1. Validasi duplikasi NIS di master.parents
+  if (cleanNis) {
+    const { data: existingParent } = await supabase
+      .schema('master')
+      .from('parents')
+      .select('id')
+      .eq('nis', cleanNis)
+      .maybeSingle();
+    if (existingParent) {
+      throw new Error(`Orang tua/wali untuk NIS ${cleanNis} sudah terdaftar`);
+    }
+  }
+
+  // 2. Validasi duplikasi virtual email di master.users
+  const { data: existingUser } = await supabase
+    .schema('master')
+    .from('users')
+    .select('id')
+    .eq('email', virtualEmail)
+    .maybeSingle();
+  if (existingUser) {
+    throw new Error(`Akun dengan virtual email ${virtualEmail} sudah terdaftar`);
+  }
+
+  // 3. Buat akun di Supabase Auth
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email: virtualEmail,
     password,
     email_confirm: true,
+    user_metadata: { name: cleanName, role: 'parent', nis: cleanNis },
   });
   if (authError) throw authError;
 
   const userId = authData.user.id;
 
   try {
+    // 4. Masukkan ke master.users
     const { error: userError } = await supabase
       .schema('master')
       .from('users')
-      .insert([{ id: userId, email: virtualEmail, name, role: 'parent' }]);
+      .insert([{ id: userId, email: virtualEmail, name: cleanName, role: 'parent' }]);
 
     if (userError) throw userError;
 
+    // 5. Masukkan ke master.parents
     const { data: parentData, error: parentError } = await supabase
       .schema('master')
       .from('parents')
-      .insert([{ user_id: userId, nis, name, phone: phone || null }])
+      .insert([{ user_id: userId, nis: cleanNis, name: cleanName, phone: phone || null }])
       .select()
       .single();
 
     if (parentError) throw parentError;
 
-    // Link parent to student with corresponding NIS if exists
-    if (nis && parentData?.id) {
+    // 6. Hubungkan ke siswa yang memiliki NIS ini jika ada
+    if (cleanNis && parentData?.id) {
       await supabase
         .schema('master')
         .from('students')
         .update({ parent_id: parentData.id })
-        .eq('nis', nis);
+        .eq('nis', cleanNis);
     }
 
     return parentData;
   } catch (err) {
-    await supabaseAdmin.auth.admin.deleteUser(userId);
+    // Rollback pembersihan
+    await supabase.schema('master').from('users').delete().eq('id', userId).catch(() => {});
+    await supabaseAdmin.auth.admin.deleteUser(userId).catch(() => {});
     throw err;
   }
 };
 
 export const updateParentService = async (id, payload) => {
+  const { data: currentParent, error: findError } = await supabase
+    .schema('master')
+    .from('parents')
+    .select('id, user_id, name, nis, phone, address')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (findError) throw findError;
+  if (!currentParent) throw new Error('Orang tua tidak ditemukan');
+
   const updates = Object.fromEntries(
     Object.entries(payload).filter(([key]) => ['name', 'phone', 'address'].includes(key)),
   );
+
   const { data, error } = await supabase
     .schema('master')
     .from('parents')
@@ -465,34 +698,84 @@ export const updateParentService = async (id, payload) => {
     .maybeSingle();
 
   if (error) throw error;
-  if (!data) throw new Error('Orang tua tidak ditemukan');
+
+  // Sinkronkan nama ke master.users dan auth metadata
+  if (payload.name && currentParent.user_id) {
+    try {
+      await supabase
+        .schema('master')
+        .from('users')
+        .update({ name: payload.name.trim() })
+        .eq('id', currentParent.user_id);
+
+      await supabaseAdmin.auth.admin.updateUserById(currentParent.user_id, {
+        user_metadata: { name: payload.name.trim() },
+      });
+    } catch (syncErr) {
+      console.warn('Gagal sinkron nama wali ke user/auth:', syncErr.message);
+    }
+  }
+
+  // Update password di Supabase Auth jika diberikan
+  if (payload.password && currentParent.user_id) {
+    if (payload.password.length < 6) {
+      throw new Error('Kata sandi baru minimal 6 karakter');
+    }
+    const { error: pwdError } = await supabaseAdmin.auth.admin.updateUserById(currentParent.user_id, {
+      password: payload.password,
+    });
+    if (pwdError) throw pwdError;
+  }
+
   return data;
 };
 
 export const deleteParentService = async (id) => deleteAccountProfile('parents', id, 'Orang tua');
 
 const deleteAccountProfile = async (table, id, label) => {
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile, error: findError } = await supabase
+    .schema('master')
+    .from(table)
+    .select('id, user_id')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (findError) throw findError;
+  if (!profile) throw new Error(`${label} tidak ditemukan`);
+
+  // Relational safety sebelum delete:
+  if (table === 'parents') {
+    // Putuskan relasi parent_id di students agar tidak foreign key violation
+    await supabase.schema('master').from('students').update({ parent_id: null }).eq('parent_id', id);
+  } else if (table === 'teachers') {
+    // Putuskan relasi wali kelas jika guru dihapus
+    await supabase.schema('master').from('classes').update({ homeroom_teacher_id: null }).eq('homeroom_teacher_id', id);
+  }
+
+  const { error: profileError } = await supabase
     .schema('master')
     .from(table)
     .delete()
-    .eq('id', id)
-    .select('id, user_id')
-    .maybeSingle();
+    .eq('id', id);
 
   if (profileError) throw profileError;
-  if (!profile) throw new Error(`${label} tidak ditemukan`);
 
   if (profile.user_id) {
-    const { error: userError } = await supabase
-      .schema('master')
-      .from('users')
-      .delete()
-      .eq('id', profile.user_id);
-    if (userError) throw userError;
+    try {
+      await supabase
+        .schema('master')
+        .from('users')
+        .delete()
+        .eq('id', profile.user_id);
+    } catch (uErr) {
+      console.warn(`[deleteAccountProfile] Gagal hapus user di master.users:`, uErr.message);
+    }
 
-    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(profile.user_id);
-    if (authError) throw authError;
+    try {
+      await supabaseAdmin.auth.admin.deleteUser(profile.user_id);
+    } catch (aErr) {
+      console.warn(`[deleteAccountProfile] Gagal hapus auth user di Supabase:`, aErr.message);
+    }
   }
 
   return profile;

@@ -237,7 +237,7 @@ export const getAllTeachers = async (req, res) => {
 
 export const createTeacher = async (req, res) => {
   try {
-    const { email, password, name, nip } = req.body;
+    const { email, password, name, nip, phone } = req.body;
     if (!hasNonEmptyFields(req.body, ['email', 'password', 'name', 'nip'])) {
       return res.status(400).json({ 
         success: false, 
@@ -248,8 +248,11 @@ export const createTeacher = async (req, res) => {
     if (!isValidEmail(email)) {
       return res.status(400).json({ success: false, message: 'Format email tidak valid', data: null });
     }
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Kata sandi minimal 6 karakter', data: null });
+    }
 
-    const newTeacher = await masterService.createTeacherService({ email, password, name, nip });
+    const newTeacher = await masterService.createTeacherService({ email, password, name, nip, phone });
     
     return res.status(201).json({ 
       success: true, 
@@ -257,9 +260,11 @@ export const createTeacher = async (req, res) => {
       data: newTeacher 
     });
   } catch (error) {
-    return res.status(500).json({ 
+    const isConflict = error.message.includes('sudah terdaftar') || error.message.includes('already');
+    const statusCode = isConflict ? 400 : 500;
+    return res.status(statusCode).json({ 
       success: false, 
-      message: 'Gagal mendaftarkan Guru baru', 
+      message: error.message || 'Gagal mendaftarkan Guru baru', 
       data: null,
       error: error.message 
     });
@@ -268,7 +273,7 @@ export const createTeacher = async (req, res) => {
 
 export const updateTeacher = async (req, res) => {
   try {
-    const allowedFields = ['name', 'nip', 'phone'];
+    const allowedFields = ['name', 'nip', 'phone', 'password'];
     if (!hasValidUpdateFields(req.body, allowedFields)) {
       return res.status(400).json({ success: false, message: 'Isi minimal satu field valid untuk diperbarui', data: null });
     }
@@ -307,16 +312,27 @@ export const createStudent = async (req, res) => {
     if (!isValidEmail(email)) {
       return res.status(400).json({ success: false, message: 'Format email tidak valid', data: null });
     }
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Kata sandi minimal 6 karakter', data: null });
+    }
+
     const newStudent = await masterService.createStudentService({ email, password, name, nis, class_id });
     return res.status(201).json({ success: true, message: 'Berhasil mendaftarkan siswa baru', data: newStudent });
   } catch (error) {
-    return handleControllerError(res, 'Gagal mendaftarkan siswa', error);
+    const isConflict = error.message.includes('sudah terdaftar') || error.message.includes('already');
+    const statusCode = isConflict ? 400 : 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Gagal mendaftarkan siswa',
+      data: null,
+      error: error.message,
+    });
   }
 };
 
 export const updateStudent = async (req, res) => {
   try {
-    const allowedFields = ['name', 'nis', 'class_id', 'parent_id'];
+    const allowedFields = ['name', 'nis', 'class_id', 'parent_id', 'password'];
     if (!hasValidUpdateFields(req.body, allowedFields, ['class_id', 'parent_id'])) {
       return res.status(400).json({ success: false, message: 'Isi minimal satu field valid untuk diperbarui', data: null });
     }
@@ -343,16 +359,27 @@ export const createParent = async (req, res) => {
     if (!hasNonEmptyFields(req.body, ['nis', 'password', 'name'])) {
       return res.status(400).json({ success: false, message: 'NIS anak, password, dan nama orang tua wajib diisi!', data: null });
     }
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Kata sandi minimal 6 karakter', data: null });
+    }
+
     const newParent = await masterService.createParentService({ nis, password, name, phone });
     return res.status(201).json({ success: true, message: 'Berhasil mendaftarkan Orang Tua', data: newParent });
   } catch (error) {
-    return handleControllerError(res, 'Gagal mendaftarkan Orang Tua', error);
+    const isConflict = error.message.includes('sudah terdaftar') || error.message.includes('already');
+    const statusCode = isConflict ? 400 : 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Gagal mendaftarkan Orang Tua',
+      data: null,
+      error: error.message,
+    });
   }
 };
 
 export const updateParent = async (req, res) => {
   try {
-    const allowedFields = ['name', 'phone', 'address'];
+    const allowedFields = ['name', 'phone', 'address', 'password'];
     if (!hasValidUpdateFields(req.body, allowedFields)) {
       return res.status(400).json({ success: false, message: 'Isi minimal satu field valid untuk diperbarui', data: null });
     }
