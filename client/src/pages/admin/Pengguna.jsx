@@ -1,17 +1,37 @@
 import { useEffect, useState } from 'react';
-import { Plus, Search, ChevronDown, Upload, Download } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  ChevronDown,
+  Upload,
+  Download,
+} from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 
 export default function PenggunaPage() {
   const [activeTab, setActiveTab] = useState('Siswa');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClass, setSelectedClass] = useState('Semua kelas');
+  
 
-  // Data dari backend
+  // =========================
+  // DATA SISWA
+  // =========================
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const tabs = ['Siswa', 'Orang Tua/Wali', 'Guru', 'Akun Pengguna'];
+  // =========================
+  // PAGINATION
+  // =========================
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const tabs = [
+    'Siswa',
+    'Orang Tua/Wali',
+    'Guru',
+    'Akun Pengguna',
+  ];
 
   // =========================
   // GET DATA SISWA
@@ -52,7 +72,28 @@ export default function PenggunaPage() {
     return matchSearch && matchClass;
   });
 
-  // Ambil daftar kelas dari data backend
+  // =========================
+  // PAGINATION
+  // =========================
+  const totalPages = Math.ceil(
+    filteredStudents.length / itemsPerPage
+  );
+
+  const startIndex =
+    (currentPage - 1) * itemsPerPage;
+
+  const endIndex =
+    startIndex + itemsPerPage;
+
+  const paginatedStudents =
+    filteredStudents.slice(
+      startIndex,
+      endIndex
+    );
+
+  // =========================
+  // DAFTAR KELAS
+  // =========================
   const classOptions = [
     'Semua kelas',
     ...new Set(
@@ -65,7 +106,9 @@ export default function PenggunaPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
 
-      {/* 1. Header & Action Button */}
+      {/* =========================
+          1. HEADER
+      ========================= */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">
@@ -87,7 +130,9 @@ export default function PenggunaPage() {
         </div>
       </div>
 
-      {/* 2. Navigation Tab Pills */}
+      {/* =========================
+          2. TABS
+      ========================= */}
       <div className="flex overflow-x-auto rounded-2xl border border-slate-100 bg-white p-1.5 shadow-xs">
         <div className="flex gap-1.5">
           {tabs.map((tab) => (
@@ -106,7 +151,9 @@ export default function PenggunaPage() {
         </div>
       </div>
 
-      {/* 3. Stat KPI Cards */}
+      {/* =========================
+          3. KPI
+      ========================= */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
 
         {/* Total Data */}
@@ -146,12 +193,17 @@ export default function PenggunaPage() {
             ).length}
           </div>
         </div>
+
       </div>
 
-      {/* 4. Table Card Container */}
+      {/* =========================
+          4. TABLE CONTAINER
+      ========================= */}
       <div className="rounded-2xl border border-slate-100 bg-white p-5 sm:p-6 shadow-xs space-y-5">
 
-        {/* Search, Filter & Action Buttons */}
+        {/* =========================
+            SEARCH + FILTER
+        ========================= */}
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 
           {/* Search */}
@@ -162,23 +214,32 @@ export default function PenggunaPage() {
               type="text"
               placeholder="Cari data siswa..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-4 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 transition-all focus:border-[#008994] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#008994]/20"
             />
           </div>
 
-          {/* Right Filters & Buttons */}
+          {/* Right Buttons */}
           <div className="flex flex-wrap items-center gap-2.5">
 
             {/* Filter Kelas */}
             <div className="relative">
               <select
                 value={selectedClass}
-                onChange={(e) => setSelectedClass(e.target.value)}
+                onChange={(e) => {
+                  setSelectedClass(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2 pr-9 text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors focus:outline-none focus:border-[#008994]"
               >
                 {classOptions.map((kelas) => (
-                  <option key={kelas} value={kelas}>
+                  <option
+                    key={kelas}
+                    value={kelas}
+                  >
                     {kelas}
                   </option>
                 ))}
@@ -187,7 +248,7 @@ export default function PenggunaPage() {
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             </div>
 
-            {/* Impor Button */}
+            {/* Import */}
             <button
               className="flex items-center gap-1.5 rounded-xl border border-cyan-200 bg-cyan-50/70 px-3.5 py-2 text-xs sm:text-sm font-semibold text-cyan-700 hover:bg-cyan-100/70 transition-colors"
             >
@@ -195,33 +256,54 @@ export default function PenggunaPage() {
               <span>Impor PDF/Dokumen</span>
             </button>
 
-            {/* Ekspor Button */}
+            {/* Export */}
             <button
               className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
             >
               <Download className="h-3.5 w-3.5" />
               Ekspor
             </button>
+
           </div>
         </div>
 
-        {/* Table */}
+        {/* =========================
+            TABLE
+        ========================= */}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs sm:text-sm text-slate-600">
 
             <thead className="border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
               <tr>
-                <th className="py-3 px-4">ID/NIS</th>
-                <th className="py-3 px-4">NAMA SISWA</th>
-                <th className="py-3 px-4">KELAS</th>
-                <th className="py-3 px-4">ORANG TUA/WALI</th>
-                <th className="py-3 px-4">STATUS</th>
-                <th className="py-3 px-4 text-right">AKSI</th>
+                <th className="py-3 px-4">
+                  ID/NIS
+                </th>
+
+                <th className="py-3 px-4">
+                  NAMA SISWA
+                </th>
+
+                <th className="py-3 px-4">
+                  KELAS
+                </th>
+
+                <th className="py-3 px-4">
+                  ORANG TUA/WALI
+                </th>
+
+                <th className="py-3 px-4">
+                  STATUS
+                </th>
+
+                <th className="py-3 px-4 text-right">
+                  AKSI
+                </th>
               </tr>
             </thead>
 
             <tbody className="divide-y divide-slate-100 font-medium">
 
+              {/* Loading */}
               {loading ? (
                 <tr>
                   <td
@@ -231,7 +313,10 @@ export default function PenggunaPage() {
                     Memuat data siswa...
                   </td>
                 </tr>
+
               ) : filteredStudents.length === 0 ? (
+
+                /* Empty */
                 <tr>
                   <td
                     colSpan="6"
@@ -240,8 +325,11 @@ export default function PenggunaPage() {
                     Data siswa tidak ditemukan.
                   </td>
                 </tr>
+
               ) : (
-                filteredStudents.map((siswa) => (
+
+                /* Data */
+                paginatedStudents.map((siswa) => (
                   <tr
                     key={siswa.id}
                     className="hover:bg-slate-50/70 transition-colors"
@@ -257,7 +345,9 @@ export default function PenggunaPage() {
                       <div className="flex items-center gap-3">
 
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-100/70 text-xs font-bold text-cyan-800">
-                          {siswa.name?.charAt(0)?.toUpperCase() || '?'}
+                          {siswa.name
+                            ?.charAt(0)
+                            ?.toUpperCase() || '?'}
                         </div>
 
                         <span className="font-bold text-slate-800">
@@ -295,38 +385,137 @@ export default function PenggunaPage() {
 
                   </tr>
                 ))
+
               )}
 
             </tbody>
           </table>
         </div>
 
-        {/* Footer */}
+        {/* =========================
+            FOOTER PAGINATION
+        ========================= */}
         <div className="flex flex-col gap-3 pt-4 border-t border-slate-100 sm:flex-row sm:items-center sm:justify-between text-xs text-slate-400">
 
-          <div>
-            Menampilkan {filteredStudents.length} dari {students.length} data
+          {/* Info + Items Per Page */}
+          <div className="flex items-center gap-2">
+
+            <span>
+              Menampilkan{' '}
+              {filteredStudents.length === 0
+                ? 0
+                : startIndex + 1}
+              -
+              {Math.min(
+                endIndex,
+                filteredStudents.length
+              )}
+              {' '}dari{' '}
+              {filteredStudents.length}
+              {' '}data
+            </span>
+
+            <select
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(
+                  Number(e.target.value)
+                );
+                setCurrentPage(1);
+              }}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-600 focus:outline-none focus:border-[#008994]"
+            >
+              <option value={10}>
+                10
+              </option>
+
+              <option value={20}>
+                20
+              </option>
+
+              <option value={50}>
+                50
+              </option>
+
+              <option value={100}>
+                100
+              </option>
+            </select>
+
+            <span>
+              per halaman
+            </span>
+
           </div>
 
+          {/* Pagination */}
           <div className="flex items-center gap-1.5">
-            <button className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-medium text-slate-600 hover:bg-slate-50">
+
+            {/* Previous */}
+            <button
+              disabled={currentPage === 1}
+              onClick={() =>
+                setCurrentPage(
+                  (prev) => prev - 1
+                )
+              }
+              className={`rounded-xl border px-3 py-1.5 font-medium ${
+                currentPage === 1
+                  ? 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
+                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+              }`}
+            >
               Sebelumnya
             </button>
 
-            <button className="h-8 w-8 rounded-xl bg-[#008994] font-bold text-white shadow-xs">
-              1
-            </button>
+            {/* Page Numbers */}
+            {Array.from(
+              {
+                length: totalPages,
+              },
+              (_, index) =>
+                index + 1
+            ).map((page) => (
+              <button
+                key={page}
+                onClick={() =>
+                  setCurrentPage(page)
+                }
+                className={`h-8 w-8 rounded-xl font-bold ${
+                  currentPage === page
+                    ? 'bg-[#008994] text-white shadow-xs'
+                    : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
 
-            <button className="h-8 w-8 rounded-xl border border-slate-200 bg-white font-medium text-slate-600 hover:bg-slate-50">
-              2
-            </button>
-
-            <button className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-medium text-slate-600 hover:bg-slate-50">
+            {/* Next */}
+            <button
+              disabled={
+                currentPage === totalPages ||
+                totalPages === 0
+              }
+              onClick={() =>
+                setCurrentPage(
+                  (prev) => prev + 1
+                )
+              }
+              className={`rounded-xl border px-3 py-1.5 font-medium ${
+                currentPage === totalPages ||
+                totalPages === 0
+                  ? 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
+                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+              }`}
+            >
               Berikutnya
             </button>
+
           </div>
 
         </div>
+
       </div>
     </div>
   );
