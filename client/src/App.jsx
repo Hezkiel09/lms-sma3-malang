@@ -6,8 +6,6 @@ import AkademikPage from './pages/admin/Akademik';
 import MonitoringPage from './pages/admin/Monitoring';
 import PengumumanPage from './pages/admin/Pengumuman';
 import LaporanPage from './pages/admin/Laporan';
-import SiswaPage from './pages/admin/Siswa';
-import GuruPage from './pages/admin/Guru';
 import ProfilPage from './pages/admin/Profil';
 import LoginPage from './pages/auth/Login';
 
@@ -69,8 +67,8 @@ export default function App() {
           <Route path="pengumuman" element={<PengumumanPage />} />
           <Route path="laporan" element={<LaporanPage />} />
           <Route path="profil" element={<ProfilPage />} />
-          <Route path="siswa" element={<SiswaPage />} />
-          <Route path="guru" element={<GuruPage />} />
+          <Route path="siswa" element={<Navigate to="/admin/pengguna" replace />} />
+          <Route path="guru" element={<Navigate to="/admin/pengguna" replace />} />
           <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
         </Route>
 

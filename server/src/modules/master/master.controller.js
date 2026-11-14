@@ -115,6 +115,16 @@ export const updateHomeroom = async (req, res) => {
   }
 };
 
+export const updateClass = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updatedClass = await masterService.updateClassService(id, req.body);
+    return res.status(200).json({ success: true, message: 'Berhasil mengupdate kelas', data: updatedClass });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Gagal mengupdate kelas', data: null, error: error.message });
+  }
+};
+
 // --- MATA PELAJARAN ---
 export const getAllSubjects = async (req, res) => {
   try {
@@ -127,14 +137,11 @@ export const getAllSubjects = async (req, res) => {
 
 export const createSubject = async (req, res) => {
   try {
-    const { name, code, credit_hours } = req.body;
-    if (!hasNonEmptyFields(req.body, ['name'])) {
+    const { name } = req.body;
+    if (!name || !String(name).trim()) {
       return res.status(400).json({ success: false, message: 'Nama mata pelajaran wajib diisi!', data: null });
     }
-    if (credit_hours !== undefined && (!Number.isInteger(credit_hours) || credit_hours <= 0)) {
-      return res.status(400).json({ success: false, message: 'credit_hours harus berupa bilangan bulat positif', data: null });
-    }
-    const newSubject = await masterService.createSubjectService({ name, code, credit_hours });
+    const newSubject = await masterService.createSubjectService({ name: String(name).trim() });
     return res.status(201).json({ success: true, message: 'Berhasil membuat mata pelajaran baru', data: newSubject });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Gagal membuat mata pelajaran baru', data: null, error: error.message });
@@ -143,14 +150,11 @@ export const createSubject = async (req, res) => {
 
 export const updateSubject = async (req, res) => {
   try {
-    const { credit_hours } = req.body;
-    if (!hasValidUpdateFields(req.body, ['name', 'code', 'credit_hours'])) {
-      return res.status(400).json({ success: false, message: 'Isi minimal satu field valid untuk diperbarui', data: null });
+    const { name } = req.body;
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ success: false, message: 'Nama mata pelajaran tidak boleh kosong', data: null });
     }
-    if (credit_hours !== undefined && (!Number.isInteger(credit_hours) || credit_hours <= 0)) {
-      return res.status(400).json({ success: false, message: 'credit_hours harus berupa bilangan bulat positif', data: null });
-    }
-    const subject = await masterService.updateSubjectService(req.params.id, req.body);
+    const subject = await masterService.updateSubjectService(req.params.id, { name: String(name).trim() });
     return res.status(200).json({ success: true, message: 'Berhasil mengupdate mata pelajaran', data: subject });
   } catch (error) {
     return handleAcademicError(res, error, 'mengupdate mata pelajaran');

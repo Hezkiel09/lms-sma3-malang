@@ -67,8 +67,26 @@ export const updateHomeroomTeacherService = async (classId, homeroom_teacher_id)
   const { data, error } = await supabase
     .schema('master')
     .from('classes')
-    .update({ homeroom_teacher_id })
+    .update({ homeroom_teacher_id: homeroom_teacher_id || null })
     .eq('id', classId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const updateClassService = async (id, payload) => {
+  const allowed = ['name', 'level', 'major', 'homeroom_teacher_id'];
+  const updates = Object.fromEntries(
+    Object.entries(payload).filter(([k]) => allowed.includes(k)),
+  );
+  if (updates.homeroom_teacher_id === '') updates.homeroom_teacher_id = null;
+  const { data, error } = await supabase
+    .schema('master')
+    .from('classes')
+    .update(updates)
+    .eq('id', id)
     .select()
     .single();
 
@@ -89,11 +107,16 @@ export const getAllSubjectsService = async () => {
 };
 
 export const createSubjectService = async (subject) => {
-  const payload = typeof subject === 'string' ? { name: subject } : subject;
+  const name = typeof subject === 'string' ? subject : subject?.name;
+  if (!name || !String(name).trim()) {
+    throw new Error('Nama mata pelajaran wajib diisi');
+  }
+
+  // Catatan: Skema tabel master.subjects pada database PostgreSQL hanya memiliki kolom `id` dan `name`
   const { data, error } = await supabase
     .schema('master')
     .from('subjects')
-    .insert([payload])
+    .insert([{ name: String(name).trim() }])
     .select()
     .single();
 
@@ -102,13 +125,16 @@ export const createSubjectService = async (subject) => {
 };
 
 export const updateSubjectService = async (id, payload) => {
-  const updates = Object.fromEntries(
-    Object.entries(payload).filter(([key]) => ['name', 'code', 'credit_hours'].includes(key)),
-  );
+  const name = typeof payload === 'string' ? payload : payload?.name;
+  if (!name || !String(name).trim()) {
+    throw new Error('Nama mata pelajaran tidak boleh kosong');
+  }
+
+  // Catatan: Skema tabel master.subjects pada database PostgreSQL hanya memiliki kolom `id` dan `name`
   const { data, error } = await supabase
     .schema('master')
     .from('subjects')
-    .update(updates)
+    .update({ name: String(name).trim() })
     .eq('id', id)
     .select()
     .maybeSingle();
@@ -141,10 +167,9 @@ const scheduleSelect = `
   day,
   start_time,
   end_time,
-  room,
-  classes(id, name, level, major),
-  subjects(id, name, code, credit_hours),
-  teachers(id, name, nip)
+  classes:classes!schedules_class_id_fkey(id, name, level, major),
+  subjects:subjects!schedules_subject_id_fkey(id, name),
+  teachers:teachers!schedules_teacher_id_fkey(id, name, nip)
 `;
 
 export const getAllSchedulesService = async (classId) => {
@@ -163,7 +188,7 @@ export const getAllSchedulesService = async (classId) => {
 };
 
 export const createScheduleService = async (payload) => {
-  const fields = ['class_id', 'subject_id', 'teacher_id', 'day', 'start_time', 'end_time', 'room'];
+  const fields = ['class_id', 'subject_id', 'teacher_id', 'day', 'start_time', 'end_time'];
   const schedule = Object.fromEntries(
     Object.entries(payload).filter(([key]) => fields.includes(key)),
   );
@@ -181,7 +206,7 @@ export const createScheduleService = async (payload) => {
 export const updateScheduleService = async (id, payload) => {
   const updates = Object.fromEntries(
     Object.entries(payload).filter(([key]) => [
-      'class_id', 'subject_id', 'teacher_id', 'day', 'start_time', 'end_time', 'room',
+      'class_id', 'subject_id', 'teacher_id', 'day', 'start_time', 'end_time',
     ].includes(key)),
   );
   const { data, error } = await supabase
@@ -216,10 +241,26 @@ export const getAllTeachersService = async () => {
   const { data, error } = await supabase
     .schema('master')
     .from('teachers')
-    .select('*')
+    .select(`
+      id,
+      user_id,
+      name,
+      nip,
+      phone,
+      users:user_id ( id, email )
+    `)
     .order('name', { ascending: true });
 
-  if (error) throw error;
+  if (error) {
+    const fallback = await supabase
+      .schema('master')
+      .from('teachers')
+      .select('*')
+      .order('name', { ascending: true });
+    if (fallback.error) throw fallback.error;
+    return fallback.data;
+  }
+
   return data;
 };
 
@@ -394,6 +435,16 @@ export const createParentService = async ({ nis, password, name, phone }) => {
       .single();
 
     if (parentError) throw parentError;
+
+    // Link parent to student with corresponding NIS if exists
+    if (nis && parentData?.id) {
+      await supabase
+        .schema('master')
+        .from('students')
+        .update({ parent_id: parentData.id })
+        .eq('nis', nis);
+    }
+
     return parentData;
   } catch (err) {
     await supabaseAdmin.auth.admin.deleteUser(userId);
@@ -453,6 +504,8 @@ export const getAllParentsService = async () => {
     .from('parents')
     .select(`
       id,
+      user_id,
+      nis,
       name,
       phone,
       address,
@@ -474,7 +527,16 @@ export const getAllParentsService = async () => {
     `)
     .order('name', { ascending: true });
 
-  if (error) throw error;
+  if (error) {
+    const fallback = await supabase
+      .schema('master')
+      .from('parents')
+      .select('*')
+      .order('name', { ascending: true });
+    if (fallback.error) throw fallback.error;
+    return fallback.data;
+  }
+
   return data;
 };
 

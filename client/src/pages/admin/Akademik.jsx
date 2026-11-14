@@ -1,37 +1,530 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Plus,
   Search,
   ChevronDown,
-  Upload,
-  GraduationCap,
-  AlertTriangle,
-  Lightbulb,
 } from 'lucide-react';
-import {
-  mockKelasStats,
-  mockKelasList,
-  mockMapelStats,
-  mockMapelList,
-  mockJadwalStats,
-  mockJadwalList,
-  mockValidasiJadwal,
-} from '../../data/mockAkademik';
+import { apiFetch } from '../../lib/api';
+import UserPagination from '../../components/admin/users/UserPagination';
+import SubjectCardGrid from '../../components/admin/academic/SubjectCardGrid';
+import SubjectFormModal from '../../components/admin/academic/SubjectFormModal';
+import ScheduleTable from '../../components/admin/academic/ScheduleTable';
+import ScheduleFormModal from '../../components/admin/academic/ScheduleFormModal';
+import ClassTable from '../../components/admin/academic/ClassTable';
+import ClassFormModal from '../../components/admin/academic/ClassFormModal';
 
 export default function AkademikPage() {
-  const [activeTab, setActiveTab] = useState('Kelas');
-  const [selectedTahun, setSelectedTahun] = useState('Tahun Ajaran 2024/2025');
-  const [selectedKelasJadwal, setSelectedKelasJadwal] = useState('XI MIPA 2');
-  const [selectedHari, setSelectedHari] = useState('Senin');
+  const [activeTab, setActiveTab] = useState('Mata Pelajaran');
+  const tabs = ['Mata Pelajaran', 'Jadwal Pelajaran', 'Kelas'];
 
-  const tabs = ['Kelas', 'Mata Pelajaran', 'Jadwal Pelajaran'];
+  // ==========================================
+  // SHARED REFERENCE DATA
+  // ==========================================
+  const [classes, setClasses] = useState([]);
+  const [teachers, setTeachers] = useState([]);
 
-  // Button title based on active tab
-  const getButtonText = () => {
-    if (activeTab === 'Kelas') return 'Tambah Kelas';
-    if (activeTab === 'Mata Pelajaran') return 'Tambah Mata Pelajaran';
-    return 'Tambah Jadwal Pelajaran';
+  const fetchClasses = async () => {
+    try {
+      setLoadingClasses(true);
+      const data = await apiFetch('/master/classes');
+      setClasses(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Gagal mengambil data kelas:', error);
+    } finally {
+      setLoadingClasses(false);
+    }
   };
+
+  const fetchTeachers = async () => {
+    try {
+      const data = await apiFetch('/master/users/teachers');
+      setTeachers(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Gagal mengambil data guru:', error);
+    }
+  };
+
+  // ==========================================
+  // 1. MATA PELAJARAN (CRUD)
+  // ==========================================
+  const [subjects, setSubjects] = useState([]);
+  const [loadingSubjects, setLoadingSubjects] = useState(false);
+  const [subjectSearch, setSubjectSearch] = useState('');
+  const [subjectCurrentPage, setSubjectCurrentPage] = useState(1);
+  const [subjectItemsPerPage, setSubjectItemsPerPage] = useState(9);
+
+  const [selectedSubject, setSelectedSubject] = useState(null);
+  const [showSubjectAddModal, setShowSubjectAddModal] = useState(false);
+  const [showSubjectEditModal, setShowSubjectEditModal] = useState(false);
+
+  const [subjectForm, setSubjectForm] = useState({
+    name: '',
+  });
+  const [savingSubject, setSavingSubject] = useState(false);
+  const [deletingSubjectId, setDeletingSubjectId] = useState(null);
+
+  const fetchSubjects = async () => {
+    try {
+      setLoadingSubjects(true);
+      const data = await apiFetch('/master/academic/subjects');
+      setSubjects(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Gagal mengambil data mata pelajaran:', error);
+      alert(error.message);
+    } finally {
+      setLoadingSubjects(false);
+    }
+  };
+
+  const handleOpenSubjectAdd = () => {
+    setSubjectForm({ name: '' });
+    setShowSubjectAddModal(true);
+  };
+
+  const handleCloseSubjectAdd = () => {
+    setShowSubjectAddModal(false);
+    setSubjectForm({ name: '' });
+  };
+
+  const handleSaveSubjectAdd = async (e) => {
+    if (e) e.preventDefault();
+    const cleanName = subjectForm.name.trim();
+
+    if (!cleanName) {
+      alert('Nama mata pelajaran wajib diisi!');
+      return;
+    }
+
+    try {
+      setSavingSubject(true);
+      await apiFetch('/master/academic/subjects', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: cleanName,
+        }),
+      });
+
+      alert('Mata pelajaran berhasil ditambahkan!');
+      handleCloseSubjectAdd();
+      await fetchSubjects();
+    } catch (error) {
+      console.error('Gagal menambahkan mata pelajaran:', error);
+      alert(error.message);
+    } finally {
+      setSavingSubject(false);
+    }
+  };
+
+  const handleOpenSubjectEdit = (mapel) => {
+    setSelectedSubject(mapel);
+    setSubjectForm({
+      name: mapel.name || '',
+    });
+    setShowSubjectEditModal(true);
+  };
+
+  const handleCloseSubjectEdit = () => {
+    setShowSubjectEditModal(false);
+    setSelectedSubject(null);
+  };
+
+  const handleSaveSubjectEdit = async (e) => {
+    if (e) e.preventDefault();
+    const cleanName = subjectForm.name.trim();
+
+    if (!cleanName) {
+      alert('Nama mata pelajaran wajib diisi!');
+      return;
+    }
+
+    try {
+      setSavingSubject(true);
+      await apiFetch(`/master/academic/subjects/${selectedSubject.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: cleanName,
+        }),
+      });
+
+      alert('Mata pelajaran berhasil diperbarui!');
+      handleCloseSubjectEdit();
+      await fetchSubjects();
+    } catch (error) {
+      console.error('Gagal memperbarui mata pelajaran:', error);
+      alert(error.message);
+    } finally {
+      setSavingSubject(false);
+    }
+  };
+
+  const handleDeleteSubject = async (mapel) => {
+    if (!mapel) return;
+    const confirmDelete = window.confirm(
+      `Apakah Anda yakin ingin menghapus mata pelajaran "${mapel.name}"?\nJadwal pelajaran yang menggunakan mapel ini mungkin terpengaruh.`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      setDeletingSubjectId(mapel.id);
+      await apiFetch(`/master/academic/subjects/${mapel.id}`, {
+        method: 'DELETE',
+      });
+
+      alert('Mata pelajaran berhasil dihapus.');
+      await fetchSubjects();
+    } catch (error) {
+      console.error('Gagal menghapus mata pelajaran:', error);
+      alert(error.message);
+    } finally {
+      setDeletingSubjectId(null);
+    }
+  };
+
+  // Filter & Pagination Mata Pelajaran
+  const filteredSubjects = subjects.filter((s) => {
+    const keyword = subjectSearch.toLowerCase();
+    return (s.name || '').toLowerCase().includes(keyword);
+  });
+
+  const subjectTotalPages = Math.ceil(filteredSubjects.length / subjectItemsPerPage);
+  const subjectStartIndex = (subjectCurrentPage - 1) * subjectItemsPerPage;
+  const subjectEndIndex = subjectStartIndex + subjectItemsPerPage;
+  const paginatedSubjects = filteredSubjects.slice(subjectStartIndex, subjectEndIndex);
+
+  // ==========================================
+  // 2. JADWAL PELAJARAN (CRUD)
+  // ==========================================
+  const [schedules, setSchedules] = useState([]);
+  const [loadingSchedules, setLoadingSchedules] = useState(false);
+  const [scheduleSearch, setScheduleSearch] = useState('');
+  const [selectedClassFilter, setSelectedClassFilter] = useState('Semua Kelas');
+  const [selectedDayFilter, setSelectedDayFilter] = useState('Semua Hari');
+  const [scheduleCurrentPage, setScheduleCurrentPage] = useState(1);
+  const [scheduleItemsPerPage, setScheduleItemsPerPage] = useState(10);
+
+  const [selectedSchedule, setSelectedSchedule] = useState(null);
+  const [showScheduleAddModal, setShowScheduleAddModal] = useState(false);
+  const [showScheduleEditModal, setShowScheduleEditModal] = useState(false);
+
+  const daysList = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
+  const [scheduleForm, setScheduleForm] = useState({
+    class_id: '',
+    subject_id: '',
+    teacher_id: '',
+    day: 'Senin',
+    start_time: '07:30',
+    end_time: '09:00',
+  });
+  const [savingSchedule, setSavingSchedule] = useState(false);
+  const [deletingScheduleId, setDeletingScheduleId] = useState(null);
+
+  const fetchSchedules = async () => {
+    try {
+      setLoadingSchedules(true);
+      const data = await apiFetch('/master/academic/schedules');
+      setSchedules(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Gagal mengambil data jadwal pelajaran:', error);
+      alert(error.message);
+    } finally {
+      setLoadingSchedules(false);
+    }
+  };
+
+  const handleOpenScheduleAdd = () => {
+    setScheduleForm({
+      class_id: classes[0]?.id || '',
+      subject_id: subjects[0]?.id || '',
+      teacher_id: teachers[0]?.id || '',
+      day: 'Senin',
+      start_time: '07:30',
+      end_time: '09:00',
+    });
+    setShowScheduleAddModal(true);
+  };
+
+  const handleCloseScheduleAdd = () => {
+    setShowScheduleAddModal(false);
+  };
+
+  const handleSaveScheduleAdd = async (e) => {
+    if (e) e.preventDefault();
+    const { class_id, subject_id, teacher_id, day, start_time, end_time } = scheduleForm;
+
+    if (!class_id || !subject_id || !teacher_id || !day || !start_time || !end_time) {
+      alert('Kelas, Mata Pelajaran, Guru Pengajar, Hari, Waktu Mulai, dan Waktu Selesai wajib diisi!');
+      return;
+    }
+
+    if (start_time >= end_time) {
+      alert('Waktu selesai harus lebih besar dari waktu mulai!');
+      return;
+    }
+
+    try {
+      setSavingSchedule(true);
+      await apiFetch('/master/academic/schedules', {
+        method: 'POST',
+        body: JSON.stringify({
+          class_id,
+          subject_id,
+          teacher_id,
+          day,
+          start_time,
+          end_time,
+        }),
+      });
+
+      alert('Jadwal pelajaran berhasil ditambahkan!');
+      handleCloseScheduleAdd();
+      await fetchSchedules();
+    } catch (error) {
+      console.error('Gagal menambahkan jadwal pelajaran:', error);
+      alert(error.message);
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
+
+  const handleOpenScheduleEdit = (jadwal) => {
+    setSelectedSchedule(jadwal);
+    setScheduleForm({
+      class_id: jadwal.class_id || jadwal.classes?.id || '',
+      subject_id: jadwal.subject_id || jadwal.subjects?.id || '',
+      teacher_id: jadwal.teacher_id || jadwal.teachers?.id || '',
+      day: jadwal.day || 'Senin',
+      start_time: jadwal.start_time?.slice(0, 5) || '07:30',
+      end_time: jadwal.end_time?.slice(0, 5) || '09:00',
+    });
+    setShowScheduleEditModal(true);
+  };
+
+  const handleCloseScheduleEdit = () => {
+    setShowScheduleEditModal(false);
+    setSelectedSchedule(null);
+  };
+
+  const handleSaveScheduleEdit = async (e) => {
+    if (e) e.preventDefault();
+    const { class_id, subject_id, teacher_id, day, start_time, end_time } = scheduleForm;
+
+    if (!class_id || !subject_id || !teacher_id || !day || !start_time || !end_time) {
+      alert('Kelas, Mata Pelajaran, Guru Pengajar, Hari, Waktu Mulai, dan Waktu Selesai wajib diisi!');
+      return;
+    }
+
+    if (start_time >= end_time) {
+      alert('Waktu selesai harus lebih besar dari waktu mulai!');
+      return;
+    }
+
+    try {
+      setSavingSchedule(true);
+      await apiFetch(`/master/academic/schedules/${selectedSchedule.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          class_id,
+          subject_id,
+          teacher_id,
+          day,
+          start_time,
+          end_time,
+        }),
+      });
+
+      alert('Jadwal pelajaran berhasil diperbarui!');
+      handleCloseScheduleEdit();
+      await fetchSchedules();
+    } catch (error) {
+      console.error('Gagal memperbarui jadwal pelajaran:', error);
+      alert(error.message);
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
+
+  const handleDeleteSchedule = async (jadwal) => {
+    if (!jadwal) return;
+    const confirmDelete = window.confirm(
+      `Apakah Anda yakin ingin menghapus jadwal "${jadwal.subjects?.name || 'Mata Pelajaran'}" untuk ${jadwal.classes?.name || 'Kelas'} pada hari ${jadwal.day}?`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      setDeletingScheduleId(jadwal.id);
+      await apiFetch(`/master/academic/schedules/${jadwal.id}`, {
+        method: 'DELETE',
+      });
+
+      alert('Jadwal pelajaran berhasil dihapus.');
+      await fetchSchedules();
+    } catch (error) {
+      console.error('Gagal menghapus jadwal pelajaran:', error);
+      alert(error.message);
+    } finally {
+      setDeletingScheduleId(null);
+    }
+  };
+
+  // Filter & Pagination Jadwal
+  const filteredSchedules = schedules.filter((s) => {
+    const matchClass = selectedClassFilter === 'Semua Kelas' || s.class_id === selectedClassFilter;
+    const matchDay = selectedDayFilter === 'Semua Hari' || s.day === selectedDayFilter;
+    const search = scheduleSearch.toLowerCase();
+    const matchSearch =
+      (s.subjects?.name || '').toLowerCase().includes(search) ||
+      (s.teachers?.name || '').toLowerCase().includes(search) ||
+      (s.classes?.name || '').toLowerCase().includes(search);
+
+    return matchClass && matchDay && matchSearch;
+  });
+
+  const scheduleTotalPages = Math.ceil(filteredSchedules.length / scheduleItemsPerPage);
+  const scheduleStartIndex = (scheduleCurrentPage - 1) * scheduleItemsPerPage;
+  const scheduleEndIndex = scheduleStartIndex + scheduleItemsPerPage;
+  const paginatedSchedules = filteredSchedules.slice(scheduleStartIndex, scheduleEndIndex);
+
+  // ==========================================
+  // 3. KELAS (CRUD)
+  // ==========================================
+  const [loadingClasses, setLoadingClasses] = useState(false);
+  const [showClassAddModal, setShowClassAddModal] = useState(false);
+  const [showClassEditModal, setShowClassEditModal] = useState(false);
+  const [selectedClass, setSelectedClass] = useState(null);
+  const [classForm, setClassForm] = useState({
+    name: '',
+    level: 'X',
+    major: 'MIPA',
+    homeroom_teacher_id: '',
+  });
+  const [savingClass, setSavingClass] = useState(false);
+  const [deletingClassId, setDeletingClassId] = useState(null);
+
+  const handleOpenClassAdd = () => {
+    setClassForm({
+      name: '',
+      level: 'X',
+      major: 'MIPA',
+      homeroom_teacher_id: '',
+    });
+    setShowClassAddModal(true);
+  };
+
+  const handleCloseClassAdd = () => {
+    setShowClassAddModal(false);
+  };
+
+  const handleSaveClassAdd = async (e) => {
+    if (e) e.preventDefault();
+    const cleanName = classForm.name.trim();
+    if (!cleanName) {
+      alert('Nama kelas wajib diisi!');
+      return;
+    }
+
+    try {
+      setSavingClass(true);
+      await apiFetch('/master/classes', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: cleanName,
+          level: classForm.level || null,
+          major: classForm.major || null,
+          homeroom_teacher_id: classForm.homeroom_teacher_id || null,
+        }),
+      });
+
+      alert('Kelas berhasil ditambahkan!');
+      handleCloseClassAdd();
+      await fetchClasses();
+    } catch (error) {
+      console.error('Gagal menambahkan kelas:', error);
+      alert(error.message);
+    } finally {
+      setSavingClass(false);
+    }
+  };
+
+  const handleOpenClassEdit = (cls) => {
+    setSelectedClass(cls);
+    setClassForm({
+      name: cls.name || '',
+      level: cls.level || 'X',
+      major: cls.major || 'MIPA',
+      homeroom_teacher_id: cls.homeroom_teacher_id || cls.teachers?.id || '',
+    });
+    setShowClassEditModal(true);
+  };
+
+  const handleCloseClassEdit = () => {
+    setShowClassEditModal(false);
+    setSelectedClass(null);
+  };
+
+  const handleSaveClassEdit = async (e) => {
+    if (e) e.preventDefault();
+    const cleanName = classForm.name.trim();
+    if (!cleanName) {
+      alert('Nama kelas wajib diisi!');
+      return;
+    }
+
+    try {
+      setSavingClass(true);
+      await apiFetch(`/master/classes/${selectedClass.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: cleanName,
+          level: classForm.level || null,
+          major: classForm.major || null,
+          homeroom_teacher_id: classForm.homeroom_teacher_id || null,
+        }),
+      });
+
+      alert('Data kelas berhasil diperbarui!');
+      handleCloseClassEdit();
+      await fetchClasses();
+    } catch (error) {
+      console.error('Gagal memperbarui kelas:', error);
+      alert(error.message);
+    } finally {
+      setSavingClass(false);
+    }
+  };
+
+  const handleDeleteClass = async (cls) => {
+    if (!cls) return;
+    const confirmDelete = window.confirm(
+      `Apakah Anda yakin ingin menghapus kelas "${cls.name}"?\nSiswa dan jadwal yang terhubung ke kelas ini mungkin terdampak.`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      setDeletingClassId(cls.id);
+      await apiFetch(`/master/classes/${cls.id}`, {
+        method: 'DELETE',
+      });
+
+      alert('Kelas berhasil dihapus.');
+      await fetchClasses();
+    } catch (error) {
+      console.error('Gagal menghapus kelas:', error);
+      alert(error.message);
+    } finally {
+      setDeletingClassId(null);
+    }
+  };
+
+  // ==========================================
+  // INITIAL FETCH
+  // ==========================================
+  useEffect(() => {
+    fetchSubjects();
+    fetchSchedules();
+    fetchClasses();
+    fetchTeachers();
+  }, []);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -42,14 +535,40 @@ export default function AkademikPage() {
             Akademik
           </h1>
           <p className="mt-1 text-xs sm:text-sm text-slate-400">
-            Atur kelas, mata pelajaran, beban mengajar, dan jadwal pembelajaran sekolah.
+            Kelola kurikulum mata pelajaran, kelas rombongan belajar, dan jadwal pelajaran sekolah.
           </p>
         </div>
+
         <div>
-          <button className="flex items-center gap-2 rounded-full bg-[#008994] px-5 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-xs hover:bg-[#007682] transition-colors">
-            <Plus className="h-4 w-4 stroke-[2.5]" />
-            <span>{getButtonText()}</span>
-          </button>
+          {activeTab === 'Mata Pelajaran' && (
+            <button
+              onClick={handleOpenSubjectAdd}
+              className="flex items-center gap-2 rounded-full bg-[#008994] px-5 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-xs hover:bg-[#007682] transition-colors"
+            >
+              <Plus className="h-4 w-4 stroke-[2.5]" />
+              <span>Tambah Mata Pelajaran</span>
+            </button>
+          )}
+
+          {activeTab === 'Jadwal Pelajaran' && (
+            <button
+              onClick={handleOpenScheduleAdd}
+              className="flex items-center gap-2 rounded-full bg-[#008994] px-5 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-xs hover:bg-[#007682] transition-colors"
+            >
+              <Plus className="h-4 w-4 stroke-[2.5]" />
+              <span>Tambah Jadwal</span>
+            </button>
+          )}
+
+          {activeTab === 'Kelas' && (
+            <button
+              onClick={handleOpenClassAdd}
+              className="flex items-center gap-2 rounded-full bg-[#008994] px-5 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-xs hover:bg-[#007682] transition-colors"
+            >
+              <Plus className="h-4 w-4 stroke-[2.5]" />
+              <span>Tambah Kelas</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -73,369 +592,276 @@ export default function AkademikPage() {
       </div>
 
       {/* =========================================================================
-          TAB 1: KELAS
-         ========================================================================= */}
-      {activeTab === 'Kelas' && (
-        <div className="space-y-6">
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
-              <span className="text-xs text-slate-400 font-medium">Total kelas</span>
-              <div className="mt-2 text-2xl font-bold tracking-tight text-slate-800">
-                {mockKelasStats.totalKelas}
-              </div>
-            </div>
-            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
-              <span className="text-xs text-slate-400 font-medium">Kapasitas siswa</span>
-              <div className="mt-2 text-2xl font-bold tracking-tight text-slate-800">
-                {mockKelasStats.kapasitasSiswa}
-              </div>
-            </div>
-            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
-              <span className="text-xs text-slate-400 font-medium">Wali kelas terisi</span>
-              <div className="mt-2 text-2xl font-bold tracking-tight text-slate-800">
-                {mockKelasStats.waliKelasTerisi}
-              </div>
-            </div>
-            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
-              <span className="text-xs text-slate-400 font-medium">Ruang aktif</span>
-              <div className="mt-2 text-2xl font-bold tracking-tight text-slate-800">
-                {mockKelasStats.ruangAktif}
-              </div>
-            </div>
-          </div>
-
-          {/* Table Container */}
-          <div className="rounded-2xl border border-slate-100 bg-white p-5 sm:p-6 shadow-xs space-y-5">
-            {/* Filter bar */}
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Cari kelas..."
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-4 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 transition-all focus:border-[#008994] focus:bg-white focus:outline-none"
-                />
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2.5">
-                <button className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-50">
-                  <span>{selectedTahun}</span>
-                  <ChevronDown className="h-4 w-4 text-slate-400" />
-                </button>
-                <button className="flex items-center gap-1.5 rounded-xl border border-cyan-200 bg-cyan-50/70 px-3.5 py-2 text-xs sm:text-sm font-semibold text-cyan-700 hover:bg-cyan-100/70">
-                  <span>Impor Data</span>
-                </button>
-                <button className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-50">
-                  Ekspor
-                </button>
-              </div>
-            </div>
-
-            {/* Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs sm:text-sm text-slate-600">
-                <thead className="border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  <tr>
-                    <th className="py-3 px-4">KELAS</th>
-                    <th className="py-3 px-4">JUMLAH SISWA</th>
-                    <th className="py-3 px-4">WALI KELAS</th>
-                    <th className="py-3 px-4">RUANG</th>
-                    <th className="py-3 px-4">STATUS</th>
-                    <th className="py-3 px-4 text-right">AKSI</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
-                  {mockKelasList.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-4 px-4 font-bold text-slate-800">{item.kelas}</td>
-                      <td className="py-4 px-4 text-slate-600">{item.jumlahSiswa}</td>
-                      <td className="py-4 px-4 text-slate-500">{item.waliKelas}</td>
-                      <td className="py-4 px-4 text-slate-600">{item.ruang}</td>
-                      <td className="py-4 px-4">
-                        <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-                          {item.status}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-right">
-                        <button className="text-xs font-semibold text-[#008994] hover:text-[#00707a]">
-                          Kelola siswa
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          TAB 2: MATA PELAJARAN
+          TAB 1: MATA PELAJARAN (CRUD)
          ========================================================================= */}
       {activeTab === 'Mata Pelajaran' && (
         <div className="space-y-6">
-          {/* KPI Cards */}
+          {/* KPI Cards Mata Pelajaran */}
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
-              <span className="text-xs text-slate-400 font-medium">Total mapel</span>
+              <span className="text-xs text-slate-400 font-medium">Total Mata Pelajaran</span>
               <div className="mt-2 text-2xl font-bold tracking-tight text-slate-800">
-                {mockMapelStats.totalMapel}
+                {subjects.length}
               </div>
             </div>
+
             <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
-              <span className="text-xs text-slate-400 font-medium">Mapel wajib</span>
-              <div className="mt-2 text-2xl font-bold tracking-tight text-slate-800">
-                {mockMapelStats.mapelWajib}
+              <span className="text-xs text-slate-400 font-medium">Status Kurikulum</span>
+              <div className="mt-2 text-2xl font-bold tracking-tight text-emerald-600">
+                Aktif
               </div>
             </div>
+
             <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
-              <span className="text-xs text-slate-400 font-medium">Mapel peminatan</span>
+              <span className="text-xs text-slate-400 font-medium">Total Kelas Terdaftar</span>
               <div className="mt-2 text-2xl font-bold tracking-tight text-slate-800">
-                {mockMapelStats.mapelPeminatan}
+                {classes.length}
               </div>
             </div>
+
             <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
-              <span className="text-xs text-slate-400 font-medium">Total jam/minggu</span>
-              <div className="mt-2 text-2xl font-bold tracking-tight text-slate-800">
-                {mockMapelStats.totalJamMinggu}
+              <span className="text-xs text-slate-400 font-medium">Jadwal Terdaftar</span>
+              <div className="mt-2 text-2xl font-bold tracking-tight text-[#008994]">
+                {schedules.length}
               </div>
             </div>
           </div>
 
-          {/* Filter Container */}
-          <div className="rounded-2xl border border-slate-100 bg-white p-4 sm:p-5 shadow-xs">
+          {/* Search Bar Mapel */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-xs">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                value={subjectSearch}
+                onChange={(e) => {
+                  setSubjectSearch(e.target.value);
+                  setSubjectCurrentPage(1);
+                }}
+                placeholder="Cari nama mata pelajaran..."
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-4 py-2 text-xs sm:text-sm font-medium text-slate-800 placeholder-slate-400 focus:bg-white focus:border-[#008994] focus:outline-none focus:ring-2 focus:ring-[#008994]/20"
+              />
+            </div>
+            <span className="text-xs text-slate-400">
+              Menampilkan {paginatedSubjects.length} dari {filteredSubjects.length} mata pelajaran
+            </span>
+          </div>
+
+          {/* Reusable SubjectCardGrid */}
+          <SubjectCardGrid
+            subjects={paginatedSubjects}
+            loading={loadingSubjects}
+            onEdit={handleOpenSubjectEdit}
+            onDelete={handleDeleteSubject}
+            deletingId={deletingSubjectId}
+          />
+
+          {/* Reusable UserPagination */}
+          <UserPagination
+            currentPage={subjectCurrentPage}
+            totalPages={subjectTotalPages}
+            totalItems={filteredSubjects.length}
+            startIndex={subjectStartIndex}
+            endIndex={subjectEndIndex}
+            itemsPerPage={subjectItemsPerPage}
+            onPageChange={(page) => setSubjectCurrentPage(page)}
+            onItemsPerPageChange={(limit) => {
+              setSubjectItemsPerPage(limit);
+              setSubjectCurrentPage(1);
+            }}
+          />
+        </div>
+      )}
+
+      {/* =========================================================================
+          TAB 2: JADWAL PELAJARAN (CRUD)
+         ========================================================================= */}
+      {activeTab === 'Jadwal Pelajaran' && (
+        <div className="space-y-6">
+          {/* Controls: Search, Filter Kelas, Filter Hari */}
+          <div className="rounded-2xl border border-slate-100 bg-white p-4 sm:p-5 shadow-xs space-y-3">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              {/* Search */}
+              <div className="relative flex-1">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Cari mata pelajaran..."
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-4 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 transition-all focus:border-[#008994] focus:bg-white focus:outline-none"
+                  value={scheduleSearch}
+                  onChange={(e) => {
+                    setScheduleSearch(e.target.value);
+                    setScheduleCurrentPage(1);
+                  }}
+                  placeholder="Cari mata pelajaran, guru pengajar, atau kelas..."
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-4 py-2 text-xs sm:text-sm font-medium text-slate-800 placeholder-slate-400 focus:bg-white focus:border-[#008994] focus:outline-none focus:ring-2 focus:ring-[#008994]/20"
                 />
               </div>
 
+              {/* Filters */}
               <div className="flex flex-wrap items-center gap-2.5">
-                <button className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-50">
-                  <span>{selectedTahun}</span>
-                  <ChevronDown className="h-4 w-4 text-slate-400" />
-                </button>
-                <button className="flex items-center gap-1.5 rounded-xl border border-cyan-200 bg-cyan-50/70 px-3.5 py-2 text-xs sm:text-sm font-semibold text-cyan-700 hover:bg-cyan-100/70">
-                  <span>Impor Data</span>
-                </button>
-                <button className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-50">
-                  Ekspor
-                </button>
+                {/* Filter Kelas */}
+                <div className="relative">
+                  <select
+                    value={selectedClassFilter}
+                    onChange={(e) => {
+                      setSelectedClassFilter(e.target.value);
+                      setScheduleCurrentPage(1);
+                    }}
+                    className="appearance-none rounded-xl border border-slate-200 bg-white pl-3.5 pr-8 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 focus:border-[#008994] focus:outline-none focus:ring-2 focus:ring-[#008994]/20"
+                  >
+                    <option value="Semua Kelas">Semua Kelas</option>
+                    {classes.map((cls) => (
+                      <option key={cls.id} value={cls.id}>
+                        {cls.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                </div>
+
+                {/* Filter Hari */}
+                <div className="relative">
+                  <select
+                    value={selectedDayFilter}
+                    onChange={(e) => {
+                      setSelectedDayFilter(e.target.value);
+                      setScheduleCurrentPage(1);
+                    }}
+                    className="appearance-none rounded-xl border border-slate-200 bg-white pl-3.5 pr-8 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 focus:border-[#008994] focus:outline-none focus:ring-2 focus:ring-[#008994]/20"
+                  >
+                    <option value="Semua Hari">Semua Hari</option>
+                    {daysList.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Cards Grid Mata Pelajaran */}
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {mockMapelList.map((mapel) => (
-              <div
-                key={mapel.id}
-                className="flex flex-col justify-between rounded-2xl border border-slate-100 bg-white p-5 shadow-xs hover:shadow-md transition-shadow"
-              >
-                <div>
-                  {/* Icon & Badge */}
-                  <div className="flex items-center justify-between">
-                    <div
-                      className={`flex h-10 w-10 items-center justify-center rounded-xl ${
-                        mapel.iconColor === 'cyan'
-                          ? 'bg-cyan-50 text-cyan-600'
-                          : mapel.iconColor === 'blue'
-                          ? 'bg-blue-50 text-blue-600'
-                          : 'bg-amber-50 text-amber-600'
-                      }`}
-                    >
-                      <GraduationCap className="h-5 w-5" />
-                    </div>
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                        mapel.kategori === 'Wajib'
-                          ? 'bg-emerald-50 text-emerald-700'
-                          : 'bg-amber-50 text-amber-700'
-                      }`}
-                    >
-                      {mapel.kategori}
-                    </span>
-                  </div>
+          {/* Reusable ScheduleTable */}
+          <div className="rounded-2xl border border-slate-100 bg-white p-5 sm:p-6 shadow-xs space-y-4">
+            <ScheduleTable
+              schedules={paginatedSchedules}
+              loading={loadingSchedules}
+              onEdit={handleOpenScheduleEdit}
+              onDelete={handleDeleteSchedule}
+              deletingId={deletingScheduleId}
+            />
 
-                  {/* Title & Code */}
-                  <div className="mt-4">
-                    <h3 className="text-base font-bold text-slate-800">{mapel.nama}</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">{mapel.kode}</p>
-                  </div>
-
-                  {/* Info: Beban Belajar & Guru */}
-                  <div className="mt-4 flex items-center justify-between border-t border-slate-50 pt-3 text-xs text-slate-500 font-medium">
-                    <div>
-                      Beban belajar <span className="font-bold text-slate-800">{mapel.bebanBelajar}</span>
-                    </div>
-                    <div>{mapel.guruCount}</div>
-                  </div>
-                </div>
-
-                {/* Bottom Button */}
-                <div className="mt-5">
-                  <button className="w-full rounded-xl bg-slate-50 py-2.5 text-center text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-800 transition-colors">
-                    Kelola guru & kelas
-                  </button>
-                </div>
-              </div>
-            ))}
+            {/* Pagination Jadwal */}
+            <UserPagination
+              currentPage={scheduleCurrentPage}
+              totalPages={scheduleTotalPages}
+              totalItems={filteredSchedules.length}
+              startIndex={scheduleStartIndex}
+              endIndex={scheduleEndIndex}
+              itemsPerPage={scheduleItemsPerPage}
+              onPageChange={(page) => setScheduleCurrentPage(page)}
+              onItemsPerPageChange={(limit) => {
+                setScheduleItemsPerPage(limit);
+                setScheduleCurrentPage(1);
+              }}
+            />
           </div>
         </div>
       )}
 
       {/* =========================================================================
-          TAB 3: JADWAL PELAJARAN
+          TAB 3: KELAS (CRUD KELAS)
          ========================================================================= */}
-      {activeTab === 'Jadwal Pelajaran' && (
+      {activeTab === 'Kelas' && (
         <div className="space-y-6">
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
-              <span className="text-xs text-slate-400 font-medium">Jadwal aktif</span>
-              <div className="mt-2 text-2xl font-bold tracking-tight text-slate-800">
-                {mockJadwalStats.jadwalAktif}
-              </div>
-            </div>
-            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
-              <span className="text-xs text-slate-400 font-medium">Jam pelajaran</span>
-              <div className="mt-2 text-2xl font-bold tracking-tight text-slate-800">
-                {mockJadwalStats.jamPelajaran}
-              </div>
-            </div>
-            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
-              <span className="text-xs text-slate-400 font-medium">Konflik jadwal</span>
-              <div className="mt-2 text-2xl font-bold tracking-tight text-amber-600">
-                {mockJadwalStats.konflikJadwal}
-              </div>
-            </div>
-            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
-              <span className="text-xs text-slate-400 font-medium">Ruang tersedia</span>
-              <div className="mt-2 text-2xl font-bold tracking-tight text-slate-800">
-                {mockJadwalStats.ruangTersedia}
-              </div>
-            </div>
-          </div>
-
-          {/* Filter Bar */}
-          <div className="rounded-2xl border border-slate-100 bg-white p-4 sm:p-5 shadow-xs">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Cari jadwal pelajaran..."
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-4 py-2 text-xs sm:text-sm text-slate-800 placeholder-slate-400 transition-all focus:border-[#008994] focus:bg-white focus:outline-none"
-                />
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2.5">
-                <button className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-50">
-                  <span>{selectedTahun}</span>
-                  <ChevronDown className="h-4 w-4 text-slate-400" />
-                </button>
-                <button className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-50">
-                  <span>{selectedKelasJadwal}</span>
-                  <ChevronDown className="h-4 w-4 text-slate-400" />
-                </button>
-                <button className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-50">
-                  <span>{selectedHari}</span>
-                  <ChevronDown className="h-4 w-4 text-slate-400" />
-                </button>
-                <button className="flex items-center gap-1.5 rounded-xl border border-cyan-200 bg-cyan-50/70 px-3.5 py-2 text-xs sm:text-sm font-semibold text-cyan-700 hover:bg-cyan-100/70">
-                  <span>Impor Data</span>
-                </button>
-                <button className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-50">
-                  Ekspor
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Schedule Content & Validation Panel Grid */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            {/* Left 2 Cols: Schedule List */}
-            <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xs lg:col-span-2 space-y-5">
-              <div className="border-b border-slate-100 pb-4">
-                <h2 className="text-base font-bold text-slate-800">
-                  Jadwal XI MIPA 2 · Senin
-                </h2>
-                <p className="text-xs text-slate-400 mt-0.5">Semester ganjil 2024/2025</p>
-              </div>
-
-              {/* Schedule list items */}
-              <div className="space-y-4">
-                {mockJadwalList.map((item) => (
-                  <div key={item.id} className="space-y-2">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between py-2 text-xs sm:text-sm">
-                      <div className="font-bold text-[#008994] w-28">{item.jam}</div>
-                      <div className="font-bold text-slate-800 flex-1">{item.mapel}</div>
-                      <div className="text-slate-500 w-36">{item.guru}</div>
-                      <div className="text-slate-600 font-medium w-24 text-right">
-                        {item.ruang}
-                      </div>
-                    </div>
-
-                    {/* Conflict Alert Box if any */}
-                    {item.hasConflict && (
-                      <div className="rounded-xl bg-amber-50/80 border border-amber-200/60 p-2.5 text-xs text-amber-800 font-medium">
-                        {item.conflictMsg}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Right 1 Col: Validasi Jadwal & Tips */}
-            <div className="space-y-6">
-              {/* Validation Card */}
-              <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xs space-y-4">
-                <h3 className="text-base font-bold text-slate-800">Validasi Jadwal</h3>
-
-                <div className="space-y-3 text-xs sm:text-sm font-medium">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-600">Tanpa konflik</span>
-                    <span className="font-bold text-emerald-600">
-                      {mockValidasiJadwal.tanpaKonflik}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-600">Konflik guru</span>
-                    <span className="font-bold text-amber-600">
-                      {mockValidasiJadwal.konflikGuru}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-600">Konflik ruang</span>
-                    <span className="font-bold text-slate-800">
-                      {mockValidasiJadwal.konflikRuang}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <button className="w-full rounded-xl bg-[#008994] py-2.5 text-center text-xs sm:text-sm font-semibold text-white hover:bg-[#007682] shadow-xs transition-colors">
-                    Periksa semua jadwal
-                  </button>
-                </div>
-              </div>
-
-              {/* Tips Card */}
-              <div className="rounded-2xl border border-cyan-100 bg-cyan-50/60 p-5 text-xs text-cyan-900 leading-relaxed">
-                <span className="font-bold text-[#008994]">Tips: </span>
-                Sistem otomatis mendeteksi benturan guru, kelas, dan ruang sebelum jadwal diterbitkan.
-              </div>
-            </div>
-          </div>
+          <ClassTable
+            classes={classes}
+            loading={loadingClasses}
+            onEdit={handleOpenClassEdit}
+            onDelete={handleDeleteClass}
+            deletingId={deletingClassId}
+          />
         </div>
       )}
+
+      {/* =========================================================================
+          MODALS — REUSABLE SubjectFormModal, ScheduleFormModal, & ClassFormModal
+         ========================================================================= */}
+      {/* Tambah Mata Pelajaran */}
+      <SubjectFormModal
+        isOpen={showSubjectAddModal}
+        isEdit={false}
+        form={subjectForm}
+        setForm={setSubjectForm}
+        onClose={handleCloseSubjectAdd}
+        onSubmit={handleSaveSubjectAdd}
+        saving={savingSubject}
+      />
+
+      {/* Edit Mata Pelajaran */}
+      <SubjectFormModal
+        isOpen={showSubjectEditModal}
+        isEdit={true}
+        form={subjectForm}
+        setForm={setSubjectForm}
+        onClose={handleCloseSubjectEdit}
+        onSubmit={handleSaveSubjectEdit}
+        saving={savingSubject}
+      />
+
+      {/* Tambah Jadwal Pelajaran */}
+      <ScheduleFormModal
+        isOpen={showScheduleAddModal}
+        isEdit={false}
+        form={scheduleForm}
+        setForm={setScheduleForm}
+        classes={classes}
+        subjects={subjects}
+        teachers={teachers}
+        daysList={daysList}
+        onClose={handleCloseScheduleAdd}
+        onSubmit={handleSaveScheduleAdd}
+        saving={savingSchedule}
+      />
+
+      {/* Edit Jadwal Pelajaran */}
+      <ScheduleFormModal
+        isOpen={showScheduleEditModal}
+        isEdit={true}
+        form={scheduleForm}
+        setForm={setScheduleForm}
+        classes={classes}
+        subjects={subjects}
+        teachers={teachers}
+        daysList={daysList}
+        onClose={handleCloseScheduleEdit}
+        onSubmit={handleSaveScheduleEdit}
+        saving={savingSchedule}
+      />
+
+      {/* Tambah Kelas */}
+      <ClassFormModal
+        isOpen={showClassAddModal}
+        isEdit={false}
+        form={classForm}
+        setForm={setClassForm}
+        teachers={teachers}
+        onClose={handleCloseClassAdd}
+        onSubmit={handleSaveClassAdd}
+        saving={savingClass}
+      />
+
+      {/* Edit Kelas */}
+      <ClassFormModal
+        isOpen={showClassEditModal}
+        isEdit={true}
+        form={classForm}
+        setForm={setClassForm}
+        teachers={teachers}
+        onClose={handleCloseClassEdit}
+        onSubmit={handleSaveClassEdit}
+        saving={savingClass}
+      />
     </div>
   );
 }

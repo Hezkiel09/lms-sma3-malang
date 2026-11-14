@@ -9,6 +9,7 @@ router.get('/analytics/dashboard', masterController.getDashboardSummary);
 // Rute Kelas
 router.get('/classes', masterController.getAllClasses);
 router.post('/classes', masterController.createClass);
+router.put('/classes/:id', masterController.updateClass);
 router.delete('/classes/:id', masterController.deleteClass);
 router.patch('/classes/:id/homeroom', masterController.updateHomeroom);
 
