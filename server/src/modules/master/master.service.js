@@ -15,8 +15,19 @@ export const getAllClassesService = async () => {
     `)
     .order('name', { ascending: true });
 
-  if (error) throw error;
-  return data.map(({ students, ...classData }) => ({
+  if (error) {
+    // Fallback jika relasi homeroom teacher atau count student mengalami kendala schema
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .schema('master')
+      .from('classes')
+      .select('id, name, level, major, homeroom_teacher_id')
+      .order('name', { ascending: true });
+
+    if (fallbackError) throw fallbackError;
+    return (fallbackData || []).map((cls) => ({ ...cls, total_students: 0 }));
+  }
+
+  return (data || []).map(({ students, ...classData }) => ({
     ...classData,
     total_students: Number(students?.[0]?.count ?? 0),
   }));
@@ -295,7 +306,8 @@ export const getAllStudentsService = async () => {
       email,
       role
     )
-  `);
+  `)
+  .order('name', { ascending: true });
 
   if (error) throw error;
   return data;
@@ -334,7 +346,7 @@ export const createStudentService = async ({ email, password, name, nis, class_i
     const { error: userError } = await supabase
       .schema('master')
       .from('users')
-      .insert([{ id: userId, email, role: 'student' }]);
+      .insert([{ id: userId, email, name, role: 'student' }]);
 
     if (userError) throw userError;
 
@@ -370,7 +382,7 @@ export const createParentService = async ({ nis, password, name, phone }) => {
     const { error: userError } = await supabase
       .schema('master')
       .from('users')
-      .insert([{ id: userId, email: virtualEmail, role: 'parent' }]);
+      .insert([{ id: userId, email: virtualEmail, name, role: 'parent' }]);
 
     if (userError) throw userError;
 

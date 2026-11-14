@@ -18,7 +18,10 @@ export async function apiFetch(path, options = {}) {
   }
 
   if (!response.ok || result.success === false) {
-    throw new Error(result.message || `Permintaan gagal (HTTP ${response.status}).`);
+    const errorMsg = result.error
+      ? `${result.message || 'Permintaan gagal'}: ${result.error}`
+      : (result.message || `Permintaan gagal (HTTP ${response.status}).`);
+    throw new Error(errorMsg);
   }
 
   return result.data;

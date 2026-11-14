@@ -46,8 +46,12 @@ const handleUserMutationError = (res, error, action, entity) => {
   return res.status(500).json({ success: false, message: `Gagal ${action} ${entity}`, data: null, error: error.message });
 };
 
-const handleControllerError = (res, message, error) =>
-  res.status(500).json({ success: false, message, data: null, error: error.message });
+const handleControllerError = (res, message, error) => {
+  console.error(`${message}:`, error);
+  const detail = error?.message || (typeof error === 'string' ? error : '');
+  const fullMessage = detail ? `${message}: ${detail}` : message;
+  return res.status(500).json({ success: false, message: fullMessage, data: null, error: detail });
+};
 
 // --- KELAS ---
 export const getAllClasses = async (req, res) => {

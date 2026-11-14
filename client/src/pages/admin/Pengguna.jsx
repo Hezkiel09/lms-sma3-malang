@@ -7,6 +7,10 @@ import {
   Download,
 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
+import StudentTable from '../../components/admin/users/StudentTable';
+import StudentDetailModal from '../../components/admin/users/StudentDetailModal';
+import StudentEditModal from '../../components/admin/users/StudentEditModal';
+import StudentAddModal from '../../components/admin/users/StudentAddModal';
 
 export default function PenggunaPage() {
   const [activeTab, setActiveTab] = useState('Siswa');
@@ -22,6 +26,16 @@ export default function PenggunaPage() {
     parent_id: '',
   });
   const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingStudent, setDeletingStudent] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm, setAddForm] = useState({
+    name: '',
+    nis: '',
+    email: '',
+    password: '',
+    class_id: '',
+  });
+  const [savingAdd, setSavingAdd] = useState(false);
   const [availableClasses, setAvailableClasses] = useState([]);
   const [availableParents, setAvailableParents] = useState([]);
 
@@ -145,6 +159,127 @@ export default function PenggunaPage() {
     }
   };
 
+  const handleDelete = async (siswa) => {
+    if (!siswa) return;
+
+    const confirmDelete = window.confirm(
+      `Apakah Anda yakin ingin menghapus data siswa "${siswa.name}" (NIS: ${siswa.nis})?\nData akun terkait juga akan dihapus permanen.`
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      setDeletingStudent(true);
+
+      await apiFetch(`/master/users/students/${siswa.id}`, {
+        method: 'DELETE',
+      });
+
+      alert('Data siswa berhasil dihapus.');
+
+      setShowDetailModal(false);
+      setSelectedStudent(null);
+
+      await fetchStudents();
+    } catch (error) {
+      console.error('Gagal menghapus data siswa:', error);
+      alert(error.message);
+    } finally {
+      setDeletingStudent(false);
+    }
+  };
+
+  const handleOpenAdd = () => {
+    setAddForm({
+      name: '',
+      nis: '',
+      email: '',
+      password: '',
+      class_id: '',
+    });
+    setShowAddModal(true);
+  };
+
+  const handleCloseAdd = () => {
+    setShowAddModal(false);
+    setAddForm({
+      name: '',
+      nis: '',
+      email: '',
+      password: '',
+      class_id: '',
+    });
+  };
+
+  const handleSaveAdd = async (e) => {
+    if (e) e.preventDefault();
+
+    const cleanName = addForm.name.trim();
+    const cleanNis = addForm.nis.trim();
+    const cleanEmail = addForm.email.trim();
+    const password = addForm.password;
+    const classId = addForm.class_id;
+
+    if (!cleanName || !cleanNis || !cleanEmail || !password) {
+      alert('Nama, NIS, Email, dan Password wajib diisi!');
+      return;
+    }
+
+    if (cleanNis.length < 5 || cleanNis.length > 10) {
+      alert('NIS harus berupa 5 - 10 digit angka!');
+      return;
+    }
+
+    const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (!isValidEmail(cleanEmail)) {
+      alert('Format email tidak valid! Contoh: siswa@sman3malang.sch.id');
+      return;
+    }
+
+    if (password.length < 6 || password.length > 50) {
+      alert('Password harus antara 6 - 50 karakter!');
+      return;
+    }
+
+    if (!classId) {
+      alert('Silakan pilih kelas terlebih dahulu!');
+      return;
+    }
+
+    try {
+      setSavingAdd(true);
+
+      await apiFetch('/master/users/students', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: cleanName,
+          nis: cleanNis,
+          email: cleanEmail,
+          password: password,
+          class_id: classId,
+        }),
+      });
+
+      alert('Siswa baru berhasil ditambahkan!');
+
+      setShowAddModal(false);
+      setAddForm({
+        name: '',
+        nis: '',
+        email: '',
+        password: '',
+        class_id: '',
+      });
+
+      await fetchStudents();
+    } catch (error) {
+      console.error('Gagal menambahkan siswa:', error);
+      alert(error.message);
+    } finally {
+      setSavingAdd(false);
+    }
+  };
+
   useEffect(() => {
     fetchStudents();
     fetchClasses();
@@ -199,6 +334,16 @@ export default function PenggunaPage() {
     ),
   ];
 
+  const classDropdownList = availableClasses.length > 0
+    ? availableClasses
+    : Array.from(
+        new Map(
+          students
+            .filter((s) => s.classes?.id && s.classes?.name)
+            .map((s) => [s.classes.id, s.classes])
+        ).values()
+      ).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
 
@@ -218,6 +363,7 @@ export default function PenggunaPage() {
 
         <div>
           <button
+            onClick={handleOpenAdd}
             className="flex items-center gap-2 rounded-full bg-[#008994] px-5 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-xs hover:bg-[#007682] transition-colors"
           >
             <Plus className="h-4 w-4 stroke-[2.5]" />
@@ -365,128 +511,11 @@ export default function PenggunaPage() {
         {/* =========================
             TABLE
         ========================= */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs sm:text-sm text-slate-600">
-
-            <thead className="border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              <tr>
-                <th className="py-3 px-4">
-                  ID/NIS
-                </th>
-
-                <th className="py-3 px-4">
-                  NAMA SISWA
-                </th>
-
-                <th className="py-3 px-4">
-                  KELAS
-                </th>
-
-                <th className="py-3 px-4">
-                  ORANG TUA/WALI
-                </th>
-
-                <th className="py-3 px-4">
-                  STATUS
-                </th>
-
-                <th className="py-3 px-4 text-right">
-                  AKSI
-                </th>
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-slate-100 font-medium">
-
-              {/* Loading */}
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan="6"
-                    className="py-10 text-center text-slate-400"
-                  >
-                    Memuat data siswa...
-                  </td>
-                </tr>
-
-              ) : filteredStudents.length === 0 ? (
-
-                /* Empty */
-                <tr>
-                  <td
-                    colSpan="6"
-                    className="py-10 text-center text-slate-400"
-                  >
-                    Data siswa tidak ditemukan.
-                  </td>
-                </tr>
-
-              ) : (
-
-                /* Data */
-                paginatedStudents.map((siswa) => (
-                  <tr
-                    key={siswa.id}
-                    className="hover:bg-slate-50/70 transition-colors"
-                  >
-
-                    {/* NIS */}
-                    <td className="py-4 px-4 text-slate-500">
-                      {siswa.nis || '-'}
-                    </td>
-
-                    {/* Nama */}
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-3">
-
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-100/70 text-xs font-bold text-cyan-800">
-                          {siswa.name
-                            ?.charAt(0)
-                            ?.toUpperCase() || '?'}
-                        </div>
-
-                        <span className="font-bold text-slate-800">
-                          {siswa.name}
-                        </span>
-
-                      </div>
-                    </td>
-
-                    {/* Kelas */}
-                    <td className="py-4 px-4 text-slate-700 font-medium">
-                      {siswa.classes?.name || '-'}
-                    </td>
-
-                    {/* Orang Tua */}
-                    <td className="py-4 px-4 text-slate-500">
-                      {siswa.parents?.name || '-'}
-                    </td>
-
-                    {/* Status */}
-                    <td className="py-4 px-4">
-                      <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
-                        Aktif
-                      </span>
-                    </td>
-
-                    {/* Action */}
-                    <td className="py-4 px-4 text-right">
-                      <button
-                        onClick={() => handleDetail(siswa)}
-                        className="text-xs font-semibold text-[#008994] hover:text-[#00707a] transition-colors"
-                      >
-                        Detail ...
-                      </button>
-                    </td>
-
-                  </tr>
-                ))
-
-              )}
-
-            </tbody>
-          </table>
-        </div>
+        <StudentTable
+          students={paginatedStudents}
+          loading={loading}
+          onDetail={handleDetail}
+        />
 
         {/* =========================
             FOOTER PAGINATION
@@ -608,293 +637,42 @@ export default function PenggunaPage() {
           </div>
 
         </div>
-        {/* =========================
-            MODAL DETAIL SISWA
-        ========================= */}
-        {showDetailModal && selectedStudent && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
-            <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
 
-              {/* Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-                <div>
-                  <h2 className="text-lg font-bold text-slate-800">
-                    Detail Siswa
-                  </h2>
-                  <p className="mt-1 text-xs text-slate-400">
-                    Informasi lengkap data siswa
-                  </p>
-                </div>
-
-                <button
-                  onClick={handleCloseDetail}
-                  className="rounded-lg px-2 py-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* Content */}
-              <div className="space-y-4 px-6 py-6">
-
-                <div className="flex items-center gap-4 rounded-xl bg-slate-50 p-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-cyan-100 text-lg font-bold text-cyan-800">
-                    {selectedStudent.name?.charAt(0)?.toUpperCase() || '?'}
-                  </div>
-
-                  <div>
-                    <h3 className="font-bold text-slate-800">
-                      {selectedStudent.name || '-'}
-                    </h3>
-
-                    <p className="text-xs text-slate-400">
-                      NIS: {selectedStudent.nis || '-'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                      NIS
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-700">
-                      {selectedStudent.nis || '-'}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                      Kelas
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-700">
-                      {selectedStudent.classes?.name || '-'}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                      Tingkat
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-700">
-                      {selectedStudent.classes?.level || '-'}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                      Jurusan
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-700">
-                      {selectedStudent.classes?.major || '-'}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                      Orang Tua/Wali
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-700">
-                      {selectedStudent.parents?.name || '-'}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                      No. Telepon Wali
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-700">
-                      {selectedStudent.parents?.phone || '-'}
-                    </p>
-                  </div>
-
-                </div>
-
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                    Email Akun
-                  </p>
-
-                  <p className="mt-1 text-sm font-semibold text-slate-700">
-                    {selectedStudent.users?.email || '-'}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-                    Status
-                  </p>
-
-                  <span className="mt-1 inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                    Aktif
-                  </span>
-                </div>
-
-              </div>
-
-              {/* Footer */}
-              <div className="flex justify-end gap-2 border-t border-slate-100 px-6 py-4">
-                <button
-                  onClick={handleCloseDetail}
-                  className="rounded-xl border border-slate-200 bg-white px-5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
-                >
-                  Tutup
-                </button>
-
-                <button
-                  onClick={() => handleEdit(selectedStudent)}
-                  className="rounded-xl bg-[#008994] px-5 py-2 text-xs font-semibold text-white hover:bg-[#007682] transition-colors"
-                >
-                  Edit Data
-                </button>
-              </div>
-
-            </div>
-          </div>
-        )}
-
-        {/* =========================
-            MODAL EDIT SISWA
-        ========================= */}
-        {showEditModal && selectedStudent && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
-            <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
-
-              {/* Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-                <div>
-                  <h2 className="text-lg font-bold text-slate-800">
-                    Edit Data Siswa
-                  </h2>
-                  <p className="mt-1 text-xs text-slate-400">
-                    Perbarui data siswa, kelas, dan orang tua/wali
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleCloseEdit}
-                  disabled={savingEdit}
-                  className="rounded-lg px-2 py-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors disabled:opacity-50"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* Form Content */}
-              <form onSubmit={handleSaveEdit}>
-                <div className="space-y-4 px-6 py-6">
-
-                  {/* Nama Siswa */}
-                  <div>
-                    <label className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1.5 block">
-                      Nama Lengkap <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={editForm.name}
-                      onChange={(e) =>
-                        setEditForm((prev) => ({ ...prev, name: e.target.value }))
-                      }
-                      placeholder="Masukkan nama lengkap siswa"
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-slate-800 placeholder-slate-400 transition-all focus:border-[#008994] focus:outline-none focus:ring-2 focus:ring-[#008994]/20"
-                    />
-                  </div>
-
-                  {/* NIS */}
-                  <div>
-                    <label className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1.5 block">
-                      NIS (Nomor Induk Siswa) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={editForm.nis}
-                      onChange={(e) =>
-                        setEditForm((prev) => ({ ...prev, nis: e.target.value }))
-                      }
-                      placeholder="Masukkan NIS siswa"
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-medium text-slate-800 placeholder-slate-400 transition-all focus:border-[#008994] focus:outline-none focus:ring-2 focus:ring-[#008994]/20"
-                    />
-                  </div>
-
-                  {/* Dropdown Kelas */}
-                  <div>
-                    <label className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1.5 block">
-                      Kelas
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={editForm.class_id}
-                        onChange={(e) =>
-                          setEditForm((prev) => ({ ...prev, class_id: e.target.value }))
-                        }
-                        className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-9 text-xs sm:text-sm font-medium text-slate-700 transition-all focus:border-[#008994] focus:outline-none focus:ring-2 focus:ring-[#008994]/20"
-                      >
-                        <option value="">-- Pilih Kelas (Opsional) --</option>
-                        {availableClasses.map((cls) => (
-                          <option key={cls.id} value={cls.id}>
-                            {cls.name} {cls.major ? `(${cls.major})` : ''}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    </div>
-                  </div>
-
-                  {/* Dropdown Orang Tua/Wali */}
-                  <div>
-                    <label className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1.5 block">
-                      Orang Tua / Wali
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={editForm.parent_id}
-                        onChange={(e) =>
-                          setEditForm((prev) => ({ ...prev, parent_id: e.target.value }))
-                        }
-                        className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-9 text-xs sm:text-sm font-medium text-slate-700 transition-all focus:border-[#008994] focus:outline-none focus:ring-2 focus:ring-[#008994]/20"
-                      >
-                        <option value="">-- Pilih Orang Tua / Wali (Opsional) --</option>
-                        {availableParents.map((parent) => (
-                          <option key={parent.id} value={parent.id}>
-                            {parent.name} {parent.phone ? `(${parent.phone})` : ''}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* Footer */}
-                <div className="flex justify-end gap-2 border-t border-slate-100 px-6 py-4">
-                  <button
-                    type="button"
-                    onClick={handleCloseEdit}
-                    disabled={savingEdit}
-                    className="rounded-xl border border-slate-200 bg-white px-5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
-                  >
-                    Batal
-                  </button>
-
-                  <button
-                    type="submit"
-                    disabled={savingEdit}
-                    className="rounded-xl bg-[#008994] px-5 py-2 text-xs font-semibold text-white hover:bg-[#007682] transition-colors disabled:opacity-50"
-                  >
-                    {savingEdit ? 'Menyimpan...' : 'Simpan Perubahan'}
-                  </button>
-                </div>
-              </form>
-
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* =========================
+          MODALS
+      ========================= */}
+      <StudentDetailModal
+        isOpen={showDetailModal}
+        student={selectedStudent}
+        onClose={handleCloseDetail}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        deleting={deletingStudent}
+      />
+
+      <StudentEditModal
+        isOpen={showEditModal}
+        student={selectedStudent}
+        editForm={editForm}
+        setEditForm={setEditForm}
+        onClose={handleCloseEdit}
+        onSubmit={handleSaveEdit}
+        saving={savingEdit}
+        classes={classDropdownList}
+        parents={availableParents}
+      />
+
+      <StudentAddModal
+        isOpen={showAddModal}
+        addForm={addForm}
+        setAddForm={setAddForm}
+        onClose={handleCloseAdd}
+        onSubmit={handleSaveAdd}
+        saving={savingAdd}
+        classes={classDropdownList}
+      />
     </div>
   );
 }
