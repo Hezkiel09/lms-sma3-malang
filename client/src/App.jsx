@@ -1,4 +1,3 @@
-
 import React from 'react';
 import {
   Routes,
@@ -20,6 +19,9 @@ import EditAssignmentGuru from './pages/B5/teacher/EditAssignmentGuru';
 import TinjauNilaiGuru from './pages/B5/teacher/TinjauNilaiGuru';
 import DetailNilaiGuru from './pages/B5/teacher/DetailNilaiGuru';
 
+import DashboardSiswa from './pages/B5/student/DashboardSiswa';
+import ProfilSiswa from './pages/B5/student/ProfilSiswa';
+
 const COURSE_ID = 'bf720e90-1886-4c01-9868-249181f900dc';
 
 function App() {
@@ -38,6 +40,18 @@ function App() {
       <Route
         path="/dashboard"
         element={<DashboardGuru />}
+      />
+
+      {/* Halaman Dashboard Siswa */}
+      <Route
+        path="/dashboard-siswa"
+        element={<DashboardSiswa />}
+      />
+
+      {/* Rute Profil Siswa */}
+      <Route
+        path="/profil-siswa"
+        element={<ProfilSiswa onKembali={() => navigate('/dashboard-siswa')} />}
       />
 
       {/* Halaman Daftar Kelas */}
