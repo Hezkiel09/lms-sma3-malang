@@ -49,5 +49,7 @@ router.delete('/users/parents/:id', authenticateUser, requireAdmin, masterContro
 // Rute Course
 router.get('/courses', masterController.getAllCourses);
 router.post('/courses', authenticateUser, requireAdmin, masterController.createCourse);
+router.put('/courses/:id', authenticateUser, requireAdmin, masterController.updateCourse);
+router.delete('/courses/:id', authenticateUser, requireAdmin, masterController.deleteCourse);
 
 export default router;

@@ -824,42 +824,432 @@ export const getAllParentsService = async () => {
 };
 
 // COURSES
-export const getAllCoursesService = async () => {
-  const { data, error } = await supabase
+const formatCourseRow = (item, studentCountMap = null, sectionCountMap = null) => {
+  const rawClass = item.classes || {};
+  const rawSubject = item.subjects || {};
+  const rawTeacher = item.teachers || {};
+
+  let studentCount = 0;
+  if (studentCountMap && item.class_id) {
+    studentCount = studentCountMap[item.class_id] || 0;
+  } else if (rawClass.students && Array.isArray(rawClass.students) && rawClass.students[0]) {
+    studentCount = Number(rawClass.students[0].count || 0);
+  }
+
+  let sectionCount = 0;
+  if (sectionCountMap && item.id) {
+    sectionCount = sectionCountMap[item.id] || 0;
+  } else if (item.course_sections && Array.isArray(item.course_sections) && item.course_sections[0]) {
+    sectionCount = Number(item.course_sections[0].count || 0);
+  }
+
+  const classObj = {
+    id: rawClass.id || item.class_id,
+    name: rawClass.name || '-',
+    level: rawClass.level || '-',
+    major: rawClass.major || '-',
+  };
+
+  const subjectObj = {
+    id: rawSubject.id || item.subject_id,
+    name: rawSubject.name || '-',
+  };
+
+  const teacherObj = rawTeacher && rawTeacher.id ? {
+    id: rawTeacher.id,
+    name: rawTeacher.name || '-',
+    nip: rawTeacher.nip || '-',
+  } : null;
+
+  return {
+    id: item.id,
+    class_id: item.class_id,
+    subject_id: item.subject_id,
+    teacher_id: item.teacher_id,
+    academic_year: item.academic_year || '2026/2027',
+    semester: item.semester || 'Ganjil',
+    created_at: item.created_at,
+    subject: subjectObj,
+    class: classObj,
+    teacher: teacherObj,
+    // Aliases
+    subjects: subjectObj,
+    classes: classObj,
+    teachers: teacherObj,
+    student_count: studentCount,
+    section_count: sectionCount,
+  };
+};
+
+export const getAllCoursesService = async (filters = {}) => {
+  const { search, class_id, semester, academic_year } = filters;
+
+  const courseSelect = `
+    id,
+    class_id,
+    subject_id,
+    teacher_id,
+    academic_year,
+    semester,
+    created_at,
+    classes:classes!courses_class_id_fkey(id, name, level, major, students(count)),
+    subjects:subjects!courses_subject_id_fkey(id, name),
+    teachers:teachers!courses_teacher_id_fkey(id, name, nip),
+    course_sections:course_sections!course_sections_course_id_fkey(count)
+  `;
+
+  let query = supabase
     .schema('master')
     .from('courses')
-    .select(`
-      id,
-      academic_year,
-      semester,
-      classes(id, name),
-      subjects(id, name),
-      teachers(id, name, nip)
-    `)
+    .select(courseSelect)
     .order('created_at', { ascending: false });
 
-  if (error) throw error;
-  return data;
+  if (class_id && class_id !== 'Semua Kelas') {
+    query = query.eq('class_id', class_id);
+  }
+  if (semester && semester !== 'Semua Semester') {
+    query = query.eq('semester', semester);
+  }
+  if (academic_year && academic_year.trim()) {
+    query = query.eq('academic_year', academic_year.trim());
+  }
+
+  let { data, error } = await query;
+  let coursesList = [];
+
+  if (error) {
+    // Fallback jika relasi nested atau alias postgrest berbeda
+    let fallbackQuery = supabase
+      .schema('master')
+      .from('courses')
+      .select(`
+        id,
+        class_id,
+        subject_id,
+        teacher_id,
+        academic_year,
+        semester,
+        created_at,
+        classes(id, name, level, major),
+        subjects(id, name),
+        teachers(id, name, nip)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (class_id && class_id !== 'Semua Kelas') {
+      fallbackQuery = fallbackQuery.eq('class_id', class_id);
+    }
+    if (semester && semester !== 'Semua Semester') {
+      fallbackQuery = fallbackQuery.eq('semester', semester);
+    }
+    if (academic_year && academic_year.trim()) {
+      fallbackQuery = fallbackQuery.eq('academic_year', academic_year.trim());
+    }
+
+    const { data: fbData, error: fbError } = await fallbackQuery;
+    if (fbError) throw fbError;
+
+    // Hitung count student dan section secara paralel
+    const [{ data: students }, { data: sections }] = await Promise.all([
+      supabase.schema('master').from('students').select('class_id'),
+      supabase.schema('master').from('course_sections').select('course_id'),
+    ]);
+
+    const studentCountMap = {};
+    (students || []).forEach((st) => {
+      if (st.class_id) {
+        studentCountMap[st.class_id] = (studentCountMap[st.class_id] || 0) + 1;
+      }
+    });
+
+    const sectionCountMap = {};
+    (sections || []).forEach((sec) => {
+      if (sec.course_id) {
+        sectionCountMap[sec.course_id] = (sectionCountMap[sec.course_id] || 0) + 1;
+      }
+    });
+
+    coursesList = (fbData || []).map((item) =>
+      formatCourseRow(item, studentCountMap, sectionCountMap)
+    );
+  } else {
+    coursesList = (data || []).map((item) => formatCourseRow(item));
+  }
+
+  // Filter pencarian (search nama course, mapel, guru, kelas)
+  if (search && search.trim() !== '') {
+    const kw = search.trim().toLowerCase();
+    coursesList = coursesList.filter((c) => {
+      const subjectName = (c.subject?.name || '').toLowerCase();
+      const className = (c.class?.name || '').toLowerCase();
+      const teacherName = (c.teacher?.name || '').toLowerCase();
+      const courseTitle = `${subjectName} — ${className}`.toLowerCase();
+      return (
+        courseTitle.includes(kw) ||
+        subjectName.includes(kw) ||
+        className.includes(kw) ||
+        teacherName.includes(kw)
+      );
+    });
+  }
+
+  return coursesList;
+};
+
+export const getCourseByIdService = async (id) => {
+  const courses = await getAllCoursesService();
+  const course = courses.find((c) => c.id === id);
+  if (!course) {
+    const error = new Error('Course tidak ditemukan');
+    error.status = 404;
+    throw error;
+  }
+  return course;
 };
 
 export const createCourseService = async ({ class_id, subject_id, teacher_id, academic_year, semester }) => {
-  const { data, error } = await supabase
+  if (!subject_id || !class_id || !teacher_id) {
+    const error = new Error('Mata pelajaran, kelas, dan guru pengampu wajib diisi!');
+    error.status = 400;
+    throw error;
+  }
+
+  // 1. Validasi keberadaan subject_id
+  const { data: subject, error: subjErr } = await supabase
+    .schema('master')
+    .from('subjects')
+    .select('id, name')
+    .eq('id', subject_id)
+    .maybeSingle();
+
+  if (subjErr) throw subjErr;
+  if (!subject) {
+    const error = new Error('Mata pelajaran tidak ditemukan.');
+    error.status = 404;
+    throw error;
+  }
+
+  // 2. Validasi keberadaan class_id
+  const { data: cls, error: clsErr } = await supabase
+    .schema('master')
+    .from('classes')
+    .select('id, name')
+    .eq('id', class_id)
+    .maybeSingle();
+
+  if (clsErr) throw clsErr;
+  if (!cls) {
+    const error = new Error('Kelas tidak ditemukan.');
+    error.status = 404;
+    throw error;
+  }
+
+  // 3. Validasi keberadaan teacher_id
+  const { data: teacher, error: teacherErr } = await supabase
+    .schema('master')
+    .from('teachers')
+    .select('id, name')
+    .eq('id', teacher_id)
+    .maybeSingle();
+
+  if (teacherErr) throw teacherErr;
+  if (!teacher) {
+    const error = new Error('Guru pengampu tidak ditemukan.');
+    error.status = 404;
+    throw error;
+  }
+
+  const academicYear = academic_year?.trim() || '2026/2027';
+  const semesterVal = semester?.trim() || 'Ganjil';
+
+  // 4. Cek duplikasi (class_id, subject_id, academic_year, semester)
+  const { data: duplicate, error: dupErr } = await supabase
+    .schema('master')
+    .from('courses')
+    .select('id')
+    .eq('class_id', class_id)
+    .eq('subject_id', subject_id)
+    .eq('academic_year', academicYear)
+    .eq('semester', semesterVal)
+    .maybeSingle();
+
+  if (dupErr) throw dupErr;
+  if (duplicate) {
+    const error = new Error('Course untuk mata pelajaran dan kelas ini pada semester tersebut sudah terdaftar.');
+    error.status = 409;
+    throw error;
+  }
+
+  // 5. Simpan course baru
+  const { data: newCourse, error: insertErr } = await supabase
     .schema('master')
     .from('courses')
     .insert([
       {
         class_id,
         subject_id,
-        teacher_id: teacher_id || null,
-        academic_year: academic_year || '2026/2027',
-        semester: semester || 'Ganjil',
+        teacher_id,
+        academic_year: academicYear,
+        semester: semesterVal,
       },
     ])
-    .select()
+    .select('id')
     .single();
 
-  if (error) throw error;
-  return data;
+  if (insertErr) throw insertErr;
+  return await getCourseByIdService(newCourse.id);
+};
+
+export const updateCourseService = async (id, { class_id, subject_id, teacher_id, academic_year, semester }) => {
+  // 1. Cek keberadaan course
+  const { data: currentCourse, error: getErr } = await supabase
+    .schema('master')
+    .from('courses')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (getErr) throw getErr;
+  if (!currentCourse) {
+    const error = new Error('Course tidak ditemukan');
+    error.status = 404;
+    throw error;
+  }
+
+  const targetClassId = class_id || currentCourse.class_id;
+  const targetSubjectId = subject_id || currentCourse.subject_id;
+  const targetTeacherId = teacher_id || currentCourse.teacher_id;
+  const targetAcademicYear = academic_year?.trim() || currentCourse.academic_year || '2026/2027';
+  const targetSemester = semester?.trim() || currentCourse.semester || 'Ganjil';
+
+  // 2. Validasi foreign keys jika diperbarui
+  if (class_id && class_id !== currentCourse.class_id) {
+    const { data: cls } = await supabase
+      .schema('master')
+      .from('classes')
+      .select('id')
+      .eq('id', targetClassId)
+      .maybeSingle();
+    if (!cls) {
+      const error = new Error('Kelas tidak ditemukan.');
+      error.status = 404;
+      throw error;
+    }
+  }
+
+  if (subject_id && subject_id !== currentCourse.subject_id) {
+    const { data: subj } = await supabase
+      .schema('master')
+      .from('subjects')
+      .select('id')
+      .eq('id', targetSubjectId)
+      .maybeSingle();
+    if (!subj) {
+      const error = new Error('Mata pelajaran tidak ditemukan.');
+      error.status = 404;
+      throw error;
+    }
+  }
+
+  if (teacher_id && teacher_id !== currentCourse.teacher_id) {
+    const { data: tchr } = await supabase
+      .schema('master')
+      .from('teachers')
+      .select('id')
+      .eq('id', targetTeacherId)
+      .maybeSingle();
+    if (!tchr) {
+      const error = new Error('Guru pengampu tidak ditemukan.');
+      error.status = 404;
+      throw error;
+    }
+  }
+
+  // 3. Cek duplikasi jika kombinasi bentrok dengan course lain
+  const { data: duplicate, error: dupErr } = await supabase
+    .schema('master')
+    .from('courses')
+    .select('id')
+    .eq('class_id', targetClassId)
+    .eq('subject_id', targetSubjectId)
+    .eq('academic_year', targetAcademicYear)
+    .eq('semester', targetSemester)
+    .neq('id', id)
+    .maybeSingle();
+
+  if (dupErr) throw dupErr;
+  if (duplicate) {
+    const error = new Error('Course untuk mata pelajaran dan kelas ini pada semester tersebut sudah terdaftar.');
+    error.status = 409;
+    throw error;
+  }
+
+  // 4. Update data course
+  const { error: updateErr } = await supabase
+    .schema('master')
+    .from('courses')
+    .update({
+      class_id: targetClassId,
+      subject_id: targetSubjectId,
+      teacher_id: targetTeacherId,
+      academic_year: targetAcademicYear,
+      semester: targetSemester,
+    })
+    .eq('id', id);
+
+  if (updateErr) throw updateErr;
+  return await getCourseByIdService(id);
+};
+
+export const deleteCourseService = async (id) => {
+  // 1. Cek keberadaan course
+  const { data: currentCourse, error: getErr } = await supabase
+    .schema('master')
+    .from('courses')
+    .select('id')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (getErr) throw getErr;
+  if (!currentCourse) {
+    const error = new Error('Course tidak ditemukan');
+    error.status = 404;
+    throw error;
+  }
+
+  // 2. Cek apakah course masih memiliki sections
+  const { count: sectionCount, error: secErr } = await supabase
+    .schema('master')
+    .from('course_sections')
+    .select('*', { count: 'exact', head: true })
+    .eq('course_id', id);
+
+  if (!secErr && sectionCount && sectionCount > 0) {
+    const error = new Error('Course tidak dapat dihapus karena masih memiliki section, materi, atau tugas di dalamnya.');
+    error.status = 400;
+    throw error;
+  }
+
+  // 3. Eksekusi delete
+  const { error: deleteErr } = await supabase
+    .schema('master')
+    .from('courses')
+    .delete()
+    .eq('id', id);
+
+  if (deleteErr) {
+    if (
+      deleteErr.code === '23503' ||
+      (deleteErr.message && deleteErr.message.toLowerCase().includes('foreign key'))
+    ) {
+      const error = new Error('Course tidak dapat dihapus karena masih memiliki section, materi, atau tugas di dalamnya.');
+      error.status = 400;
+      throw error;
+    }
+    throw deleteErr;
+  }
+
+  return { id };
 };
 
 // endpoint dashboard admin

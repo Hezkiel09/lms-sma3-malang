@@ -410,16 +410,32 @@ export const getAllParents = async (req, res) => {
 
 
 // --- COURSES ---
+const handleCourseError = (res, error, defaultMessage = 'Terjadi kesalahan') => {
+  const status = error.status || (error.message?.includes('tidak ditemukan') ? 404 : 500);
+  return res.status(status).json({
+    success: false,
+    message: error.message || defaultMessage,
+    data: null,
+    ...(status === 500 ? { error: error.message } : {}),
+  });
+};
+
 export const getAllCourses = async (req, res) => {
   try {
-    const courses = await masterService.getAllCoursesService();
+    const { search, class_id, semester, academic_year } = req.query;
+    const courses = await masterService.getAllCoursesService({
+      search,
+      class_id,
+      semester,
+      academic_year,
+    });
     return res.status(200).json({
       success: true,
       message: 'Berhasil mengambil data course',
       data: courses,
     });
   } catch (error) {
-    return handleControllerError(res, 'Gagal mengambil data course', error);
+    return handleCourseError(res, error, 'Gagal mengambil data course');
   }
 };
 
@@ -427,10 +443,10 @@ export const createCourse = async (req, res) => {
   try {
     const { class_id, subject_id, teacher_id, academic_year, semester } = req.body;
 
-    if (!class_id || !subject_id) {
+    if (!class_id || !subject_id || !teacher_id) {
       return res.status(400).json({
         success: false,
-        message: 'Class ID dan Subject ID wajib diisi!',
+        message: 'Mata pelajaran, kelas, dan guru pengampu wajib diisi!',
         data: null,
       });
     }
@@ -449,6 +465,40 @@ export const createCourse = async (req, res) => {
       data: newCourse,
     });
   } catch (error) {
-    return handleControllerError(res, 'Gagal membuat course baru', error);
+    return handleCourseError(res, error, 'Gagal membuat course baru');
+  }
+};
+
+export const updateCourse = async (req, res) => {
+  try {
+    const { class_id, subject_id, teacher_id, academic_year, semester } = req.body;
+    const updatedCourse = await masterService.updateCourseService(req.params.id, {
+      class_id,
+      subject_id,
+      teacher_id,
+      academic_year,
+      semester,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Berhasil mengupdate course',
+      data: updatedCourse,
+    });
+  } catch (error) {
+    return handleCourseError(res, error, 'Gagal mengupdate course');
+  }
+};
+
+export const deleteCourse = async (req, res) => {
+  try {
+    const deleted = await masterService.deleteCourseService(req.params.id);
+    return res.status(200).json({
+      success: true,
+      message: 'Berhasil menghapus course',
+      data: deleted,
+    });
+  } catch (error) {
+    return handleCourseError(res, error, 'Gagal menghapus course');
   }
 };
