@@ -9,14 +9,18 @@ import attemptRouter from './modules/b6/routes/quiz-attempt-routes.js';
 import masterRouter from './modules/master/master.routes.js';
 import quizQuestionRouter from './modules/b6/routes/quiz-question-routes.js';
 import studentAnswerRouter from './modules/b6/routes/student-answer-routes.js';
+import authRouter from './modules/auth/auth.routes.js';
 
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3030;
+const port = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
+
+// Shared application auth routes from b6/admindashboard.
+app.use('/api/v1/auth', authRouter);
 
 // B6 - Quiz
 app.use('/api/v1/banks', bankRouter);

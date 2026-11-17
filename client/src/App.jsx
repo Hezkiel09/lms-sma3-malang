@@ -10,6 +10,8 @@ import SiswaPage from './pages/admin/Siswa';
 import GuruPage from './pages/admin/Guru';
 import ProfilPage from './pages/admin/Profil';
 import LoginPage from './pages/auth/Login';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 
 // Guru Portal
 import GuruLayout from './layouts/GuruLayout';
@@ -39,15 +41,26 @@ function GuruPlaceholder({ title }) {
   );
 }
 
+function RootRedirect() {
+  const { user, isAuthenticated, loading } = useAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-3 border-[#008994] border-t-transparent" /></div>;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (user?.role === 'admin') return <Navigate to="/admin/dashboard" replace />;
+  if (user?.role === 'teacher') return <Navigate to="/b6/buat-kuis" replace />;
+  // TODO: student/parent destinations are not included in this Phase 1 scope.
+  return <Navigate to="/login" replace />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
+      <AuthProvider>
       <Routes>
         {/* Auth routes */}
         <Route path="/login" element={<LoginPage />} />
 
         {/* Guru Portal (Default: Buat Kuis & Bank Soal Sesuai Desain Foto) */}
-        <Route path="/b6" element={<GuruLayout />}>
+        <Route path="/b6" element={<ProtectedRoute allowedRoles={['teacher', 'admin']}><GuruLayout /></ProtectedRoute>}>
           <Route index element={<Navigate to="/b6/buat-kuis" replace />} />
           <Route path="beranda" element={<GuruPlaceholder title="Beranda Guru" />} />
           <Route path="bank-soal" element={<BankSoalPage />} />
@@ -66,7 +79,7 @@ export default function App() {
         </Route>
 
         {/* Admin Portal */}
-        <Route path="/admin" element={<AdminLayout />}>
+        <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout /></ProtectedRoute>}>
           <Route index element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="pengguna" element={<PenggunaPage />} />
@@ -88,10 +101,11 @@ export default function App() {
         <Route path="/rekap-hasil" element={<Navigate to="/b6/rekap-nilai" replace />} />
 
         {/* Root redirect directly to Buat Kuis */}
-        <Route path="/" element={<Navigate to="/b6/buat-kuis" replace />} />
-        {/* 404 fallback to Buat Kuis */}
-        <Route path="*" element={<Navigate to="/b6/buat-kuis" replace />} />
+        <Route path="/" element={<RootRedirect />} />
+        {/* 404 fallback through the authenticated role redirect. */}
+        <Route path="*" element={<RootRedirect />} />
       </Routes>
+      </AuthProvider>
     </BrowserRouter>
   );
 }

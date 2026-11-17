@@ -4,14 +4,27 @@ export const saveStudentAnswer = async ({
   student_id,
   attempt_id,
   question_id,
-  text_answer,
   option_ids,
 }) => {
+  // The answer row is linked to its student through quiz_attempts; the
+  // student_answers table itself has no student_id column.
+  const { data: attempt, error: attemptError } = await supabase
+    .schema('b6')
+    .from('quiz_attempts')
+    .select('student_id')
+    .eq('id', attempt_id)
+    .single();
+
+  if (attemptError) throw attemptError;
+  if (attempt.student_id !== student_id) {
+    throw new Error('student_id tidak sesuai dengan pemilik attempt');
+  }
+
   const { data: answer, error } = await supabase
     .schema('b6')
     .from('student_answers')
     .upsert(
-      { student_id, attempt_id, question_id, text_answer: text_answer ?? null },
+      { attempt_id, question_id },
       { onConflict: 'attempt_id, question_id' },
     )
     .select()

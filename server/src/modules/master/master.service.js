@@ -334,7 +334,7 @@ export const createStudentService = async ({ email, password, name, nis, class_i
     const { error: userError } = await supabase
       .schema('master')
       .from('users')
-      .insert([{ id: userId, email, role: 'student' }]);
+    .insert([{ id: userId, email, name, role: 'student' }]);
 
     if (userError) throw userError;
 

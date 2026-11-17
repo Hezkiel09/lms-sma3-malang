@@ -12,7 +12,7 @@ export const getQuestionsByQuizId = async (quizId) => {
   return data;
 };
 
-export const attachQuestionToQuiz = async ({ quiz_id, question_id, order_index, points }) => {
+export const attachQuestionToQuiz = async ({ quiz_id, question_id, question_order, points }) => {
   const { data, error } = await supabase
     .schema('b6')
     .from('quiz_questions')

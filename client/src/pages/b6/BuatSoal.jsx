@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   ChevronRight,
@@ -5,7 +6,11 @@ import {
   FileSpreadsheet,
   FileText,
   Info,
+  X,
+  AlertCircle,
+  CheckCircle2,
 } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
 
 export default function BuatSoal() {
   const navigate = useNavigate();
@@ -14,6 +19,55 @@ export default function BuatSoal() {
   const kelas = location.state?.kelas || 'XI';
   const mapel = location.state?.mapel || 'Matematika';
   const materi = location.state?.materi || 'Komposisi & invers';
+  const bankId = location.state?.bankId;
+  const [questionType, setQuestionType] = useState(null);
+  const [questionText, setQuestionText] = useState('');
+  const [answerOptions, setAnswerOptions] = useState(['', '', '', '']);
+  const [correctOption, setCorrectOption] = useState(0);
+  const [referenceAnswer, setReferenceAnswer] = useState('');
+  const [points, setPoints] = useState(1);
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState(null);
+
+  const submitQuestion = async (event) => {
+    event.preventDefault();
+    if (!bankId) {
+      setFeedback({ type: 'error', message: 'Bank soal belum dipilih. Kembali ke Bank Soal dan pilih bank terlebih dahulu.' });
+      return;
+    }
+    const isEssay = questionType === 'Esai';
+    const isTrueFalse = questionType === 'Benar / Salah';
+    const options = isEssay ? [] : (isTrueFalse ? ['Benar', 'Salah'] : answerOptions)
+      .map((option, index) => ({
+        option_label: String.fromCharCode(65 + index),
+        option_text: option.trim(),
+        is_correct: index === correctOption,
+      }));
+    if (!questionText.trim() || (!isEssay && options.some((option) => !option.option_text))) {
+      setFeedback({ type: 'error', message: 'Pertanyaan dan seluruh opsi jawaban wajib diisi.' });
+      return;
+    }
+    setSaving(true);
+    setFeedback(null);
+    try {
+      await apiFetch(`/banks/${encodeURIComponent(bankId)}/questions/manual`, {
+        method: 'POST',
+        body: JSON.stringify({
+          question_text: questionText.trim(),
+          question_type: isEssay ? 'ESSAY' : isTrueFalse ? 'BENAR_SALAH' : 'PILIHAN_GANDA',
+          default_points: Number(points),
+          reference_answer: isEssay ? referenceAnswer || null : null,
+          options,
+        }),
+      });
+      setFeedback({ type: 'success', message: 'Soal berhasil disimpan.' });
+      navigate('/b6/bank-soal', { state: { refreshBankId: bankId, flashMessage: 'Soal berhasil disimpan.' }, replace: true });
+    } catch (error) {
+      setFeedback({ type: 'error', message: `Gagal menyimpan soal: ${error.message}` });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
@@ -135,17 +189,7 @@ export default function BuatSoal() {
             <div className="space-y-2.5 pt-2">
               <button
                 type="button"
-                onClick={() =>
-                  navigate('/b6/buat-kuis/tambah-soal', {
-                    state: {
-                      initialType: 'Pilihan Ganda',
-                      from: 'bank-soal',
-                      kelas,
-                      mapel,
-                      materi,
-                    },
-                  })
-                }
+                onClick={() => { setQuestionType('Pilihan Ganda'); setFeedback(null); }}
                 className="w-full rounded-xl bg-[#e6f7f8] py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors text-center border border-cyan-100/60"
               >
                 Pilihan Ganda
@@ -153,17 +197,7 @@ export default function BuatSoal() {
 
               <button
                 type="button"
-                onClick={() =>
-                  navigate('/b6/buat-kuis/tambah-soal', {
-                    state: {
-                      initialType: 'Benar / Salah',
-                      from: 'bank-soal',
-                      kelas,
-                      mapel,
-                      materi,
-                    },
-                  })
-                }
+                onClick={() => { setQuestionType('Benar / Salah'); setFeedback(null); }}
                 className="w-full rounded-xl bg-[#e6f7f8] py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors text-center border border-cyan-100/60"
               >
                 Benar / Salah
@@ -171,17 +205,7 @@ export default function BuatSoal() {
 
               <button
                 type="button"
-                onClick={() =>
-                  navigate('/b6/buat-kuis/tambah-soal', {
-                    state: {
-                      initialType: 'Esai',
-                      from: 'bank-soal',
-                      kelas,
-                      mapel,
-                      materi,
-                    },
-                  })
-                }
+                onClick={() => { setQuestionType('Esai'); setFeedback(null); }}
                 className="w-full rounded-xl bg-[#e6f7f8] py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors text-center border border-cyan-100/60"
               >
                 Esai
@@ -249,6 +273,25 @@ export default function BuatSoal() {
           Bank soal tersinkronisasi otomatis dengan portal ujian dan presensi SMAN 3 Malang. Gunakan kembali materi yang telah diuji untuk efisiensi pembuatan kuis.
         </span>
       </div>
+
+      {questionType && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <form onSubmit={submitQuestion} className="max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-slate-800">Input {questionType}</h2>
+              <button type="button" onClick={() => setQuestionType(null)} aria-label="Tutup" className="rounded-lg p-1 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+            </div>
+            {feedback && <div role="alert" className={`flex items-center gap-2 rounded-xl p-3 text-sm ${feedback.type === 'error' ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>{feedback.type === 'error' ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}{feedback.message}</div>}
+            <label className="block space-y-1 text-sm font-semibold text-slate-700">Pertanyaan<textarea required rows={4} value={questionText} onChange={(event) => setQuestionText(event.target.value)} className="w-full rounded-xl border border-slate-200 p-3 text-sm font-normal" /></label>
+            {questionType !== 'Esai' && (questionType === 'Benar / Salah' ? ['Benar', 'Salah'] : answerOptions).map((option, index) => (
+              <label key={index} className="flex items-center gap-2 text-sm text-slate-700"><input type="radio" name="correct-option" checked={correctOption === index} onChange={() => setCorrectOption(index)} />{String.fromCharCode(65 + index)}.<input required value={option} readOnly={questionType === 'Benar / Salah'} onChange={(event) => setAnswerOptions((current) => current.map((value, itemIndex) => itemIndex === index ? event.target.value : value))} className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2" /></label>
+            ))}
+            {questionType === 'Esai' && <label className="block space-y-1 text-sm font-semibold text-slate-700">Jawaban acuan<textarea rows={3} value={referenceAnswer} onChange={(event) => setReferenceAnswer(event.target.value)} className="w-full rounded-xl border border-slate-200 p-3 text-sm font-normal" /></label>}
+            <label className="block space-y-1 text-sm font-semibold text-slate-700">Poin<input type="number" min="0" step="0.1" value={points} onChange={(event) => setPoints(event.target.value)} className="w-32 rounded-lg border border-slate-200 px-3 py-2 font-normal" /></label>
+            <div className="flex justify-end gap-2 border-t border-slate-100 pt-3"><button type="button" onClick={() => setQuestionType(null)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600">Batal</button><button type="submit" disabled={saving} className="rounded-xl bg-[#004d57] px-5 py-2 text-sm font-semibold text-white disabled:opacity-60">{saving ? 'Menyimpan...' : 'Simpan Soal'}</button></div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

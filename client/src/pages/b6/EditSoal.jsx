@@ -1,10 +1,14 @@
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { apiFetch } from "../../lib/api";
 import "./EditSoal.css";
 
 export default function EditSoal() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const bankId = location.state?.bankId || location.state?.soal?.question_bank_id || location.state?.question?.question_bank_id;
+  const questionId = location.state?.questionId || location.state?.soal?.id || location.state?.question?.id;
 
   // Data soal awal
   const [form, setForm] = useState({
@@ -23,6 +27,40 @@ export default function EditSoal() {
   const [gambar, setGambar] = useState(null);
   const [previewGambar, setPreviewGambar] = useState(null);
   const [pesan, setPesan] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    if (!bankId || !questionId) {
+      setError('Bank soal atau ID soal tidak tersedia. Buka Edit dari detail soal.');
+      setLoading(false);
+      return undefined;
+    }
+    apiFetch(`/banks/${encodeURIComponent(bankId)}/questions`)
+      .then((questions) => {
+        const question = (Array.isArray(questions) ? questions : []).find((item) => String(item.id) === String(questionId));
+        if (!question) throw new Error('Soal tidak ditemukan pada bank soal tersebut.');
+        if (!active) return;
+        const options = question.question_options || [];
+        const correctIndex = options.findIndex((option) => option.is_correct);
+        setForm((current) => ({
+          ...current,
+          jenis: question.question_type === 'ESSAY' ? 'Esai' : question.question_type === 'BENAR_SALAH' ? 'Benar / Salah' : 'Pilihan Ganda',
+          pertanyaan: question.question_text || '',
+          pilihan: options.map((option) => option.option_text),
+          kunci: correctIndex,
+          pembahasan: question.explanation || '',
+          bobot: Number(question.default_points ?? 1),
+        }));
+        setGambar(null);
+        setPreviewGambar(question.image_url || null);
+      })
+      .catch((fetchError) => { if (active) setError(`Gagal memuat soal: ${fetchError.message}`); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [bankId, questionId]);
 
   // Mengubah data form
   const handleChange = (field, value) => {
@@ -100,7 +138,7 @@ export default function EditSoal() {
   };
 
   // Simpan perubahan
-  const handleSimpan = (e) => {
+  const handleSimpan = async (e) => {
     e.preventDefault();
 
     if (!form.pertanyaan.trim()) {
@@ -124,22 +162,34 @@ export default function EditSoal() {
       return;
     }
 
-    // Simulasi penyimpanan data
-    const dataTersimpan = {
-      ...form,
-      gambar,
+    const questionTypes = { 'Pilihan Ganda': 'PILIHAN_GANDA', 'Benar / Salah': 'BENAR_SALAH', Esai: 'ESSAY' };
+    const payload = {
+      question_text: form.pertanyaan.trim(),
+      question_type: questionTypes[form.jenis],
+      default_points: Number(form.bobot),
+      explanation: form.pembahasan || null,
+      image_url: gambar ? undefined : previewGambar || null,
+      options: form.pilihan.map((text, index) => ({
+        option_label: String.fromCharCode(65 + index),
+        option_text: text,
+        is_correct: index === form.kunci,
+      })),
     };
-
-    console.log("Data soal diperbarui:", dataTersimpan);
-
-    setPesan("Perubahan soal berhasil disimpan!");
-
-    // Kembali ke halaman detail setelah menyimpan
-    setTimeout(() => {
-      navigate("/bank-soal/lihat-soal", {
-        state: { soal: dataTersimpan },
+    if (form.jenis === 'Esai') payload.options = [];
+    setSaving(true);
+    setError('');
+    try {
+      await apiFetch(`/banks/${encodeURIComponent(bankId)}/questions/${encodeURIComponent(questionId)}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
       });
-    }, 700);
+      setPesan('Perubahan soal berhasil disimpan!');
+      navigate('/b6/bank-soal/lihat-soal', { state: { bankId, questionId, flashMessage: 'Perubahan soal berhasil disimpan.' }, replace: true });
+    } catch (saveError) {
+      setError(`Gagal menyimpan perubahan: ${saveError.message}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -172,6 +222,9 @@ export default function EditSoal() {
           onSubmit={handleSimpan}
         >
 
+          {loading && <p role="status" className="edit-success-message">Memuat data soal...</p>}
+          {error && <p role="alert" className="edit-success-message" style={{ color: '#b91c1c' }}>{error}</p>}
+
           {/* JUDUL FORM */}
           <div className="editsoal-card-heading">
 
@@ -182,7 +235,7 @@ export default function EditSoal() {
               </p>
             </div>
 
-            <span>Dibuat • 13 Okt 2026</span>
+              <span>{loading ? 'Memuat...' : `ID soal • ${questionId || '—'}`}</span>
 
           </div>
 
@@ -518,8 +571,9 @@ export default function EditSoal() {
             <button
               type="submit"
               className="btn-edit-save"
+              disabled={saving || loading || Boolean(error)}
             >
-              Simpan Perubahan
+              {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
             </button>
 
           </div>

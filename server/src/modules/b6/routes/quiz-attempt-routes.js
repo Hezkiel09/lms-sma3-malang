@@ -1,9 +1,12 @@
 import { Router } from 'express';
 import * as attemptController from '../controllers/quiz-attempt-controller.js';
+import { authenticateUser } from '../../../middleware/authMiddleware.js';
+import { gradeAttemptController } from '../controllers/grading-controller.js';
 
 const router = Router();
 
 router.get('/', attemptController.getAllAttempts);
+router.post('/:attemptId/grade', authenticateUser, gradeAttemptController);
 router.get('/:id', attemptController.getAttemptById);
 router.post('/', attemptController.createAttempt);
 router.put('/:id', attemptController.updateAttempt);

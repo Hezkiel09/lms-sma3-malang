@@ -1,48 +1,81 @@
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import "./LihatSoal.css";
 import { BookOpen, Eye } from "lucide-react";
+import { apiFetch } from "../../lib/api";
 
 export default function LihatSoal() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const bankId = location.state?.bankId || location.state?.soal?.question_bank_id || location.state?.question?.question_bank_id;
+  const questionId = location.state?.questionId || location.state?.soal?.id || location.state?.question?.id;
 
   const [showDelete, setShowDelete] = useState(false);
+  const [soal, setSoal] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [notice] = useState(location.state?.flashMessage || '');
 
-  // Contoh data soal
-  const [soal] = useState({
-    kelas: "XI",
-    mapel: "Matematika",
-    materi: "Komposisi & invers",
-    jenis: "Pilihan Ganda",
-    asal: "Dibuat • 13 Okt 2026",
-    pertanyaan:
-      "Diketahui f(x) = 2x + 1 dan g(x) = x². Nilai (f ∘ g)(3) adalah ...",
-    pilihan: [
-      { label: "A.", jawaban: "7" },
-      { label: "B.", jawaban: "10" },
-      { label: "C.", jawaban: "18" },
-      { label: "D.", jawaban: "19" },
-    ],
-    kunci: "D.",
-    pembahasan: "g(3)=9 sehingga f(9)=19.",
-    rumus: "g(3) = 3² = 9     →     (f ∘ g)(3) = f(9) = 2(9) + 1 = 19",
-    bobot: 5,
-  });
+  useEffect(() => {
+    let active = true;
+    if (!bankId || !questionId) {
+      setError('Bank soal atau ID soal tidak tersedia. Buka detail dari daftar soal.');
+      setLoading(false);
+      return undefined;
+    }
+    apiFetch(`/banks/${encodeURIComponent(bankId)}/questions`)
+      .then((questions) => {
+        const question = (Array.isArray(questions) ? questions : []).find((item) => String(item.id) === String(questionId));
+        if (!question) throw new Error('Soal tidak ditemukan pada bank soal tersebut.');
+        if (!active) return;
+        const options = question.question_options || [];
+        const correctOption = options.find((option) => option.is_correct);
+        setSoal({
+          jenis: question.question_type || '—',
+          asal: question.created_at ? `Dibuat • ${new Date(question.created_at).toLocaleDateString('id-ID')}` : 'Tersimpan di Bank Soal',
+          pertanyaan: question.question_text || '',
+          pilihan: options.map((option) => ({ label: `${option.option_label}.`, jawaban: option.option_text })),
+          kunci: correctOption ? `${correctOption.option_label}.` : '—',
+          pembahasan: question.explanation || 'Belum ada pembahasan.',
+          rumus: question.reference_answer || '',
+          bobot: Number(question.default_points ?? 0),
+          image: question.image_url,
+        });
+      })
+      .catch((fetchError) => { if (active) setError(`Gagal memuat detail soal: ${fetchError.message}`); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [bankId, questionId]);
 
-  const handleDelete = () => {
-    setShowDelete(false);
-    navigate("/bank-soal");
+  const handleDelete = async () => {
+    setDeleting(true);
+    setError('');
+    try {
+      await apiFetch(`/banks/${encodeURIComponent(bankId)}/questions/${encodeURIComponent(questionId)}`, { method: 'DELETE' });
+      navigate('/b6/bank-soal', { state: { refreshBankId: bankId }, replace: true });
+    } catch (deleteError) {
+      setError(`Gagal menghapus soal: ${deleteError.message}`);
+      setShowDelete(false);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleEdit = () => {
-    navigate("/bank-soal/edit-soal");
+    navigate("/b6/bank-soal/edit-soal", { state: { bankId, questionId } });
   };
+
+  if (loading) return <main className="lihatsoal-page"><p role="status">Memuat detail soal...</p></main>;
+  if (error || !soal) return <main className="lihatsoal-page"><p role="alert">{error || 'Detail soal tidak tersedia.'}</p><button className="btn-detail-back" onClick={() => navigate('/b6/bank-soal')}>Kembali ke Bank Soal</button></main>;
 
   return (
     <div className="lihatsoal-layout">
 
       <main className="lihatsoal-page">
+
+        {notice && <p role="status" className="edit-success-message">{notice}</p>}
 
         {/* HEADER */}
         <header className="lihatsoal-header">
@@ -95,17 +128,17 @@ export default function LihatSoal() {
 
               <div className="information-item">
                 <span>Kelas</span>
-                <strong>{soal.kelas}</strong>
+                <strong>—</strong>
               </div>
 
               <div className="information-item">
                 <span>Mata pelajaran</span>
-                <strong>{soal.mapel}</strong>
+                <strong>—</strong>
               </div>
 
               <div className="information-item">
                 <span>Materi</span>
-                <strong>{soal.materi}</strong>
+                <strong>—</strong>
               </div>
 
             </div>
@@ -124,7 +157,7 @@ export default function LihatSoal() {
 
               <div className="information-item">
                 <span>Gambar soal</span>
-                <strong>Belum ada gambar</strong>
+                <strong>{soal.image ? 'Tersedia' : 'Belum ada gambar'}</strong>
               </div>
 
             </div>
@@ -151,7 +184,7 @@ export default function LihatSoal() {
 
             <div className="answer-list">
 
-              {soal.pilihan.map((item) => {
+              {soal.pilihan.length ? soal.pilihan.map((item) => {
                 const isCorrect = item.label === soal.kunci;
 
                 return (
@@ -174,7 +207,7 @@ export default function LihatSoal() {
 
                   </div>
                 );
-              })}
+              }) : <p>Soal ini tidak memiliki opsi jawaban.</p>}
 
             </div>
 
@@ -190,9 +223,9 @@ export default function LihatSoal() {
 
             <p>{soal.pembahasan}</p>
 
-            <div className="discussion-formula">
+              {soal.rumus && <div className="discussion-formula">
               {soal.rumus}
-            </div>
+              </div>}
 
             <strong>
               Kunci jawaban: {soal.kunci} {soal.pilihan.find(
@@ -222,7 +255,7 @@ export default function LihatSoal() {
 
             <button
               className="btn-detail-back"
-              onClick={() => navigate("/bank-soal")}
+              onClick={() => navigate("/b6/bank-soal")}
             >
               Kembali
             </button>
@@ -292,8 +325,9 @@ export default function LihatSoal() {
                 <button
                   className="delete-confirm"
                   onClick={handleDelete}
+                  disabled={deleting}
                 >
-                  Ya, Hapus
+                  {deleting ? 'Menghapus...' : 'Ya, Hapus'}
                 </button>
 
               </div>

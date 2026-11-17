@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart2,
   Edit3,
@@ -26,6 +26,7 @@ import {
 
 export default function BankSoalPage() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Navigation State:
   // step 1 = Pilih Kelas
@@ -76,7 +77,11 @@ export default function BankSoalPage() {
         if (!active) return;
         const bankList = Array.isArray(data) ? data : [];
         setBanks(bankList);
-        setSelectedBankId((current) => current || bankList[0]?.id || '');
+        const requestedBankId = location.state?.refreshBankId;
+        const targetBankId = requestedBankId && bankList.some((bank) => String(bank.id) === String(requestedBankId)) ? requestedBankId : bankList[0]?.id || '';
+        setSelectedBankId((current) => current || targetBankId);
+        if (requestedBankId && targetBankId) setCurrentStep(3);
+        if (location.state?.flashMessage) showToast(location.state.flashMessage);
         if (bankList.length > 0) setIsLoadingQuestions(true);
       })
       .catch((error) => {
@@ -873,7 +878,7 @@ export default function BankSoalPage() {
                       </span>
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => setViewQuestion(q)}
+                          onClick={() => navigate('/b6/bank-soal/lihat-soal', { state: { bankId: selectedBankId, questionId: q.id } })}
                           className="rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
                         >
                           Lihat
@@ -918,9 +923,9 @@ export default function BankSoalPage() {
                   <button
                     type="button"
                     onClick={() =>
-                      navigate('/b6/buat-kuis/tambah-soal', {
+                      navigate('/b6/buat-soal', {
                         state: {
-                          initialType: 'Pilihan Ganda',
+                          bankId: selectedBankId,
                           from: 'bank-soal',
                           kelas: selectedKelas.romawi,
                           mapel: selectedMapel?.nama || 'Matematika',
@@ -936,9 +941,9 @@ export default function BankSoalPage() {
                   <button
                     type="button"
                     onClick={() =>
-                      navigate('/b6/buat-kuis/tambah-soal', {
+                      navigate('/b6/buat-soal', {
                         state: {
-                          initialType: 'Benar / Salah',
+                          bankId: selectedBankId,
                           from: 'bank-soal',
                           kelas: selectedKelas.romawi,
                           mapel: selectedMapel?.nama || 'Matematika',
@@ -954,9 +959,9 @@ export default function BankSoalPage() {
                   <button
                     type="button"
                     onClick={() =>
-                      navigate('/b6/buat-kuis/tambah-soal', {
+                      navigate('/b6/buat-soal', {
                         state: {
-                          initialType: 'Esai',
+                          bankId: selectedBankId,
                           from: 'bank-soal',
                           kelas: selectedKelas.romawi,
                           mapel: selectedMapel?.nama || 'Matematika',

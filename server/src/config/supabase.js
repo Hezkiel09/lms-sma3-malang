@@ -19,3 +19,11 @@ export const supabaseAdmin = createClient(
     supabaseUrl,
     process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseKey,
 );
+
+// Isolated client for sign-in requests, matching the shared auth implementation.
+export const createAuthClient = () => createClient(supabaseUrl, supabaseKey, {
+    auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+    },
+});
