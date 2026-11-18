@@ -1,26 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, Search } from 'lucide-react';
+import { getStudentNotifications, getStudentProfile } from './studentApi';
 
 const TopbarSiswa = ({ searchTerm, onSearchChange, placeholder = "Cari informasi...", onKeProfil, onPilihNotif }) => {
   const [isOpenNotif, setIsOpenNotif] = useState(false);
-  const [studentName, setStudentName] = useState('Rania');
+  const [studentName, setStudentName] = useState('Siswa');
 
-  // Data dummy notifikasi untuk siswa
-  const [notifikasiList, setNotifikasiList] = useState([
-    { id: 1, text: "Siti Rahmawati, S.Pd. menambahkan tugas Matematika", time: "15 menit lalu", assignmentId: "tugas-1" },
-    { id: 2, text: "Nur Rohmah, S.Pd. telah memberikan nilai pada tugas Informatika", time: "2 jam lalu", assignmentId: "tugas-2" },
-  ]);
+  // Notifikasi siswa
+  const [notifikasiList, setNotifikasiList] = useState([]);
 
   useEffect(() => {
-    // 1. Ambil notifikasi siswa dari API (opsional/disesuaikan backend nanti)
+    // 1. Ambil notifikasi siswa dari API
     const fetchNotif = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/v1/b5/student/notifications');
-        if (res.ok) {
-          const json = await res.json();
-          if (json.data && json.data.length > 0) {
-            setNotifikasiList(json.data);
-          }
+        const notifs = await getStudentNotifications();
+        if (Array.isArray(notifs) && notifs.length > 0) {
+          setNotifikasiList(notifs);
         }
       } catch (err) {
         console.warn('Gagal memuat notifikasi siswa dari API:', err);
@@ -30,13 +25,10 @@ const TopbarSiswa = ({ searchTerm, onSearchChange, placeholder = "Cari informasi
     // 2. Ambil profil siswa dari API
     const fetchProfile = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/v1/b5/student/profile');
-        if (res.ok) {
-          const json = await res.json();
-          if (json.data?.name) {
-            const firstName = json.data.name.split(',')[0].split(' ')[0];
-            setStudentName(firstName || 'Rania');
-          }
+        const profile = await getStudentProfile();
+        if (profile?.name) {
+          const firstName = profile.name.split(',')[0].split(' ')[0];
+          setStudentName(firstName || 'Siswa');
         }
       } catch (err) {
         console.warn('Gagal memuat profil siswa dari API:', err);

@@ -1,13 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import {
     ArrowLeft, FileText, Download,
-    Calendar, Clock, CheckCircle
+    Calendar, Clock, CheckCircle, AlertCircle
 } from 'lucide-react';
 import SidebarSiswa from './SidebarSiswa';
 import TopbarSiswa from './TopbarSiswa';
+import { getStudentAssignmentDetail, getStudentMySubmission } from './studentApi';
 
-const DetailTugasSiswa = ({ tugasId, onKembali, onKeProfil, onPilihNotif, onKeKirimTugas }) => {
+const DetailTugasSiswa = ({
+    tugasId,
+    onKembali,
+    onKeDashboard,
+    onKeProfil,
+    onPilihNotif,
+    onKeKirimTugas,
+    onKeStatusTugas,
+    onKeNilai,
+}) => {
     const [tugas, setTugas] = useState(null);
+    const [mySubmission, setMySubmission] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -46,13 +57,15 @@ const DetailTugasSiswa = ({ tugasId, onKembali, onKeProfil, onPilihNotif, onKeKi
         try {
             setLoading(true);
             setError(null);
-            const response = await fetch(`http://localhost:5000/api/v1/b5/assignments/${tugasId}`);
-            if (!response.ok) throw new Error('Gagal memuat detail tugas dari server');
-            const result = await response.json();
-            setTugas(result.data);
+            const [detailRes, subRes] = await Promise.all([
+                getStudentAssignmentDetail(tugasId),
+                getStudentMySubmission(tugasId).catch(() => null),
+            ]);
+            setTugas(detailRes);
+            setMySubmission(subRes || detailRes?.my_submission || null);
         } catch (err) {
             console.error('Error fetching detail tugas:', err);
-            setError(err.message);
+            setError(err.message || 'Gagal memuat detail tugas');
         } finally {
             setLoading(false);
         }
@@ -69,6 +82,25 @@ const DetailTugasSiswa = ({ tugasId, onKembali, onKeProfil, onPilihNotif, onKeKi
             </div>
         );
     }
+
+    if (error) {
+        return (
+            <div className="flex flex-col justify-center items-center h-screen bg-white font-sans text-xs text-gray-500 gap-3">
+                <p className="text-red-500 font-semibold">{error}</p>
+                <button
+                    onClick={onKembali}
+                    className="px-4 py-2 bg-[#054C5A] text-white rounded-xl text-xs font-bold"
+                >
+                    Kembali
+                </button>
+            </div>
+        );
+    }
+
+    const isSubmitted = Boolean(mySubmission);
+    const isGraded = isSubmitted && mySubmission.score !== null;
+    const isDeadlinePassed = tugas?.deadline_raw ? new Date() > new Date(tugas.deadline_raw) : false;
+    const canSubmit = !isGraded && (!isDeadlinePassed || Boolean(tugas?.allow_late_submission));
 
     return (
         <div className="flex min-h-screen bg-white font-sans text-[#17242E] w-full">
@@ -99,11 +131,7 @@ const DetailTugasSiswa = ({ tugasId, onKembali, onKeProfil, onPilihNotif, onKeKi
                     <p className="text-[11px] text-[#71808D] flex items-center gap-2">
                         <button
                             type="button"
-                            onClick={() => {
-                                // Langsung arahkan kembali ke Beranda utama
-                                window.history.pushState({}, '', '/dashboard-siswa');
-                                window.dispatchEvent(new PopStateEvent('popstate'));
-                            }}
+                            onClick={() => { if (onKeDashboard) onKeDashboard(); }}
                             className="hover:text-[#0088A8] hover:underline cursor-pointer font-medium"
                         >
                             BERANDA
@@ -125,16 +153,16 @@ const DetailTugasSiswa = ({ tugasId, onKembali, onKeProfil, onPilihNotif, onKeKi
                 <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-2xs space-y-6 w-full">
                     <div>
                         <h1 className="text-2xl font-bold text-[#17242E]">{tugas?.title || 'Latihan Mandiri: Grafik Parabola'}</h1>
-                        <p className="text-xs text-[#71808D] mt-1">Kelas: {tugas?.kelas_nama || 'Matematika Kelas X-A'}</p>
+                        <p className="text-xs text-[#71808D] mt-1">Kelas: {tugas?.class_name || tugas?.kelas_nama || 'Matematika Kelas X-A'}</p>
                     </div>
 
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-[#E0F7FA] text-[#0088A8] flex items-center justify-center font-bold text-sm shadow-2xs">
-                            {tugas?.guru_nama ? tugas.guru_nama.charAt(0) : 'K'}
+                            {tugas?.teacher_name ? tugas.teacher_name.charAt(0).toUpperCase() : (tugas?.guru_nama ? tugas.guru_nama.charAt(0).toUpperCase() : 'G')}
                         </div>
                         <div>
-                            <p className="text-xs font-bold text-[#17242E]">{tugas?.guru_nama || 'Karina'}</p>
-                            <p className="text-[11px] text-[#71808D]">{tugas?.guru_role || 'Guru Matematika'}</p>
+                            <p className="text-xs font-bold text-[#17242E]">{tugas?.teacher_name || tugas?.guru_nama || 'Guru Pengampu'}</p>
+                            <p className="text-[11px] text-[#71808D]">{tugas?.guru_role || (tugas?.subject_name ? `Guru ${tugas.subject_name}` : 'Guru Mata Pelajaran')}</p>
                         </div>
                     </div>
 
@@ -144,7 +172,7 @@ const DetailTugasSiswa = ({ tugasId, onKembali, onKeProfil, onPilihNotif, onKeKi
                             <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-800">Tanggal Mulai</p>
                             <div className="flex items-center gap-2 text-xs font-semibold text-[#17242E]">
                                 <Calendar size={14} className="text-[#0088A8]" />
-                                {tugas?.start_date ? new Date(tugas.start_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '20 Jan 2026'}
+                                {tugas?.start_date || (tugas?.start_at_raw ? new Date(tugas.start_at_raw).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '20 Jan 2026')}
                             </div>
                         </div>
 
@@ -160,7 +188,7 @@ const DetailTugasSiswa = ({ tugasId, onKembali, onKeProfil, onPilihNotif, onKeKi
                             <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-800">Tanggal Selesai</p>
                             <div className="flex items-center gap-2 text-xs font-semibold text-[#17242E]">
                                 <Calendar size={14} className="text-[#0088A8]" />
-                                {tugas?.due_date ? new Date(tugas.due_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '27 Jan 2026'}
+                                {tugas?.due_date || (tugas?.deadline_raw ? new Date(tugas.deadline_raw).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '27 Jan 2026')}
                             </div>
                         </div>
 
@@ -189,26 +217,48 @@ const DetailTugasSiswa = ({ tugasId, onKembali, onKeProfil, onPilihNotif, onKeKi
                     {/* LAMPIRAN */}
                     <div className="space-y-3">
                         <h2 className="text-sm font-bold text-[#17242E]">Lampiran</h2>
-                        <div className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-2xl">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2.5 bg-cyan-100 text-[#0088A8] rounded-xl">
-                                    <FileText size={20} />
+                        {tugas?.assignment_files && tugas.assignment_files.length > 0 ? (
+                            tugas.assignment_files.map((file, idx) => (
+                                <div key={file.id || idx} className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-2xl mb-2">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2.5 bg-cyan-100 text-[#0088A8] rounded-xl">
+                                            <FileText size={20} />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold text-[#17242E]">{file.file_name || 'Lampiran Tugas'}</p>
+                                            <p className="text-[10px] text-gray-400">
+                                                {file.file_type || 'PDF'} • {file.file_size ? `${Math.round(file.file_size / 1024)} KB` : 'Lampiran'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {file.file_url || file.signed_url ? (
+                                        <a
+                                            href={file.signed_url || file.file_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="p-2.5 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl transition cursor-pointer shadow-xs inline-flex items-center justify-center"
+                                            title="Unduh lampiran"
+                                        >
+                                            <Download size={16} />
+                                        </a>
+                                    ) : (
+                                        <button
+                                            onClick={() => alert("File tidak dapat diakses")}
+                                            className="p-2.5 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl transition cursor-pointer shadow-xs"
+                                        >
+                                            <Download size={16} />
+                                        </button>
+                                    )}
                                 </div>
-                                <div>
-                                    <p className="text-xs font-bold text-[#17242E]">latihan_grafik_parabola.pdf</p>
-                                    <p className="text-[10px] text-gray-400">PDF • 2.4 MB</p>
-                                </div>
+                            ))
+                        ) : (
+                            <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl text-xs text-gray-400">
+                                Tidak ada lampiran berkas pada tugas ini.
                             </div>
-                            <button
-                                onClick={() => alert("Mengunduh lampiran...")}
-                                className="p-2.5 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl transition cursor-pointer shadow-xs"
-                            >
-                                <Download size={16} />
-                            </button>
-                        </div>
+                        )}
                     </div>
 
-                    {/* JENIS PENGUMPULAN */}
+                    {/* JENIS PENGUMPULAN & STATUS AKSI */}
                     <div className="space-y-4 pt-2 border-t border-gray-100">
                         <h2 className="text-sm font-bold text-[#17242E]">Jenis Pengumpulan</h2>
                         <div className="flex items-center gap-3">
@@ -218,16 +268,88 @@ const DetailTugasSiswa = ({ tugasId, onKembali, onKeProfil, onPilihNotif, onKeKi
                         </div>
                     </div>
 
-                    {/* TOMBOL KUMPULKAN TUGAS (MEMICU PINDAH KE HALAMAN KIRIM TUGAS) */}
-                    <div className="flex justify-end pt-4">
-                        <button
-                            onClick={() => {
-                                if (onKeKirimTugas) onKeKirimTugas();
-                            }}
-                            className="px-7 py-3 rounded-2xl text-xs font-bold text-white transition cursor-pointer shadow-sm flex items-center gap-2 bg-[#054C5A] hover:bg-[#033742]"
-                        >
-                            KUMPULKAN TUGAS
-                        </button>
+                    {/* STATUS PENGUMPULAN INFO BOX */}
+                    {isSubmitted && (
+                        <div className={`p-4 rounded-2xl border flex items-center justify-between gap-3 text-xs ${
+                            isGraded
+                                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                                : mySubmission?.is_late
+                                ? 'bg-amber-50 border-amber-200 text-amber-800'
+                                : 'bg-cyan-50 border-cyan-200 text-cyan-800'
+                        }`}>
+                            <div className="flex items-center gap-2">
+                                <CheckCircle size={18} className="shrink-0" />
+                                <div>
+                                    <p className="font-bold">
+                                        {isGraded
+                                            ? `Tugas telah dinilai — Skor: ${mySubmission.score} / 100`
+                                            : `Tugas sudah dikumpulkan (${mySubmission?.is_late ? 'Terlambat' : 'Tepat Waktu'})`}
+                                    </p>
+                                    <p className="text-[11px] opacity-80">
+                                        Percobaan ke-{mySubmission.submission_attempt || 1} • Dikumpulkan pada: {mySubmission.submitted_at_formatted || 'Tersimpan'}
+                                    </p>
+                                </div>
+                            </div>
+                            {isGraded && (
+                                <span className="px-3 py-1 bg-emerald-600 text-white font-bold rounded-xl text-[11px]">
+                                    Selesai
+                                </span>
+                            )}
+                        </div>
+                    )}
+
+                    {!isSubmitted && isDeadlinePassed && !tugas?.allow_late_submission && (
+                        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-700 flex items-center gap-2 text-xs">
+                            <AlertCircle size={18} className="shrink-0" />
+                            <p className="font-medium">
+                                Batas waktu pengumpulan telah berakhir dan tugas ini tidak menerima pengumpulan terlambat.
+                            </p>
+                        </div>
+                    )}
+
+                    {/* TOMBOL AKSI PENGUMPULAN */}
+                    <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-gray-100">
+                        {isSubmitted && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (onKeStatusTugas) onKeStatusTugas();
+                                }}
+                                className="px-5 py-3 rounded-2xl text-xs font-bold text-[#054C5A] border border-[#054C5A] hover:bg-cyan-50 transition cursor-pointer shadow-xs"
+                            >
+                                LIHAT STATUS PENGUMPULAN
+                            </button>
+                        )}
+
+                        {isGraded ? (
+                            <button
+                                type="button"
+                                disabled
+                                className="px-6 py-3 rounded-2xl text-xs font-bold text-gray-400 bg-gray-100 cursor-not-allowed shadow-none"
+                                title="Tugas sudah dinilai oleh guru dan tidak dapat dikirim ulang"
+                            >
+                                SUDAH DINILAI
+                            </button>
+                        ) : canSubmit ? (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (onKeKirimTugas) onKeKirimTugas();
+                                }}
+                                className="px-7 py-3 rounded-2xl text-xs font-bold text-white transition cursor-pointer shadow-sm flex items-center gap-2 bg-[#054C5A] hover:bg-[#033742]"
+                            >
+                                {isSubmitted ? 'KIRIM ULANG TUGAS' : 'KUMPULKAN TUGAS'}
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                disabled
+                                className="px-6 py-3 rounded-2xl text-xs font-bold text-gray-400 bg-gray-100 cursor-not-allowed shadow-none"
+                                title="Batas waktu telah berakhir"
+                            >
+                                PENGUMPULAN DITUTUP
+                            </button>
+                        )}
                     </div>
 
                 </div>

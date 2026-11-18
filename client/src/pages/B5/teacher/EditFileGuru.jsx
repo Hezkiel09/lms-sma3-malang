@@ -11,8 +11,9 @@ import {
 import SidebarGuru from './SidebarGuru'; // <--- Komponen Sidebar Terpisah
 import TopbarGuru from './TopbarGuru';     // <--- Komponen Topbar Terpisah
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const rawApiUrl =
+  import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
+const API_BASE_URL = rawApiUrl.replace(/\/api\/v1\/?$/, '');
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const MAX_FILES = 5;

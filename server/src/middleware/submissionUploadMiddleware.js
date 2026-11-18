@@ -170,6 +170,7 @@ export const parseSubmissionUpload = async (req, res, next) => {
   if (!req.is('multipart/form-data')) {
     req.body = req.body || {};
     req.files = [];
+    req.file = null;
     return next();
   }
 
@@ -184,12 +185,15 @@ export const parseSubmissionUpload = async (req, res, next) => {
     const parsed = parseMultipart(buffer, boundary);
     req.body = parsed.body;
     req.files = parsed.files;
+    req.file = parsed.files && parsed.files.length > 0 ? parsed.files[0] : null;
     return next();
   } catch (error) {
     const statusCode = error.statusCode || 400;
     return res.status(statusCode).json({
       success: false,
-      message: error.message || 'Gagal membaca data pengunggahan file koreksi.',
+      message: error.message || 'Gagal membaca data pengunggahan file.',
     });
   }
 };
+
+export const studentSubmissionUploadMiddleware = parseSubmissionUpload;

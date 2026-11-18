@@ -5,12 +5,19 @@ import {
 } from 'lucide-react';
 import SidebarSiswa from './SidebarSiswa';
 import TopbarSiswa from './TopbarSiswa';
+import { getStudentMaterialDetail } from './studentApi';
 
-const DetailMateriSiswa = ({ materialId, onKembali, onKeProfil, onPilihNotif }) => {
+const DetailMateriSiswa = ({ materialId, onKembali, onKeDashboard, onKeProfil, onPilihNotif }) => {
     const [material, setMaterial] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+
+    const formatSafeDate = (val, options = { day: 'numeric', month: 'short', year: 'numeric' }, fallback = '12 Okt 2026') => {
+        if (!val) return fallback;
+        const d = new Date(val);
+        return isNaN(d.getTime()) ? val : d.toLocaleDateString('id-ID', options);
+    };
 
     // State interaktif untuk tombol "Mark as Completed"
     const [isCompleted, setIsCompleted] = useState(false);
@@ -41,17 +48,11 @@ const DetailMateriSiswa = ({ materialId, onKembali, onKeProfil, onPilihNotif }) 
             setLoading(true);
             setError(null);
 
-            const response = await fetch(`http://localhost:5000/api/v1/b5/materials/${materialId}`);
-
-            if (!response.ok) {
-                throw new Error('Gagal memuat detail materi dari server');
-            }
-
-            const result = await response.json();
-            setMaterial(result.data);
+            const result = await getStudentMaterialDetail(materialId);
+            setMaterial(result);
         } catch (err) {
             console.error('Error fetching detail materi:', err);
-            setError(err.message);
+            setError(err.message || 'Gagal memuat detail materi');
         } finally {
             setLoading(false);
         }
@@ -65,6 +66,20 @@ const DetailMateriSiswa = ({ materialId, onKembali, onKeProfil, onPilihNotif }) 
         return (
             <div className="flex justify-center items-center h-screen bg-white font-sans text-xs text-gray-500">
                 Memuat detail materi...
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex flex-col justify-center items-center h-screen bg-white font-sans text-xs text-gray-500 gap-3">
+                <p className="text-red-500 font-semibold">{error}</p>
+                <button
+                    onClick={onKembali}
+                    className="px-4 py-2 bg-[#054C5A] text-white rounded-xl text-xs font-bold"
+                >
+                    Kembali
+                </button>
             </div>
         );
     }
@@ -103,11 +118,7 @@ const DetailMateriSiswa = ({ materialId, onKembali, onKeProfil, onPilihNotif }) 
           <p className="text-[11px] text-[#71808D] flex items-center gap-2">
             <button
               type="button"
-              onClick={() => {
-                // Langsung arahkan kembali ke Beranda utama
-                window.history.pushState({}, '', '/dashboard-siswa');
-                window.dispatchEvent(new PopStateEvent('popstate'));
-              }}
+              onClick={() => { if (onKeDashboard) onKeDashboard(); }}
               className="hover:text-[#0088A8] hover:underline cursor-pointer font-medium"
             >
               BERANDA
@@ -134,17 +145,17 @@ const DetailMateriSiswa = ({ materialId, onKembali, onKeProfil, onPilihNotif }) 
                         <div className="flex items-center gap-3 mt-2 text-xs text-[#71808D]">
                             <span className="flex items-center gap-1.5">
                                 <Calendar size={14} className="text-cyan-600" />
-                                {material?.created_at ? new Date(material.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '12 Okt 2026'}
+                                {formatSafeDate(material?.created_at, { day: 'numeric', month: 'short', year: 'numeric' }, '12 Okt 2026')}
                             </span>
                             <span>•</span>
                             <span className="flex items-center gap-1.5">
                                 <Layers size={14} className="text-cyan-600" />
-                                {material?.section?.title || 'X-A'}
+                                {material?.section_title || material?.section?.title || material?.class_name || 'X-A'}
                             </span>
                             <span>•</span>
                             <span className="flex items-center gap-1.5">
                                 <BookOpen size={14} className="text-cyan-600" />
-                                Matematika
+                                {material?.subject_name || 'Matematika'}
                             </span>
                         </div>
                     </div>
@@ -305,16 +316,16 @@ const DetailMateriSiswa = ({ materialId, onKembali, onKeProfil, onPilihNotif }) 
                             <div className="space-y-3 text-xs">
                                 <div>
                                     <p className="text-[10px] font-bold text-gray-400 tracking-wide">MATA PELAJARAN</p>
-                                    <p className="font-semibold text-[#17242E] mt-0.5">Matematika</p>
+                                    <p className="font-semibold text-[#17242E] mt-0.5">{material?.subject_name || 'Matematika'}</p>
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-bold text-gray-400 tracking-wide">KELAS TARGET</p>
-                                    <p className="font-semibold text-[#17242E] mt-0.5">X-A</p>
+                                    <p className="font-semibold text-[#17242E] mt-0.5">{material?.class_name || 'X-A'}</p>
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-bold text-gray-400 tracking-wide">TANGGAL UNGGAH</p>
                                     <p className="font-semibold text-[#17242E] mt-0.5">
-                                        {material?.created_at ? new Date(material.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '12 Okt 2026'}
+                                        {formatSafeDate(material?.created_at, { day: 'numeric', month: 'long', year: 'numeric' }, '12 Okt 2026')}
                                     </p>
                                 </div>
                                 <div>
@@ -331,11 +342,11 @@ const DetailMateriSiswa = ({ materialId, onKembali, onKeProfil, onPilihNotif }) 
                             <h3 className="text-[11px] font-bold uppercase tracking-wider text-cyan-200">Diunggah Oleh</h3>
                             <div className="flex items-center gap-3 pt-1">
                                 <div className="w-10 h-10 rounded-full bg-white text-[#054C5A] flex items-center justify-center font-bold text-sm shadow-xs">
-                                    K
+                                    {material?.teacher_name ? material.teacher_name.charAt(0).toUpperCase() : 'G'}
                                 </div>
                                 <div>
-                                    <p className="text-xs font-bold text-white">Karina</p>
-                                    <p className="text-[11px] text-cyan-100 font-medium">Guru Matematika</p>
+                                    <p className="text-xs font-bold text-white">{material?.teacher_name || 'Guru Pengampu'}</p>
+                                    <p className="text-[11px] text-cyan-100 font-medium">Guru {material?.subject_name || 'Mata Pelajaran'}</p>
                                 </div>
                             </div>
                         </div>

@@ -5,6 +5,7 @@ import assignmentsRoutes from './assignments/assignments.routes.js';
 import submissionsRoutes from './submissions/submissions.routes.js';
 import teacherRoutes from './teacher/teacher.routes.js';
 import notificationsRoutes from './notifications/notifications.routes.js';
+import studentRoutes from './student/student.routes.js';
 import * as materialsController from './materials/materials.controller.js';
 import * as assignmentsController from './assignments/assignments.controller.js';
 
@@ -61,5 +62,9 @@ router.use('/teacher', teacherRoutes);
 // Sub-router Notifikasi
 // Base Path: /api/v1/b5/notifications
 router.use('/notifications', notificationsRoutes);
+
+// Sub-router Fitur Siswa (UC-08 s/d UC-11)
+// Base Path: /api/v1/b5/student
+router.use('/student', studentRoutes);
 
 export default router;
