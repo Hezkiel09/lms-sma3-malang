@@ -280,11 +280,11 @@ const DashboardGuru = () => {
             </p>
           </div>
 
-          <div className="hidden lg:flex absolute right-4 bottom-0 h-full items-end justify-end pointer-events-none z-10">
+          <div className="hidden lg:flex absolute right-10 bottom-0 h-full items-end justify-end pointer-events-none z-10">
             <img
               src={bannerGuruImg}
               alt="Ilustrasi guru 3D"
-              className="h-[110%] w-auto object-contain object-bottom max-w-[220px]"
+              className="h-[110%] w-auto object-contain object-bottom max-w-[200px]"
             />
           </div>
         </section>

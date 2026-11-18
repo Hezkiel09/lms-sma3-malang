@@ -332,7 +332,6 @@ const KirimTugasSiswa = ({
                                 <label className="text-xs font-bold text-[#17242E] block">Catatan Tambahan (Opsional):</label>
                                 <div className="border border-gray-200 rounded-2xl overflow-hidden bg-white">
                                     <div className="bg-[#F8FAFC] border-b border-gray-200 px-3 py-2 flex flex-wrap items-center gap-2 text-gray-600 text-xs">
-                                        <span className="font-bold text-gray-500 mr-2">Format</span>
                                         <button type="button" onClick={() => document.execCommand('bold', false, null)} className="p-1 hover:bg-gray-200 rounded"><Bold size={14} /></button>
                                         <button type="button" onClick={() => document.execCommand('italic', false, null)} className="p-1 hover:bg-gray-200 rounded"><Italic size={14} /></button>
                                         <button type="button" onClick={() => document.execCommand('underline', false, null)} className="p-1 hover:bg-gray-200 rounded"><Underline size={14} /></button>
@@ -341,9 +340,10 @@ const KirimTugasSiswa = ({
 
                                     <div
                                         contentEditable="true"
+                                        dir="ltr"
+                                        style={{ direction: 'ltr', unicodeBidi: 'bidi-override', textAlign: 'left' }}
                                         onInput={(e) => setCatatan(e.currentTarget.textContent || '')}
-                                        dangerouslySetInnerHTML={{ __html: catatan }}
-                                        className="w-full p-4 text-xs text-[#17242E] focus:outline-none min-h-[120px]"
+                                        className="w-full p-4 text-xs text-[#17242E] focus:outline-none min-h-[120px] text-left"
                                         placeholder="Tulis catatan atau keterangan untuk guru di sini..."
                                     ></div>
                                     <div className="px-4 py-2 border-t border-gray-100 text-[10px] text-gray-400 text-right">
@@ -416,11 +416,10 @@ const KirimTugasSiswa = ({
                                 <button
                                     type="submit"
                                     disabled={isSubmitting || (!selectedFile && !existingSubmission)}
-                                    className={`px-8 py-3 rounded-2xl text-xs font-bold text-white transition flex items-center gap-2 shadow-sm ${
-                                        isSubmitting || (!selectedFile && !existingSubmission)
+                                    className={`px-8 py-3 rounded-2xl text-xs font-bold text-white transition flex items-center gap-2 shadow-sm ${isSubmitting || (!selectedFile && !existingSubmission)
                                             ? 'bg-gray-300 cursor-not-allowed shadow-none'
                                             : 'bg-[#054C5A] hover:bg-[#033742] cursor-pointer'
-                                    }`}
+                                        }`}
                                 >
                                     {isSubmitting ? (
                                         <>
