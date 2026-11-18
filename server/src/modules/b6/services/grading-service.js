@@ -125,8 +125,6 @@ export const gradeAttempt = async (attemptId) => {
   const gradingStatus = isFullyAutoGradable ? 'SELESAI_DINILAI' : attempt.grading_status;
   let updatedAttempt = attempt;
 
-  // Essay and unknown question types remain pending for a future manual workflow.
-  // Do not persist a partial aggregate as the final quiz score.
   if (isFullyAutoGradable) {
     const { data, error: updateError } = await supabase
       .schema('b6')
