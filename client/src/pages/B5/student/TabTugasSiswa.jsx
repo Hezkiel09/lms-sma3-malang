@@ -77,12 +77,22 @@ const TabTugasSiswa = ({ daftarTugas = [], onPilihTugas }) => {
                       </span>
                       <h3 className="text-base font-bold text-[#17242E]">{tugas.title || 'Latihan Mandiri: Grafik Parabola'}</h3>
                     </div>
-                    <p className="text-xs text-[#71808D]">Kelas: Matematika X-A</p>
+                    <p className="text-xs text-[#71808D]">Kelas: {tugas.class_name || tugas.course_title || 'Matematika X-A'}</p>
                   </div>
 
                   <div className="text-right shrink-0">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">DEADLINE</p>
                     <p className="text-xs font-bold text-[#17242E] mt-0.5">{tugas.deadline_formatted || '12/10/2026'}</p>
+                    {tugas.submission_status && (
+                      <span className={`inline-block mt-1 text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
+                        tugas.submission_status === 'SUDAH DINILAI' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                        tugas.submission_status === 'DISERAHKAN' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                        tugas.submission_status === 'TERLEWAT' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                        'bg-amber-50 text-amber-700 border border-amber-200'
+                      }`}>
+                        {tugas.submission_status} {tugas.grade !== null && tugas.grade !== undefined ? `(${tugas.grade})` : ''}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -95,13 +105,21 @@ const TabTugasSiswa = ({ daftarTugas = [], onPilihTugas }) => {
                     <span className="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
                       <FileText size={12} /> Lampiran
                     </span>
-                    <a 
-                      href="#" 
-                      onClick={(e) => { e.stopPropagation(); alert("Mengunduh lampiran tugas..."); }}
-                      className="text-xs font-semibold text-[#0088A8] hover:underline flex items-center gap-1"
-                    >
-                      {tugas.file_name || 'Soal_SPL_01.pdf'}
-                    </a>
+                    {tugas.file_url ? (
+                      <a 
+                        href={tugas.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-xs font-semibold text-[#0088A8] hover:underline flex items-center gap-1"
+                      >
+                        {tugas.file_name || 'Lampiran Tugas.pdf'}
+                      </a>
+                    ) : (
+                      <span className="text-xs text-gray-400">
+                        {tugas.file_name || 'Tidak ada lampiran'}
+                      </span>
+                    )}
                   </div>
 
                   <button
@@ -110,13 +128,15 @@ const TabTugasSiswa = ({ daftarTugas = [], onPilihTugas }) => {
                       if (onPilihTugas) onPilihTugas(tugas.id);
                     }}
                     className={`px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs ${
-                      isSelesai
-                        ? 'bg-emerald-600 text-white cursor-default'
+                      tugas.submission_status === 'SUDAH DINILAI' || tugas.submission_status === 'DISERAHKAN' || isSelesai
+                        ? 'bg-emerald-600 text-white'
                         : 'bg-[#054C5A] hover:bg-[#033742] text-white'
                     }`}
                   >
-                    {isSelesai ? <CheckCircle size={14} /> : null}
-                    {isSelesai ? 'Selesai' : 'Tandai selesai'}
+                    {(tugas.submission_status === 'SUDAH DINILAI' || tugas.submission_status === 'DISERAHKAN' || isSelesai) && <CheckCircle size={14} />}
+                    {tugas.submission_status === 'SUDAH DINILAI' ? 'Sudah Dinilai' :
+                     tugas.submission_status === 'DISERAHKAN' ? 'Telah Diserahkan' :
+                     isSelesai ? 'Selesai' : 'Lihat Tugas'}
                   </button>
                 </div>
               </div>

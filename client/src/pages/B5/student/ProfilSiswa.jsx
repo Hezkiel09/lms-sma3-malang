@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, MapPin, Building, Shield, ArrowLeft, LogOut, Camera, BookOpen } from 'lucide-react';
+import { getStudentProfile, updateStudentProfile } from './studentApi';
 
 const ProfilSiswa = ({ onKembali, onLogout }) => {
   // State foto profil (jika kosong/null, otomatis pakai inisial)
@@ -21,13 +22,10 @@ const ProfilSiswa = ({ onKembali, onLogout }) => {
     const fetchProfile = async () => {
       try {
         setLoading(true);
-        const res = await fetch('http://localhost:5000/api/v1/b5/student/profile');
-        if (res.ok) {
-          const json = await res.json();
-          if (json.data) {
-            setProfile(json.data);
-            setPhone(json.data.phone || '081234567890');
-          }
+        const data = await getStudentProfile();
+        if (data) {
+          setProfile(data);
+          setPhone(data.phone || '081234567890');
         }
       } catch (err) {
         console.warn("Menggunakan data default profil siswa:", err);
@@ -54,19 +52,9 @@ const ProfilSiswa = ({ onKembali, onLogout }) => {
   const handleSimpanProfil = async () => {
     try {
       setSaving(true);
-      const res = await fetch('http://localhost:5000/api/v1/b5/student/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
-      });
-
-      if (res.ok) {
-        const json = await res.json();
-        setProfile(json.data);
-        alert("Perubahan profil siswa berhasil disimpan!");
-      } else {
-        alert("Gagal menyimpan perubahan profil.");
-      }
+      const data = await updateStudentProfile({ phone });
+      setProfile(data);
+      alert("Perubahan profil siswa berhasil disimpan!");
     } catch (err) {
       console.error("Error menyimpan profil:", err);
       alert("Perubahan profil berhasil disimpan secara lokal!");

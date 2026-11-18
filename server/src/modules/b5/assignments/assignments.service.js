@@ -218,6 +218,17 @@ export const createAssignmentService = async ({
 
   const normalizedSubtype = normalizeSubmissionType(submissionType);
 
+  let resolvedClassId = course.class_id;
+  if (!resolvedClassId && course.id) {
+    const { data: cd } = await supabaseAdmin
+      .schema('master')
+      .from('course_details')
+      .select('class_id')
+      .eq('id', course.id)
+      .maybeSingle();
+    resolvedClassId = cd?.class_id || null;
+  }
+
   // 4. Simpan record tugas ke b5.assignments
   const { data: assignment, error: assignmentError } = await supabaseAdmin
     .schema('b5')
@@ -225,7 +236,7 @@ export const createAssignmentService = async ({
     .insert({
       section_id: section.id,
       course_id: course.id,
-      class_id: course.class_id,
+      class_id: resolvedClassId,
       teacher_id: teacherId,
       subject_id: course.subject_id,
       title: title.trim(),
@@ -719,6 +730,19 @@ export const updateAssignmentService = async (
   }
   if (notifyStudents !== undefined) {
     updatePayload.notify_students = Boolean(notifyStudents);
+  }
+
+  // Jika class_id di assignment masih NULL, isi otomatis dari master.courses
+  if (!existingAssignment.class_id && existingAssignment.course_id) {
+    const { data: courseData } = await supabaseAdmin
+      .schema('master')
+      .from('courses')
+      .select('class_id')
+      .eq('id', existingAssignment.course_id)
+      .maybeSingle();
+    if (courseData?.class_id) {
+      updatePayload.class_id = courseData.class_id;
+    }
   }
 
   const { error: updateError } = await supabaseAdmin

@@ -19,105 +19,63 @@ import DetailTugasSiswa from './DetailTugasSiswa';
 import KirimTugasSiswa from './KirimTugasSiswa';
 import StatusTugasSiswa from './StatusTugasSiswa';
 import DetailNilaiSiswa from './DetailNilaiSiswa';
+import {
+    getStudentProfile,
+    getStudentCourses,
+    getStudentTimelineAssignments,
+} from './studentApi';
 
 const DashboardSiswa = () => {
     const [halamanAktif, setHalamanAktif] = useState('beranda');
     const [keywordPencarian, setKeywordPencarian] = useState('');
 
     // --- STATE KALENDER & FILTER TIMELINE (Fokus pada DL) ---
-    const [currentDate, setCurrentDate] = useState(new Date(2026, 9, 6)); // Oktober 2026
+    const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(null); // Null artinya tampilkan semua tugas aktif
 
-    // Data dummy Kelas Saya
-    const [kelasSaya] = useState([
-        {
-            id: 1,
-            nama: 'Matematika X A',
-            deskripsi: 'Belajar konsep aljabar, geometri, dan statistika untuk menyelesaikan masalah sehari-hari.',
-            materiCount: 12,
-            tugasCount: 5,
-            tahunAjaran: '2026 / 2027',
-            guru: 'Rina Pratama',
-            progress: 45,
-            coverBg: 'bg-cyan-900',
-        },
-        {
-            id: 2,
-            nama: 'Biologi X A',
-            deskripsi: 'Belajar struktur sel, ekosistem, dan proses biologis untuk memahami kehidupan.',
-            materiCount: 10,
-            tugasCount: 4,
-            tahunAjaran: '2026 / 2027',
-            guru: 'Budi Santoso',
-            progress: 82,
-            coverBg: 'bg-emerald-800',
-        },
-        {
-            id: 3,
-            nama: 'Bahasa Inggris X A',
-            deskripsi: 'Belajar kosakata, tenses, dan percakapan untuk berkomunikasi dengan percaya diri.',
-            materiCount: 15,
-            tugasCount: 6,
-            tahunAjaran: '2026 / 2027',
-            guru: 'Lestari W.',
-            progress: 12,
-            coverBg: 'bg-indigo-900',
-        },
-    ]);
-
-    // Data dummy Timeline Tugas dengan status "Belum Dikerjakan"
-    const [timelineTugas] = useState([
-        {
-            id: 1,
-            judul: 'Tugas 1: Soal Cerita Matematika',
-            kelas: 'Matematika X A',
-            deadlineStr: '01 Okt 2026',
-            day: 1,
-            month: 9, // Oktober
-            year: 2026,
-            waktu: '23:59 WIB',
-            status: 'SELESAI', // Selesai (disembunyikan)
-        },
-        {
-            id: 2,
-            judul: 'Tugas 2: Laporan Biologi',
-            kelas: 'Biologi X A',
-            deadlineStr: '03 Okt 2026',
-            day: 3,
-            month: 9,
-            year: 2026,
-            waktu: '18:00 WIB',
-            status: 'SELESAI', // Selesai
-        },
-        {
-            id: 3,
-            judul: 'Tugas 1: Essay Bahasa Inggris',
-            kelas: 'Bahasa Inggris X A',
-            deadlineStr: '06 Okt 2026',
-            day: 6,
-            month: 9,
-            year: 2026,
-            waktu: '23:59 WIB',
-            status: 'BELUM DIKERJAKAN',
-        },
-        {
-            id: 4,
-            judul: 'Ujian Harian Bab 2',
-            kelas: 'Matematika X A',
-            deadlineStr: '12 Okt 2026',
-            day: 12,
-            month: 9,
-            year: 2026,
-            waktu: '10:00 WIB',
-            status: 'BELUM DIKERJAKAN',
-        }
-    ]);
+    // Data Kelas Saya & Timeline Tugas dari Backend
+    const [kelasSaya, setKelasSaya] = useState([]);
+    const [timelineTugas, setTimelineTugas] = useState([]);
+    const [studentName, setStudentName] = useState('Siswa');
+    const [loadingDashboard, setLoadingDashboard] = useState(true);
 
     const [kelasTerpilih, setKelasTerpilih] = useState(null);
     const [idMateriTerpilih, setIdMateriTerpilih] = useState(null);
     const [idTugasTerpilih, setIdTugasTerpilih] = useState(null);
-
     const [idNilaiTerpilih, setIdNilaiTerpilih] = useState(null);
+
+    // Ambil data riil dashboard siswa saat komponen dimuat
+    useEffect(() => {
+        const loadDashboard = async () => {
+            try {
+                setLoadingDashboard(true);
+                const [profileRes, coursesRes, timelineRes] = await Promise.allSettled([
+                    getStudentProfile(),
+                    getStudentCourses(),
+                    getStudentTimelineAssignments(),
+                ]);
+
+                if (profileRes.status === 'fulfilled' && profileRes.value?.name) {
+                    const firstName = profileRes.value.name.split(',')[0].split(' ')[0];
+                    setStudentName(firstName || 'Siswa');
+                }
+
+                if (coursesRes.status === 'fulfilled' && Array.isArray(coursesRes.value)) {
+                    setKelasSaya(coursesRes.value);
+                }
+
+                if (timelineRes.status === 'fulfilled' && Array.isArray(timelineRes.value)) {
+                    setTimelineTugas(timelineRes.value);
+                }
+            } catch (err) {
+                console.warn('Gagal memuat data dashboard siswa:', err);
+            } finally {
+                setLoadingDashboard(false);
+            }
+        };
+
+        loadDashboard();
+    }, []);
 
     // Filter hanya tugas yang belum selesai
     const activeTasksOnly = timelineTugas.filter(tugas => tugas.status !== 'SELESAI');
@@ -208,6 +166,7 @@ const DashboardSiswa = () => {
             <KirimTugasSiswa
                 tugasId={idTugasTerpilih}
                 onKembali={() => ubahHalaman('detailTugasSiswa', '/kelas/detail/tugas')}
+                onKeDashboard={() => ubahHalaman('beranda', '/dashboard-siswa')}
                 onKirimSukses={() => {
                     // Di sini kita bisa arahkan ke halaman status terkirim
                     ubahHalaman('statusTugasSiswa', '/kelas/detail/tugas/terkirim');
@@ -221,7 +180,10 @@ const DashboardSiswa = () => {
     if (halamanAktif === 'statusTugasSiswa') {
         return (
             <StatusTugasSiswa
-                onKembali={() => ubahHalaman('detailCourseSiswa', '/kelas/detail')}
+                tugasId={idTugasTerpilih}
+                onKembali={() => ubahHalaman('detailTugasSiswa', '/kelas/detail/tugas')}
+                onKeDashboard={() => ubahHalaman('beranda', '/dashboard-siswa')}
+                onKeKirimUlang={() => ubahHalaman('kirimTugasSiswa', '/kelas/detail/tugas/kirim')}
                 onKeProfil={handleKeProfil}
             />
         );
@@ -233,6 +195,7 @@ const DashboardSiswa = () => {
             <DetailNilaiSiswa
                 nilaiId={idNilaiTerpilih}
                 onKembali={() => ubahHalaman('detailCourseSiswa', '/kelas/detail')}
+                onKeDashboard={() => ubahHalaman('beranda', '/dashboard-siswa')}
                 onKeProfil={handleKeProfil}
             />
         );
@@ -244,7 +207,9 @@ const DashboardSiswa = () => {
             <DetailTugasSiswa
                 tugasId={idTugasTerpilih}
                 onKembali={() => ubahHalaman('detailCourseSiswa', '/kelas/detail')}
+                onKeDashboard={() => ubahHalaman('beranda', '/dashboard-siswa')}
                 onKeKirimTugas={() => ubahHalaman('kirimTugasSiswa', '/kelas/detail/tugas/kirim')}
+                onKeStatusTugas={() => ubahHalaman('statusTugasSiswa', '/kelas/detail/tugas/terkirim')}
                 onKeProfil={handleKeProfil}
             />
         );
@@ -256,6 +221,7 @@ const DashboardSiswa = () => {
             <DetailMateriSiswa
                 materialId={idMateriTerpilih}
                 onKembali={() => ubahHalaman('detailCourseSiswa', '/kelas/detail')}
+                onKeDashboard={() => ubahHalaman('beranda', '/dashboard-siswa')}
                 onKeProfil={handleKeProfil}
             />
         );
@@ -267,6 +233,7 @@ const DashboardSiswa = () => {
             <DetailCourseSiswa
                 kelasData={kelasTerpilih}
                 onKembali={() => ubahHalaman('beranda', '/dashboard-siswa')} 
+                onKeDashboard={() => ubahHalaman('beranda', '/dashboard-siswa')}
                 onKeDaftarKelas={() => ubahHalaman('daftarKelas', '/kelas-saya')}
                 onPilihMateri={(idMateri) => {
                     setIdMateriTerpilih(idMateri);
@@ -336,7 +303,7 @@ const DashboardSiswa = () => {
                 <section className="bg-[#DDF6F9] px-6 sm:px-8 py-6 rounded-3xl mb-8 flex justify-between items-center relative overflow-hidden shadow-xs w-full min-h-[150px]">
                     <div className="w-full lg:max-w-[65%] z-10 pr-2">
                         <h3 className="text-2xl sm:text-3xl font-bold text-[#007088] mb-2 leading-tight">
-                            Selamat Datang,<br />Rania
+                            Selamat Datang,<br />{studentName}
                         </h3>
                         <p className="text-xs sm:text-sm text-[#005B66] font-medium leading-relaxed">
                             Siap untuk belajar hari ini? Jangan lupa selesaikan tugas sebelum batas waktu ya!
@@ -365,66 +332,76 @@ const DashboardSiswa = () => {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full">
-                        {kelasSaya.map((kelas) => (
-                            <div
-                                key={kelas.id}
-                                className="bg-white rounded-3xl shadow-[0_8px_20px_rgba(0,136,168,0.12)] border border-cyan-100/80 overflow-hidden flex flex-col justify-between transition hover:shadow-lg"
-                            >
-                                <div className={`h-28 ${kelas.coverBg} p-4 flex items-center justify-center text-white relative`}>
-                                    <div className="absolute inset-0 bg-black/10"></div>
-                                    <span className="text-xs font-semibold bg-white/25 backdrop-blur-xs px-3 py-1 rounded-full z-10 uppercase tracking-wider">
-                                        KELAS X A
-                                    </span>
-                                </div>
-
-                                <div className="p-5 flex-1 flex flex-col justify-between">
-                                    <div>
-                                        <h4 className="font-bold text-base text-[#17242E] mb-1">{kelas.nama}</h4>
-                                        <p className="text-xs text-[#71808D] line-clamp-2 mb-4 leading-relaxed">
-                                            {kelas.deskripsi}
-                                        </p>
-
-                                        <div className="flex items-center gap-4 text-xs text-[#0088A8] font-medium mb-4">
-                                            <span className="flex items-center gap-1.5 bg-[#E0F7FA] px-2.5 py-1 rounded-lg">
-                                                <BookOpen size={14} /> {kelas.materiCount} Materi
-                                            </span>
-                                            <span className="flex items-center gap-1.5 bg-[#E0F7FA] px-2.5 py-1 rounded-lg">
-                                                <FileText size={14} /> {kelas.tugasCount} Tugas
-                                            </span>
-                                        </div>
-
-                                        <div className="border-t border-gray-100 pt-3 text-[11px] text-gray-400 space-y-1">
-                                            <p>{kelas.tahunAjaran}</p>
-                                            <p className="text-[#17242E] font-medium">Guru pengajar: {kelas.guru}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-5">
-                                        <div className="flex justify-between text-[11px] font-bold text-[#71808D] mb-1">
-                                            <span>Progress</span>
-                                            <span>{kelas.progress}%</span>
-                                        </div>
-                                        <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden mb-4">
-                                            <div
-                                                className="bg-[#0088A8] h-full rounded-full"
-                                                style={{ width: `${kelas.progress}%` }}
-                                            ></div>
-                                        </div>
-
-                                        <button
-                                            onClick={() => {
-                                                setKelasTerpilih(kelas);
-                                                ubahHalaman('detailCourseSiswa', '/kelas/detail');
-                                            }}
-                                            className="w-full py-2.5 bg-[#054C5A] hover:bg-[#033742] text-white text-xs font-bold rounded-2xl transition cursor-pointer shadow-xs"
-                                        >
-                                            Lihat Kelas
-                                        </button>
-
-                                    </div>
-                                </div>
+                        {loadingDashboard ? (
+                            <div className="col-span-full py-8 text-center text-gray-400 text-xs">
+                                Memuat data kelas saya...
                             </div>
-                        ))}
+                        ) : kelasSaya.length === 0 ? (
+                            <div className="col-span-full py-8 text-center text-gray-400 text-xs">
+                                Belum ada kelas yang terdaftar untuk akun Anda.
+                            </div>
+                        ) : (
+                            kelasSaya.map((kelas) => (
+                                <div
+                                    key={kelas.id}
+                                    className="bg-white rounded-3xl shadow-[0_8px_20px_rgba(0,136,168,0.12)] border border-cyan-100/80 overflow-hidden flex flex-col justify-between transition hover:shadow-lg"
+                                >
+                                    <div className={`h-28 ${kelas.coverBg || 'bg-[#DDF6F9]'} p-4 flex items-center justify-center text-[#007088] relative`}>
+                                        <div className="absolute inset-0 bg-black/5"></div>
+                                        <span className="text-xs font-semibold bg-white/60 backdrop-blur-xs px-3 py-1 rounded-full z-10 uppercase tracking-wider text-[#054C5A]">
+                                            {kelas.kelasBadge || 'KELAS X A'}
+                                        </span>
+                                    </div>
+
+                                    <div className="p-5 flex-1 flex flex-col justify-between">
+                                        <div>
+                                            <h4 className="font-bold text-base text-[#17242E] mb-1">{kelas.nama}</h4>
+                                            <p className="text-xs text-[#71808D] line-clamp-2 mb-4 leading-relaxed">
+                                                {kelas.desc || kelas.deskripsi || 'Mata pelajaran untuk semester aktif.'}
+                                            </p>
+
+                                            <div className="flex items-center gap-4 text-xs text-[#0088A8] font-medium mb-4">
+                                                <span className="flex items-center gap-1.5 bg-[#E0F7FA] px-2.5 py-1 rounded-lg">
+                                                    <BookOpen size={14} /> {kelas.materi ?? kelas.materiCount ?? 0} Materi
+                                                </span>
+                                                <span className="flex items-center gap-1.5 bg-[#E0F7FA] px-2.5 py-1 rounded-lg">
+                                                    <FileText size={14} /> {kelas.tugas ?? kelas.tugasCount ?? 0} Tugas
+                                                </span>
+                                            </div>
+
+                                            <div className="border-t border-gray-100 pt-3 text-[11px] text-gray-400 space-y-1">
+                                                <p>{kelas.tahun || kelas.tahunAjaran || '2026/2027 • Semester Ganjil'}</p>
+                                                <p className="text-[#17242E] font-medium">Guru pengajar: {kelas.guru || 'Guru Pengajar'}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-5">
+                                            <div className="flex justify-between text-[11px] font-bold text-[#71808D] mb-1">
+                                                <span>Progress</span>
+                                                <span>{kelas.progress || 0}%</span>
+                                            </div>
+                                            <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden mb-4">
+                                                <div
+                                                    className="bg-[#0088A8] h-full rounded-full"
+                                                    style={{ width: `${kelas.progress || 0}%` }}
+                                                ></div>
+                                            </div>
+
+                                            <button
+                                                onClick={() => {
+                                                    setKelasTerpilih(kelas);
+                                                    ubahHalaman('detailCourseSiswa', '/kelas/detail');
+                                                }}
+                                                className="w-full py-2.5 bg-[#054C5A] hover:bg-[#033742] text-white text-xs font-bold rounded-2xl transition cursor-pointer shadow-xs"
+                                            >
+                                                Lihat Kelas
+                                            </button>
+
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        )}
                     </div>
                 </section>
 

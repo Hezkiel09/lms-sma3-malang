@@ -14,11 +14,17 @@ import SidebarSiswa from './SidebarSiswa';
 import TopbarSiswa from './TopbarSiswa';
 import TabTugasSiswa from './TabTugasSiswa';
 import TabNilaiSiswa from './TabNilaiSiswa';
+import {
+    getStudentCourseSections,
+    getStudentCourseMaterials,
+    getStudentCourseAssignments,
+} from './studentApi';
 
-const COURSE_ID = 'bf720e90-1886-4c01-9868-249181f900dc';
+const DEFAULT_COURSE_ID = 'bf720e90-1886-4c01-9868-249181f900dc';
 
 // Pastikan ada onPilihNilai di dalam kurung kurawal parameter ini:
-const DetailCourseSiswa = ({ kelasData, onKembali, onKeDaftarKelas, onKeProfil, onPilihMateri, onPilihTugas, onPilihNilai }) => {
+const DetailCourseSiswa = ({ kelasData, onKembali, onKeDashboard, onKeDaftarKelas, onKeProfil, onPilihMateri, onPilihTugas, onPilihNilai }) => {
+    const courseId = kelasData?.id || kelasData?.course_id || DEFAULT_COURSE_ID;
     const [daftarBab, setDaftarBab] = useState([]);
     const [daftarMateri, setDaftarMateri] = useState([]);
     const [daftarTugas, setDaftarTugas] = useState([]);
@@ -59,8 +65,8 @@ const DetailCourseSiswa = ({ kelasData, onKembali, onKeDaftarKelas, onKeProfil, 
     const infoTab = {
         materi: {
             breadcrumb: "MATERI",
-            judul: kelasData ? kelasData.nama : "Matematika X A",
-            deskripsi: kelasData ? kelasData.desc : "Pelajari persamaan linear, fungsi, dan grafik melalui latihan serta diskusi kelas."
+            judul: kelasData ? (kelasData.nama || kelasData.title) : "Matematika X A",
+            deskripsi: kelasData ? (kelasData.desc || kelasData.deskripsi || "Pelajari materi pembelajaran melalui modul dan latihan.") : "Pelajari persamaan linear, fungsi, dan grafik melalui latihan serta diskusi kelas."
         },
         tugas: {
             breadcrumb: "TUGAS",
@@ -93,51 +99,30 @@ const DetailCourseSiswa = ({ kelasData, onKembali, onKeDaftarKelas, onKeProfil, 
                 setLoadingAPI(true);
                 setErrorAPI('');
 
-                const [responseSection, responseMateri, responseTugas] = await Promise.all([
-                    fetch(`http://localhost:5000/api/v1/b5/courses/${COURSE_ID}/sections`),
-                    fetch(`http://localhost:5000/api/v1/b5/courses/${COURSE_ID}/materials`),
-                    fetch(`http://localhost:5000/api/v1/b5/courses/${COURSE_ID}/assignments`)
+                const [hasilSection, hasilMateri, hasilTugas] = await Promise.all([
+                    getStudentCourseSections(courseId),
+                    getStudentCourseMaterials(courseId),
+                    getStudentCourseAssignments(courseId),
                 ]);
 
-                if (!responseSection.ok || !responseMateri.ok) {
-                    throw new Error('Gagal mengambil data dari backend.');
-                }
-
-                const hasilSection = await responseSection.json();
-                const hasilMateri = await responseMateri.json();
-
-                if (!Array.isArray(hasilSection.data)) {
-                    throw new Error('Format data Section tidak sesuai.');
-                }
-
-                if (!Array.isArray(hasilMateri.data)) {
-                    throw new Error('Format data Materi tidak sesuai.');
-                }
-
-                setDaftarBab(hasilSection.data);
+                setDaftarBab(hasilSection || []);
                 setOpenBab(
                     Object.fromEntries(
-                        hasilSection.data.map((bab) => [bab.id, true])
+                        (hasilSection || []).map((bab) => [bab.id, true])
                     )
                 );
-                setDaftarMateri(hasilMateri.data);
-
-                if (responseTugas && responseTugas.ok) {
-                    const hasilTugas = await responseTugas.json();
-                    if (Array.isArray(hasilTugas.data)) {
-                        setDaftarTugas(hasilTugas.data);
-                    }
-                }
+                setDaftarMateri(hasilMateri || []);
+                setDaftarTugas(hasilTugas || []);
             } catch (error) {
-                console.error('Error mengambil data:', error);
-                setErrorAPI(error.message);
+                console.error('Error mengambil data course siswa:', error);
+                setErrorAPI(error.message || 'Gagal mengambil data dari server');
             } finally {
                 setLoadingAPI(false);
             }
         };
 
         fetchData();
-    }, []);
+    }, [courseId]);
 
     return (
         <div className="flex min-h-screen bg-white font-sans text-[#17242E] w-full">
@@ -175,10 +160,7 @@ const DetailCourseSiswa = ({ kelasData, onKembali, onKeDaftarKelas, onKeProfil, 
                         {/* 1. Tombol BERANDA ke Dashboard Utama */}
                         <button
                             type="button"
-                            onClick={() => {
-                                window.history.pushState({}, '', '/dashboard-siswa');
-                                window.dispatchEvent(new PopStateEvent('popstate'));
-                            }}
+                            onClick={() => { if (onKeDashboard) onKeDashboard(); else if (onKembali) onKembali(); }}
                             className="hover:text-[#0088A8] hover:underline cursor-pointer font-medium"
                         >
                             BERANDA
@@ -326,14 +308,20 @@ const DetailCourseSiswa = ({ kelasData, onKembali, onKeDaftarKelas, onKeProfil, 
                                                                     <h4 className="font-bold text-xs text-[#17242E] transition">
                                                                         {materi.title || 'Dokumen Materi.pdf'}
                                                                     </h4>
-                                                                    <p className="text-[10px] text-[#71808D] uppercase">DOKUMEN • 2.4 MB</p>
+                                                                    <p className="text-[10px] text-[#71808D] uppercase">
+                                                                        {materi.file_name ? materi.file_name : 'DOKUMEN'} • {materi.file_size ? `${Math.round(materi.file_size / 1024)} KB` : 'PDF'}
+                                                                    </p>
                                                                 </div>
                                                             </div>
 
                                                             <button
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    alert(`Mengunduh file: ${materi.title || 'Dokumen Materi'}`);
+                                                                    if (materi.file_url) {
+                                                                        window.open(materi.file_url, '_blank');
+                                                                    } else {
+                                                                        alert(`File materi ${materi.title || ''} belum tersedia.`);
+                                                                    }
                                                                 }}
                                                                 className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 bg-[#054C5A] text-white hover:bg-[#033742]"
                                                             >
@@ -471,6 +459,7 @@ const DetailCourseSiswa = ({ kelasData, onKembali, onKeDaftarKelas, onKeProfil, 
 
                 {tabAktif === 'nilai' && (
                     <TabNilaiSiswa
+                        courseId={courseId}
                         onPilihNilai={(idNilai) => {
                             if (onPilihNilai) {
                                 onPilihNilai(idNilai);

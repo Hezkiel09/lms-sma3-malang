@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BookOpen, 
   FileText, 
@@ -7,91 +7,27 @@ import {
 } from 'lucide-react';
 import SidebarSiswa from './SidebarSiswa';
 import TopbarSiswa from './TopbarSiswa'; 
+import { getStudentCourses } from './studentApi';
 
 const DaftarKelas = ({ onKembali, onPilihKelas, onKeProfil }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [daftarKelas, setDaftarKelas] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Data daftar kelas siswa (Sesuai dengan gambar desain Figma)
-  const [daftarKelas] = useState([
-    {
-      id: 'matematika',
-      nama: 'Matematika X A',
-      mapel: 'MATEMATIKA',
-      kelasBadge: 'KELAS X A',
-      desc: 'Pelajari persamaan linear, fungsi, dan grafik melalui latihan soal.',
-      materi: 12,
-      tugas: 8,
-      tahun: '2026 / 2027 • Semester Ganjil',
-      guru: 'Budi Santoso',
-      progress: 75,
-      coverBg: 'bg-[#DDF6F9]',
-    },
-    {
-      id: 'biologi',
-      nama: 'Biologi X A',
-      mapel: 'BIOLOGI',
-      kelasBadge: 'KELAS X A',
-      desc: 'Kenali sel, keanekaragaman hayati, dan ekosistem di sekitar kita.',
-      materi: 10,
-      tugas: 6,
-      tahun: '2026 / 2027 • Semester Ganjil',
-      guru: 'Siti Rahayu',
-      progress: 40,
-      coverBg: 'bg-[#DDF6F9]',
-    },
-    {
-      id: 'inggris',
-      nama: 'Bahasa Inggris X A',
-      mapel: 'BAHASA INGGRIS',
-      kelasBadge: 'KELAS X A',
-      desc: 'Latih speaking, reading, dan writing untuk komunikasi sehari-hari.',
-      materi: 14,
-      tugas: 7,
-      tahun: '2026 / 2027 • Semester Ganjil',
-      guru: 'Dewi Lestari',
-      progress: 100,
-      coverBg: 'bg-[#DDF6F9]',
-    },
-    {
-      id: 'indo',
-      nama: 'Bahasa Indonesia X A',
-      mapel: 'BAHASA INDONESIA',
-      kelasBadge: 'KELAS X A',
-      desc: 'Pelajari teks observasi, anekdot, dan cara menulis dengan baik.',
-      materi: 12,
-      tugas: 6,
-      tahun: '2026 / 2027 • Semester Ganjil',
-      guru: 'Rina Wulandari',
-      progress: 60,
-      coverBg: 'bg-[#DDF6F9]',
-    },
-    {
-      id: 'kimia',
-      nama: 'Kimia X A',
-      mapel: 'KIMIA',
-      kelasBadge: 'KELAS X A',
-      desc: 'Pahami struktur atom, tabel periodik, dan dasar ikatan kimia.',
-      materi: 11,
-      tugas: 8,
-      tahun: '2026 / 2027 • Semester Ganjil',
-      guru: 'Agus Pratama',
-      progress: 25,
-      coverBg: 'bg-[#DDF6F9]',
-    },
-    {
-      id: 'ips',
-      nama: 'IPS X A',
-      mapel: 'IPS',
-      kelasBadge: 'KELAS X A',
-      desc: 'Jelajahi interaksi sosial, kegiatan ekonomi, dan kondisi geografis.',
-      materi: 10,
-      tugas: 5,
-      tahun: '2026 / 2027 • Semester Ganjil',
-      guru: 'Andi Saputra',
-      progress: 10,
-      coverBg: 'bg-[#DDF6F9]',
-    },
-  ]);
+  useEffect(() => {
+    const loadCourses = async () => {
+      try {
+        setLoading(true);
+        const data = await getStudentCourses();
+        setDaftarKelas(data || []);
+      } catch (err) {
+        console.warn('Gagal memuat kelas siswa:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadCourses();
+  }, []);
 
   // Logika Pencarian
   const filteredKelas = daftarKelas.filter(k =>
