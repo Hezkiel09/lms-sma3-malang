@@ -5,7 +5,8 @@ import {
   Edit3, 
   ArrowLeft, 
   FileText, 
-  ClipboardList
+  ClipboardList,
+  Download
 } from 'lucide-react';
 import TabTugasGuru from './TabTugasGuru'; 
 import TabNilaiGuru from './TabNilaiGuru';
@@ -14,11 +15,10 @@ import DetailNilaiGuru from './DetailNilaiGuru';
 import EditNilaiGuru from './EditNilaiGuru';
 import DetailTugasGuru from './DetailTugasGuru';
 import SidebarGuru from './SidebarGuru'; 
-import TopbarGuru from './TopbarGuru'; // <--- IMPOR TOPBAR GURU
+import TopbarGuru from './TopbarGuru';
 
 const COURSE_ID = 'bf720e90-1886-4c01-9868-249181f900dc';
 
-// 1. Tangkap prop onKeProfil & onPilihNotif di parameter
 const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeEdit, onKeEditTugas, onPilihMateri, onPilihTugas, onKeProfil, onPilihNotif }) => {
   const [daftarBab, setDaftarBab] = useState([]);
   const [daftarMateri, setDaftarMateri] = useState([]);
@@ -51,12 +51,11 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
 
   const [openBab, setOpenBab] = useState({});
 
-  // 2. Gunakan kelasData?.nama pada judul tab materi
   const infoTab = {
     materi: {
       breadcrumb: "MATERI",
-      judul: kelasData ? kelasData.nama : "Matematika X A", // <--- DINAMIS SESUAI KELAS YANG DIKLIK
-      deskripsi: "Kelola dan atur materi pelajaran untuk siswa."
+      judul: kelasData ? kelasData.nama : "Matematika X A",
+      deskripsi: kelasData ? kelasData.desc : "Pelajari persamaan linear, fungsi, dan grafik melalui latihan serta diskusi kelas."
     },
     tugas: {
       breadcrumb: "TUGAS",
@@ -135,7 +134,6 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
     <div className="flex min-h-screen bg-white font-sans text-[#17242E] w-full">
 
       {/* --- SIDEBAR TERPISAH --- */}
-      {/* SIDEBAR AKAN MUNCUL DI: Menu Utama, ATAU saat membuka Detail Nilai / Tinjau Nilai / Edit Nilai dari jalur manapun */}
       {(subHalamanNilai === 'utama' || subHalamanNilai === 'detailNilai' || subHalamanNilai === 'tinjauNilai' || subHalamanNilai === 'editNilai') && (
         <SidebarGuru 
           menuAktif="beranda" 
@@ -169,7 +167,6 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
               <ArrowLeft size={18} />
             </button>
             <p className="text-[11px] text-[#71808D] flex items-center gap-2">
-              {/* Tombol BERANDA (Kembali ke Dashboard Utama) */}
               <button
                 type="button"
                 onClick={() => {
@@ -183,7 +180,6 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
 
               <span>/</span>
 
-              {/* Tombol KELAS (Kembali ke Daftar Kelas 10/11/12) */}
               <button
                 type="button"
                 onClick={onKembali}
@@ -194,7 +190,6 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
 
               <span>/</span>
 
-              {/* Bagian terakhir (aktif) */}
               <span className="font-bold text-[#17242E] uppercase">{kontenAktif.breadcrumb}</span>
             </p>
           </div>
@@ -203,7 +198,6 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
         {/* HEADER COURSE & TOMBOL EDIT (Hanya muncul di tab Materi) */}
         {subHalamanNilai === 'utama' && (
           <>
-            {/* HEADER COURSE & TOMBOL EDIT */}
             <div className="flex justify-between items-start mb-6 w-full">
               <div>
                 <h2 className="text-2xl font-bold text-[#17242E]">{kontenAktif.judul}</h2>
@@ -254,22 +248,18 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
           </>
         )}
 
-        {/* ISI TAB: MATERI */}
+        {/* ISI TAB: MATERI (Murni dari Database Backend) */}
         {tabAktif === 'materi' && subHalamanNilai === 'utama' && (
           <div className="space-y-6 w-full">
 
             {loadingAPI ? (
-              <p className="text-sm text-gray-500">
-                Memuat data materi...
-              </p>
+              <p className="text-sm text-gray-500">Memuat data materi...</p>
             ) : errorAPI ? (
               <div className="p-4 rounded-xl bg-red-50 border border-red-200">
                 <p className="text-sm text-red-600">{errorAPI}</p>
               </div>
             ) : filteredBab.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                Materi atau bab tidak ditemukan.
-              </p>
+              <p className="text-sm text-gray-500">Materi atau bab tidak ditemukan.</p>
             ) : (
               filteredBab.map((bab) => {
                 const materiPerSection = filteredMateri.filter(
@@ -284,6 +274,7 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
                     key={bab.id}
                     className="bg-white rounded-3xl border border-gray-100 shadow-[0_4px_20px_rgba(0,136,168,0.08)] overflow-hidden"
                   >
+                    {/* Header Bab Akordeon */}
                     <div
                       onClick={() => toggleBab(bab.id)}
                       className="p-5 flex justify-between items-center bg-[#F8FAFC]/60 border-b border-gray-100 cursor-pointer hover:bg-cyan-50/20 transition"
@@ -294,7 +285,6 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
                         ) : (
                           <ChevronDown size={18} className="text-gray-400" />
                         )}
-
                         <h3 className="font-bold text-base text-[#17242E]">
                           {bab.title}
                         </h3>
@@ -305,15 +295,14 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
                       </span>
                     </div>
 
+                    {/* Isi Bab */}
                     {openBab[bab.id] && (
                       <div className="p-6 space-y-4">
-
                         {materiPerSection.length === 0 && tugasPerSection.length === 0 ? (
-                          <p className="text-xs text-gray-500">
-                            Belum ada materi atau tugas pada bagian ini.
-                          </p>
+                          <p className="text-xs text-gray-500">Belum ada materi atau tugas pada bagian ini.</p>
                         ) : null}
 
+                        {/* 1. List Materi dari Database */}
                         {materiPerSection.map((materi) => (
                           <div
                             key={materi.id}
@@ -324,33 +313,43 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
                                 window.location.href = `/kelas/detail/file/${materi.id}`;
                               }
                             }}
-                            className="bg-[#E0F7FA]/40 border border-cyan-100 p-3.5 rounded-2xl hover:border-[#0088A8] hover:bg-cyan-50/40 transition cursor-pointer"
+                            className="bg-white border border-cyan-100/80 p-4 rounded-2xl shadow-2xs space-y-3 cursor-pointer hover:border-[#0088A8] transition"
                           >
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl bg-[#0088A8] text-white flex items-center justify-center shrink-0">
-                                <FileText size={20} />
-                              </div>
-
+                            {materi.description && (
                               <div>
-                                <p className="font-bold text-xs text-[#17242E]">
-                                  {materi.title || 'Materi tanpa judul'}
-                                </p>
-
-                                {materi.description && (
-                                  <p className="text-[10px] text-[#71808D] mt-1">
-                                    {materi.description}
-                                  </p>
-                                )}
-
-                                <p className="text-[10px] text-[#71808D] mt-1">
-                                  Status: {materi.status || 'Belum tersedia'}
+                                <p className="text-xs text-[#71808D] leading-relaxed mb-2">
+                                  {materi.description}
                                 </p>
                               </div>
+                            )}
+
+                            <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-[#E0F7FA] text-[#0088A8] flex items-center justify-center shrink-0">
+                                  <FileText size={18} />
+                                </div>
+                                <div>
+                                  <h4 className="font-bold text-xs text-[#17242E] transition">
+                                    {materi.title || 'Dokumen Materi.pdf'}
+                                  </h4>
+                                  <p className="text-[10px] text-[#71808D] uppercase">DOKUMEN • 2.4 MB</p>
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  alert(`Mengunduh file: ${materi.title || 'Dokumen Materi'}`);
+                                }}
+                                className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 bg-[#054C5A] text-white hover:bg-[#033742]"
+                              >
+                                <Download size={14} /> Unduh
+                              </button>
                             </div>
                           </div>
                         ))}
 
-                        {/* Daftar Tugas per Section */}
+                        {/* 2. List Tugas dari Database */}
                         {tugasPerSection.map((tugas) => (
                           <div
                             key={tugas.id}
@@ -361,33 +360,29 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
                                 window.location.href = `/kelas/detail/tugas/${tugas.id}`;
                               }
                             }}
-                            className="bg-[#E0F7FA]/40 border border-cyan-100 p-3.5 rounded-2xl hover:border-[#0088A8] hover:bg-cyan-50/40 transition cursor-pointer"
+                            className="bg-white border border-cyan-100/80 p-4 rounded-2xl shadow-2xs space-y-3 cursor-pointer hover:border-[#0088A8] transition"
                           >
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl bg-[#054C5A] text-white flex items-center justify-center shrink-0">
-                                <ClipboardList size={20} />
+                            <div className="flex items-start gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-pink-100 text-pink-600 flex items-center justify-center shrink-0 mt-0.5">
+                                <ClipboardList size={18} />
                               </div>
-
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[9px] font-bold uppercase tracking-wider bg-cyan-100 text-[#006064] px-1.5 py-0.5 rounded">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider bg-pink-50 text-pink-600 px-2 py-0.5 rounded border border-pink-100">
                                     TUGAS
                                   </span>
-                                  <p className="font-bold text-xs text-[#17242E]">
-                                    {tugas.title || 'Tugas tanpa judul'}
-                                  </p>
+                                  <h4 className="font-bold text-xs text-[#17242E]">{tugas.title || 'Latihan Mandiri'}</h4>
                                 </div>
-
                                 {tugas.instructions && (
-                                  <p className="text-[10px] text-[#71808D] mt-1 line-clamp-1">
-                                    {tugas.instructions}
-                                  </p>
+                                  <p className="text-xs text-[#71808D] leading-relaxed">{tugas.instructions}</p>
                                 )}
-
-                                <p className="text-[10px] text-[#71808D] mt-1">
-                                  Tenggat: <span className="font-semibold text-cyan-800">{tugas.deadline_formatted || tugas.deadline}</span>
-                                </p>
                               </div>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                              <span className="text-[11px] text-[#71808D]">
+                                Tenggat: <span className="font-semibold text-cyan-800">{tugas.deadline_formatted || tugas.deadline || '20 Okt 2026'}</span>
+                              </span>
                             </div>
                           </div>
                         ))}
@@ -430,14 +425,14 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
             onViewSubmission={(dataSiswa) => {
               console.log("Membuka Detail Nilai:", dataSiswa);
               setSiswaTerpilih(dataSiswa);
-              setSubHalamanTugas('daftar');     // <-- RESET STATE TUGAS
-              setSubHalamanNilai('detailNilai'); // <-- PINDAH KE HALAMAN DETAIL NILAI
+              setSubHalamanTugas('daftar');
+              setSubHalamanNilai('detailNilai');
             }}
             onGrade={(dataSiswa) => {
               console.log("Membuka Tinjau Nilai:", dataSiswa);
               setSiswaTerpilih(dataSiswa);
-              setSubHalamanTugas('daftar');     // <-- RESET STATE TUGAS
-              setSubHalamanNilai('tinjauNilai'); // <-- PINDAH KE HALAMAN TINJAU NILAI
+              setSubHalamanTugas('daftar');
+              setSubHalamanNilai('tinjauNilai');
             }}
           />
         )}
@@ -448,15 +443,15 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
             searchTerm={keywordPencarian}
             onKeDetailNilai={(dataSiswa) => {
               setSiswaTerpilih(dataSiswa);
-              setSubHalamanNilai('detailNilai'); // 1. Lihat Nilai -> DetailNilai
+              setSubHalamanNilai('detailNilai');
             }}
             onKeEditNilai={(dataSiswa) => {
               setSiswaTerpilih(dataSiswa);
-              setSubHalamanNilai('editNilai'); // 2. Edit Nilai -> EditNilai
+              setSubHalamanNilai('editNilai');
             }}
             onKeTinjauNilai={(dataSiswa) => {
               setSiswaTerpilih(dataSiswa);
-              setSubHalamanNilai('tinjauNilai'); // 3 & 4. Lihat / Nilai -> TinjauNilai
+              setSubHalamanNilai('tinjauNilai');
             }}
           />
         )}

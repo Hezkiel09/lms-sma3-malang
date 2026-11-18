@@ -19,6 +19,7 @@ import {
   Check,
   FolderPlus,
   Save,
+  Download
 } from 'lucide-react';
 
 import SidebarGuru from './SidebarGuru'; 
@@ -747,12 +748,6 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
                   {/* ISI KONTEN BAB */}
                   {bab.isOpen && (
                     <div className="p-6 space-y-4">
-                      <div className="text-xs text-[#71808D] leading-relaxed">
-                        <p>
-                          Materi pembelajaran untuk bab {bab.judul}.
-                        </p>
-                      </div>
-
                       {materiPerSection.length === 0 && tugasPerSection.length === 0 ? (
                         <div className="p-4 rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/20">
                           <p className="text-xs text-gray-500">
@@ -761,6 +756,7 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
                         </div>
                       ) : null}
 
+                      {/* MATERI PER SECTION (Disesuaikan dengan tampilan siswa yang rapi) */}
                       {materiPerSection.length > 0 && (
                         <div className="space-y-4">
                           {materiPerSection.map((materi) => (
@@ -770,102 +766,103 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
                                 setSelectedMaterialId(materi.id);
                                 setSubHalaman('detailFile');
                               }}
-                              className="bg-[#E0F7FA]/40 border border-cyan-100 p-3.5 rounded-2xl hover:border-[#0088A8] hover:bg-cyan-50/40 transition cursor-pointer relative"
+                              className="bg-white border border-cyan-100/80 p-4 rounded-2xl shadow-2xs space-y-3 cursor-pointer hover:border-[#0088A8] transition relative"
                             >
-                              <div className="flex items-start justify-between">
-                                <div className="flex items-center gap-3 min-w-0 pr-8">
-                                  {/* Kotak Ikon Dokumen */}
-                                  <div className="w-10 h-10 rounded-xl bg-[#0088A8] text-white flex items-center justify-center shrink-0">
-                                    <FileText size={20} />
+                              {materi.description && (
+                                <div>
+                                  <p className="text-xs text-[#71808D] leading-relaxed mb-2">
+                                    {materi.description}
+                                  </p>
+                                </div>
+                              )}
+
+                              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-9 h-9 rounded-xl bg-[#E0F7FA] text-[#0088A8] flex items-center justify-center shrink-0">
+                                    <FileText size={18} />
                                   </div>
-
-                                  <div className="min-w-0">
-                                    <p className="font-bold text-xs text-[#17242E] truncate">
-                                      {materi.title || 'Materi tanpa judul'}
-                                    </p>
-
-                                    {materi.description && (
-                                      <p className="text-[10px] text-[#71808D] mt-1 line-clamp-1">
-                                        {materi.description}
-                                      </p>
-                                    )}
-
-                                    <div className="flex items-center gap-2 mt-1 text-[10px] text-[#71808D]">
-                                      <span>
-                                        Status:{' '}
-                                        <span className={materi.status && materi.status.toLowerCase() === 'published' ? 'text-green-600 font-semibold' : 'text-amber-600 font-semibold'}>
-                                          {materi.status && materi.status.toLowerCase() === 'published' ? 'Dipublikasikan' : 'Draf'}
-                                        </span>
+                                  <div>
+                                    <h4 className="font-bold text-xs text-[#17242E] transition">
+                                      {materi.title || 'Dokumen Materi.pdf'}
+                                    </h4>
+                                    <p className="text-[10px] text-[#71808D] uppercase">
+                                      DOKUMEN • 2.4 MB &nbsp;•&nbsp; Status:{' '}
+                                      <span className={materi.status && materi.status.toLowerCase() === 'published' ? 'text-green-600 font-semibold' : 'text-amber-600 font-semibold'}>
+                                        {materi.status && materi.status.toLowerCase() === 'published' ? 'Dipublikasikan' : 'Draf'}
                                       </span>
-                                      {materi.created_at && (
-                                        <>
-                                          <span>•</span>
-                                          <span>{new Date(materi.created_at).toLocaleDateString('id-ID')}</span>
-                                        </>
-                                      )}
-                                    </div>
+                                    </p>
                                   </div>
                                 </div>
 
-                                {/* Menu Tiga Titik Khusus Mode Edit */}
-                                <div className="absolute right-3 top-3" onClick={(e) => e.stopPropagation()}>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActiveMaterialPopover(
-                                        activeMaterialPopover === materi.id ? null : materi.id
-                                      );
-                                    }}
-                                    className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg cursor-pointer bg-white shadow-2xs border border-gray-100"
-                                  >
-                                    <MoreHorizontal size={16} />
-                                  </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    alert(`Mengunduh file: ${materi.title || 'Dokumen Materi'}`);
+                                  }}
+                                  className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 bg-[#054C5A] text-white hover:bg-[#033742]"
+                                >
+                                  <Download size={14} /> Unduh
+                                </button>
+                              </div>
 
-                                  {activeMaterialPopover === materi.id && (
-                                    <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-xl shadow-xl p-1.5 w-28 z-50 space-y-1 text-xs font-medium">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setSelectedMaterialId(materi.id);
-                                          setSubHalaman('editFile');
-                                          setActiveMaterialPopover(null);
-                                        }}
-                                        className="w-full text-left px-3 py-1.5 text-[#17242E] hover:bg-cyan-50 rounded-lg cursor-pointer"
-                                      >
-                                        Edit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={async (e) => {
-                                          e.stopPropagation();
-                                          if (confirm('Apakah Anda yakin ingin menghapus materi ini?')) {
-                                            try {
-                                              const res = await fetch(
-                                                `http://localhost:5000/api/v1/b5/materials/${materi.id}`,
-                                                { method: 'DELETE' }
-                                              );
-                                              if (!res.ok) {
-                                                const errData = await res.json().catch(() => ({}));
-                                                throw new Error(errData.message || 'Gagal menghapus materi.');
-                                              }
-                                              setDaftarMateriAPI((prev) =>
-                                                prev.filter((item) => item.id !== materi.id)
-                                              );
-                                            } catch (err) {
-                                              alert('Gagal menghapus materi: ' + err.message);
+                              {/* Menu Tiga Titik Khusus Mode Edit */}
+                              <div className="absolute right-3 top-3" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMaterialPopover(
+                                      activeMaterialPopover === materi.id ? null : materi.id
+                                    );
+                                  }}
+                                  className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg cursor-pointer bg-white shadow-2xs border border-gray-100"
+                                >
+                                  <MoreHorizontal size={16} />
+                                </button>
+
+                                {activeMaterialPopover === materi.id && (
+                                  <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-xl shadow-xl p-1.5 w-28 z-50 space-y-1 text-xs font-medium">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedMaterialId(materi.id);
+                                        setSubHalaman('editFile');
+                                        setActiveMaterialPopover(null);
+                                      }}
+                                      className="w-full text-left px-3 py-1.5 text-[#17242E] hover:bg-cyan-50 rounded-lg cursor-pointer"
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (confirm('Apakah Anda yakin ingin menghapus materi ini?')) {
+                                          try {
+                                            const res = await fetch(
+                                              `http://localhost:5000/api/v1/b5/materials/${materi.id}`,
+                                              { method: 'DELETE' }
+                                            );
+                                            if (!res.ok) {
+                                              const errData = await res.json().catch(() => ({}));
+                                              throw new Error(errData.message || 'Gagal menghapus materi.');
                                             }
+                                            setDaftarMateriAPI((prev) =>
+                                              prev.filter((item) => item.id !== materi.id)
+                                            );
+                                          } catch (err) {
+                                            alert('Gagal menghapus materi: ' + err.message);
                                           }
-                                          setActiveMaterialPopover(null);
-                                        }}
-                                        className="w-full text-left px-3 py-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"
-                                      >
-                                        Hapus
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
+                                        }
+                                        setActiveMaterialPopover(null);
+                                      }}
+                                      className="w-full text-left px-3 py-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"
+                                    >
+                                      Hapus
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -882,103 +879,89 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
                                 setSelectedAssignmentId(tugas.id);
                                 setSubHalaman('detailAssignment');
                               }}
-                              className="bg-[#E0F7FA]/40 border border-cyan-100 p-3.5 rounded-2xl hover:border-[#0088A8] hover:bg-cyan-50/40 transition cursor-pointer relative"
+                              className="bg-white border border-cyan-100/80 p-4 rounded-2xl shadow-2xs space-y-3 cursor-pointer hover:border-[#0088A8] transition relative"
                             >
-                              <div className="flex items-start justify-between">
-                                <div className="flex items-center gap-3 min-w-0 pr-8">
-                                  <div className="w-10 h-10 rounded-xl bg-[#054C5A] text-white flex items-center justify-center shrink-0">
-                                    <ClipboardList size={20} />
-                                  </div>
-
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-[9px] font-bold uppercase tracking-wider bg-cyan-100 text-[#006064] px-1.5 py-0.5 rounded">
-                                        TUGAS
-                                      </span>
-                                      <p className="font-bold text-xs text-[#17242E] truncate">
-                                        {tugas.title || 'Tugas tanpa judul'}
-                                      </p>
-                                    </div>
-
-                                    {tugas.instructions && (
-                                      <p className="text-[10px] text-[#71808D] mt-1 line-clamp-1">
-                                        {tugas.instructions}
-                                      </p>
-                                    )}
-
-                                    <div className="flex items-center gap-2 mt-1 text-[10px] text-[#71808D]">
-                                      <span>
-                                        Tenggat: <span className="font-semibold text-cyan-800">{tugas.deadline_formatted || tugas.deadline}</span>
-                                      </span>
-                                      {tugas.submission_type && (
-                                        <>
-                                          <span>•</span>
-                                          <span className="uppercase font-medium">{tugas.submission_type}</span>
-                                        </>
-                                      )}
-                                    </div>
-                                  </div>
+                              <div className="flex items-start gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-pink-100 text-pink-600 flex items-center justify-center shrink-0 mt-0.5">
+                                  <ClipboardList size={18} />
                                 </div>
-
-                                <div className="absolute right-3 top-3" onClick={(e) => e.stopPropagation()}>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActiveAssignmentPopover(
-                                        activeAssignmentPopover === tugas.id ? null : tugas.id
-                                      );
-                                    }}
-                                    className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg cursor-pointer bg-white shadow-2xs border border-gray-100"
-                                    title="Menu Tugas"
-                                  >
-                                    <MoreHorizontal size={16} />
-                                  </button>
-
-                                  {activeAssignmentPopover === tugas.id && (
-                                    <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-xl shadow-xl p-1.5 w-28 z-50 space-y-1 text-xs font-medium">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setSelectedAssignmentId(tugas.id);
-                                          setSubHalaman('editAssignment');
-                                          setActiveAssignmentPopover(null);
-                                        }}
-                                        className="w-full text-left px-3 py-1.5 text-[#17242E] hover:bg-cyan-50 rounded-lg cursor-pointer"
-                                      >
-                                        Edit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={async (e) => {
-                                          e.stopPropagation();
-                                          if (confirm('Apakah Anda yakin ingin menghapus tugas ini beserta seluruh lampirannya?')) {
-                                            try {
-                                              const res = await fetch(
-                                                `http://localhost:5000/api/v1/b5/assignments/${tugas.id}`,
-                                                { method: 'DELETE' }
-                                              );
-                                              if (!res.ok) {
-                                                const errData = await res.json().catch(() => ({}));
-                                                throw new Error(errData.message || 'Gagal menghapus tugas.');
-                                              }
-                                              setDaftarTugasAPI((prev) =>
-                                                prev.filter((item) => item.id !== tugas.id)
-                                              );
-                                            } catch (err) {
-                                              alert('Gagal menghapus tugas: ' + err.message);
-                                            }
-                                          }
-                                          setActiveAssignmentPopover(null);
-                                        }}
-                                        className="w-full text-left px-3 py-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"
-                                      >
-                                        Hapus
-                                      </button>
-                                    </div>
+                                <div className="flex-1 pr-8">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-[9px] font-bold uppercase tracking-wider bg-pink-50 text-pink-600 px-2 py-0.5 rounded border border-pink-100">
+                                      TUGAS
+                                    </span>
+                                    <h4 className="font-bold text-xs text-[#17242E]">{tugas.title || 'Latihan Mandiri'}</h4>
+                                  </div>
+                                  {tugas.instructions && (
+                                    <p className="text-xs text-[#71808D] leading-relaxed">{tugas.instructions}</p>
                                   )}
                                 </div>
+                              </div>
+
+                              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                                <span className="text-[11px] text-[#71808D]">
+                                  Tenggat: <span className="font-semibold text-cyan-800">{tugas.deadline_formatted || tugas.deadline}</span>
+                                </span>
+                              </div>
+
+                              <div className="absolute right-3 top-3" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveAssignmentPopover(
+                                      activeAssignmentPopover === tugas.id ? null : tugas.id
+                                    );
+                                  }}
+                                  className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg cursor-pointer bg-white shadow-2xs border border-gray-100"
+                                  title="Menu Tugas"
+                                >
+                                  <MoreHorizontal size={16} />
+                                </button>
+
+                                {activeAssignmentPopover === tugas.id && (
+                                  <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-xl shadow-xl p-1.5 w-28 z-50 space-y-1 text-xs font-medium">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedAssignmentId(tugas.id);
+                                        setSubHalaman('editAssignment');
+                                        setActiveAssignmentPopover(null);
+                                      }}
+                                      className="w-full text-left px-3 py-1.5 text-[#17242E] hover:bg-cyan-50 rounded-lg cursor-pointer"
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (confirm('Apakah Anda yakin ingin menghapus tugas ini beserta seluruh lampirannya?')) {
+                                          try {
+                                            const res = await fetch(
+                                              `http://localhost:5000/api/v1/b5/assignments/${tugas.id}`,
+                                              { method: 'DELETE' }
+                                            );
+                                            if (!res.ok) {
+                                              const errData = await res.json().catch(() => ({}));
+                                              throw new Error(errData.message || 'Gagal menghapus tugas.');
+                                            }
+                                            setDaftarTugasAPI((prev) =>
+                                              prev.filter((item) => item.id !== tugas.id)
+                                            );
+                                          } catch (err) {
+                                            alert('Gagal menghapus tugas: ' + err.message);
+                                          }
+                                        }
+                                        setActiveAssignmentPopover(null);
+                                      }}
+                                      className="w-full text-left px-3 py-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"
+                                    >
+                                      Hapus
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           ))}

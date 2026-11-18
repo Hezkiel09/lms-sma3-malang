@@ -4,28 +4,13 @@ import {
   Bold,
   Italic,
   Underline,
-  Strikethrough,
   Heading1,
-  Heading2,
-  Heading3,
-  Image as ImageIcon,
-  Video,
-  Link,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  AlignJustify,
   List,
-  ListOrdered,
-  Undo,
-  Redo,
-  Maximize2,
-  MoreHorizontal,
   X,
   File as FileIcon,
 } from 'lucide-react';
 
-import SidebarGuru from './SidebarGuru'; // <--- Komponen Sidebar Terpisah
+import SidebarGuru from './SidebarGuru';
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
@@ -64,11 +49,28 @@ const TambahMateri = ({
   const [fileError, setFileError] = useState('');
 
   const fileInputRef = useRef(null);
+  const editorRef = useRef(null);
 
-  // Memvalidasi dan menambahkan file yang dipilih.
+  // Fungsi khusus untuk menyisipkan bullet point dengan aman ke contentEditable
+  const handleInsertBullet = () => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    editor.focus();
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return;
+    const range = selection.getRangeAt(0);
+
+    const textToInsert = `\n• ${selection.toString()}`;
+    range.deleteContents();
+    const textNode = document.createTextNode(textToInsert);
+    range.insertNode(textNode);
+    
+    setDeskripsi(editor.innerHTML);
+  };
+
   const handleAddFiles = (fileList) => {
     const incomingFiles = Array.from(fileList || []);
-
     if (incomingFiles.length === 0) return;
 
     const validFiles = [];
@@ -76,29 +78,24 @@ const TambahMateri = ({
 
     incomingFiles.forEach((file) => {
       const extension = `.${file.name.split('.').pop()}`.toLowerCase();
-
       if (!ALLOWED_EXTENSIONS.includes(extension)) {
         errors.push(`${file.name}: format file tidak didukung.`);
         return;
       }
-
       if (file.size > MAX_FILE_SIZE) {
         errors.push(`${file.name}: ukuran file melebihi 10 MB.`);
         return;
       }
-
       validFiles.push(file);
     });
 
     const mergedFiles = [...selectedFiles];
-
     validFiles.forEach((file) => {
       const alreadyAdded = mergedFiles.some((existingFile) => (
         existingFile.name === file.name &&
         existingFile.size === file.size &&
         existingFile.lastModified === file.lastModified
       ));
-
       if (!alreadyAdded) {
         mergedFiles.push(file);
       }
@@ -114,8 +111,6 @@ const TambahMateri = ({
 
   const handleFileInputChange = (event) => {
     handleAddFiles(event.target.files);
-
-    // Memungkinkan pemilihan ulang file yang sama.
     event.target.value = '';
   };
 
@@ -125,39 +120,24 @@ const TambahMateri = ({
     handleAddFiles(event.dataTransfer.files);
   };
 
-  // Mengirim materi dan lampiran ke backend.
   const handleSubmit = async (event) => {
     event.preventDefault();
-
     setFormError('');
 
     if (!sectionId) {
       setFormError('Section tujuan belum dipilih.');
       return;
     }
-
     if (!judul.trim()) {
       setFormError('Judul materi wajib diisi.');
       return;
     }
-
-    if (judul.trim().length > 255) {
-      setFormError('Judul materi maksimal 255 karakter.');
-      return;
-    }
-
     if (selectedFiles.length === 0) {
       setFormError('Pilih minimal satu file materi.');
       return;
     }
 
-    if (fileError) {
-      setFormError('Periksa pilihan file sebelum menyimpan materi.');
-      return;
-    }
-
     const formData = new FormData();
-
     formData.append('section_id', sectionId);
     formData.append('title', judul.trim());
     formData.append('description', deskripsi.trim());
@@ -169,7 +149,6 @@ const TambahMateri = ({
 
     try {
       setIsSubmitting(true);
-
       const response = await fetch(
         `${API_BASE_URL}/api/v1/b5/materials`,
         {
@@ -187,8 +166,6 @@ const TambahMateri = ({
         );
       }
 
-      // Kirim ID dan data materi kepada KelolaCourseGuru.
-      // Argumen pertama tetap ID agar kompatibel dengan callback lama.
       if (onSaveSuccess) {
         onSaveSuccess(result.data.id, result.data);
       } else if (onKembali) {
@@ -196,23 +173,18 @@ const TambahMateri = ({
       }
     } catch (error) {
       console.error('Gagal menyimpan materi:', error);
-
-      setFormError(
-        error.message || 'Terjadi kesalahan saat menyimpan materi.'
-      );
+      setFormError(error.message || 'Terjadi kesalahan saat menyimpan materi.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const jumlahKata = deskripsi.trim()
-    ? deskripsi.trim().split(/\s+/).length
+    ? deskripsi.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(Boolean).length
     : 0;
 
   return (
     <div className="flex min-h-screen bg-white font-sans text-[#17242E] w-full relative">
-
-      {/* SIDEBAR TERPISAH */}
       <SidebarGuru 
         menuAktif="beranda" 
         onPilihMenu={(menu) => {
@@ -220,10 +192,7 @@ const TambahMateri = ({
         }} 
       />
 
-      {/* MAIN CONTENT */}
       <main className="flex-1 p-7 overflow-y-auto w-full bg-white rounded-tl-[32px] rounded-bl-[32px] shadow-[0_0_30px_rgba(0,136,168,0.12)] border-l border-[#DDF6F9]">
-
-        {/* BREADCRUMB */}
         <div className="mb-4">
           <p className="text-[11px] text-[#71808D]">
             BERANDA &nbsp;/&nbsp; KELAS 10 &nbsp;/&nbsp;
@@ -233,7 +202,6 @@ const TambahMateri = ({
           </p>
         </div>
 
-        {/* TITLE SECTION */}
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-[#17242E]">Tambah Materi</h2>
           <p className="text-xs text-[#71808D] mt-1">
@@ -241,13 +209,10 @@ const TambahMateri = ({
           </p>
         </div>
 
-        {/* FORM UTAMA */}
         <form
           onSubmit={handleSubmit}
           className="bg-white p-8 rounded-3xl border border-gray-200 shadow-2xs space-y-6 w-full max-w-4xl"
         >
-
-          {/* JUDUL MATERI */}
           <div>
             <label
               htmlFor="material-title"
@@ -255,7 +220,6 @@ const TambahMateri = ({
             >
               Judul Materi
             </label>
-
             <input
               id="material-title"
               type="text"
@@ -268,7 +232,6 @@ const TambahMateri = ({
             />
           </div>
 
-          {/* DESKRIPSI / EDITOR */}
           <div>
             <label
               htmlFor="material-description"
@@ -278,72 +241,64 @@ const TambahMateri = ({
             </label>
 
             <div className="border border-gray-200 rounded-2xl overflow-hidden bg-white">
-
-              {/* Toolbar Editor */}
-              <div className="flex flex-wrap items-center gap-1 p-2 bg-gray-50 border-b border-gray-200 text-gray-600 text-xs">
-                <span className="px-2 py-1 text-gray-500 font-semibold hover:bg-gray-200 rounded cursor-pointer">Sisipkan</span>
-                <span className="px-2 py-1 text-gray-500 font-semibold hover:bg-gray-200 rounded cursor-pointer">Format</span>
-                <span className="px-2 py-1 text-gray-500 font-semibold hover:bg-gray-200 rounded cursor-pointer">Alat</span>
-                <span className="px-2 py-1 text-gray-500 font-semibold hover:bg-gray-200 rounded cursor-pointer">Tabel</span>
-                <span className="px-2 py-1 text-gray-500 font-semibold hover:bg-gray-200 rounded cursor-pointer">Bantuan</span>
-
-                <div className="h-4 w-px bg-gray-300 mx-1" />
-
-                <button type="button" className="p-1.5 hover:bg-gray-200 rounded cursor-pointer"><Bold size={14} /></button>
-                <button type="button" className="p-1.5 hover:bg-gray-200 rounded cursor-pointer"><Italic size={14} /></button>
-                <button type="button" className="p-1.5 hover:bg-gray-200 rounded cursor-pointer"><Underline size={14} /></button>
-                <button type="button" className="p-1.5 hover:bg-gray-200 rounded cursor-pointer"><Strikethrough size={14} /></button>
-
-                <div className="h-4 w-px bg-gray-300 mx-1" />
-
-                <button type="button" className="p-1.5 hover:bg-gray-200 rounded cursor-pointer"><Heading1 size={14} /></button>
-                <button type="button" className="p-1.5 hover:bg-gray-200 rounded cursor-pointer"><Heading2 size={14} /></button>
-                <button type="button" className="p-1.5 hover:bg-gray-200 rounded cursor-pointer"><Heading3 size={14} /></button>
-
-                <div className="h-4 w-px bg-gray-300 mx-1" />
-
-                <button type="button" className="p-1.5 hover:bg-gray-200 rounded cursor-pointer"><ImageIcon size={14} /></button>
-                <button type="button" className="p-1.5 hover:bg-gray-200 rounded cursor-pointer"><Video size={14} /></button>
-                <button type="button" className="p-1.5 hover:bg-gray-200 rounded cursor-pointer"><Link size={14} /></button>
-
-                <div className="h-4 w-px bg-gray-300 mx-1" />
-
-                <button type="button" className="p-1.5 hover:bg-gray-200 rounded cursor-pointer"><AlignLeft size={14} /></button>
-                <button type="button" className="p-1.5 hover:bg-gray-200 rounded cursor-pointer"><AlignCenter size={14} /></button>
-                <button type="button" className="p-1.5 hover:bg-gray-200 rounded cursor-pointer"><AlignRight size={14} /></button>
-                <button type="button" className="p-1.5 hover:bg-gray-200 rounded cursor-pointer"><AlignJustify size={14} /></button>
-
-                <div className="h-4 w-px bg-gray-300 mx-1" />
-
-                <button type="button" className="p-1.5 hover:bg-gray-200 rounded cursor-pointer"><List size={14} /></button>
-                <button type="button" className="p-1.5 hover:bg-gray-200 rounded cursor-pointer"><ListOrdered size={14} /></button>
-                <button type="button" className="p-1.5 hover:bg-gray-200 rounded cursor-pointer"><Undo size={14} /></button>
-                <button type="button" className="p-1.5 hover:bg-gray-200 rounded cursor-pointer"><Redo size={14} /></button>
-                <button type="button" className="p-1.5 hover:bg-gray-200 rounded cursor-pointer"><Maximize2 size={14} /></button>
-                <button type="button" className="p-1.5 hover:bg-gray-200 rounded cursor-pointer"><MoreHorizontal size={14} /></button>
+              {/* Toolbar dengan execCommand original untuk Bold & Italic, plus tombol Bullet */}
+              <div className="bg-[#F8FAFC] border-b border-gray-200 px-3 py-2 flex flex-wrap items-center gap-2 text-gray-600 text-xs">
+                <button 
+                  type="button" 
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => document.execCommand('bold', false, null)} 
+                  className="p-1.5 hover:bg-gray-200 rounded cursor-pointer" 
+                  title="Tebal"
+                >
+                  <Bold size={14} />
+                </button>
+                <button 
+                  type="button" 
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => document.execCommand('italic', false, null)} 
+                  className="p-1.5 hover:bg-gray-200 rounded cursor-pointer" 
+                  title="Miring"
+                >
+                  <Italic size={14} />
+                </button>
+                <button 
+                  type="button" 
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => document.execCommand('underline', false, null)} 
+                  className="p-1.5 hover:bg-gray-200 rounded cursor-pointer" 
+                  title="Garis Bawah"
+                >
+                  <Underline size={14} />
+                </button>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={handleInsertBullet}
+                  className="p-1.5 hover:bg-gray-200 rounded cursor-pointer flex items-center gap-1"
+                  title="Tambah Bullet Point"
+                >
+                  <List size={14} /> <span className="text-[10px]"></span>
+                </button>
               </div>
 
-              <textarea
-                id="material-description"
-                rows={6}
-                placeholder="Tulis konten pembelajaran di sini..."
-                value={deskripsi}
-                onChange={(event) => setDeskripsi(event.target.value)}
-                className="w-full p-4 text-xs text-[#17242E] focus:outline-none bg-[#E0F7FA]/10"
-              />
+              <div
+                ref={editorRef}
+                contentEditable="true"
+                onInput={(e) => setDeskripsi(e.currentTarget.innerHTML || '')}
+                className="w-full p-4 text-xs text-[#17242E] focus:outline-none min-h-[120px] bg-[#E0F7FA]/10"
+                style={{ whiteSpace: 'pre-wrap' }}
+              ></div>
 
-              <div className="px-4 py-2 bg-gray-50 text-[10px] text-gray-400 border-t border-gray-100">
+              <div className="px-4 py-2 bg-gray-50 text-[10px] text-gray-400 border-t border-gray-100 text-right">
                 {jumlahKata} kata
               </div>
             </div>
           </div>
 
-          {/* UPLOAD FILE: KLIK DAN DRAG-AND-DROP */}
           <div>
             <label className="block text-xs font-bold text-[#17242E] mb-2">
               Unggah File Materi
             </label>
-
             <input
               ref={fileInputRef}
               type="file"
@@ -352,7 +307,6 @@ const TambahMateri = ({
               onChange={handleFileInputChange}
               className="hidden"
             />
-
             <div
               role="button"
               tabIndex={0}
@@ -382,19 +336,16 @@ const TambahMateri = ({
               <div className="w-12 h-12 rounded-full bg-[#0088A8]/10 text-[#0088A8] flex items-center justify-center mb-3">
                 <CloudUpload size={24} />
               </div>
-
               <p className="text-xs font-bold text-[#17242E]">
                 {isDragging
                   ? 'Lepaskan file di sini'
                   : 'Klik untuk mengunggah atau seret dan lepaskan file ke sini'}
               </p>
-
               <p className="text-[10px] text-[#71808D] mt-1">
                 PDF, DOC, DOCX, ZIP, PPT, atau PPTX (maks. 10 MB/file, 5 file)
               </p>
             </div>
 
-            {/* DAFTAR FILE TERPILIH */}
             {selectedFiles.length > 0 && (
               <div className="mt-3 space-y-2">
                 {selectedFiles.map((file, index) => (
@@ -406,7 +357,6 @@ const TambahMateri = ({
                       <div className="w-9 h-9 rounded-lg bg-[#0088A8]/10 text-[#0088A8] flex items-center justify-center shrink-0">
                         <FileIcon size={18} />
                       </div>
-
                       <div className="min-w-0">
                         <p className="text-xs font-semibold text-[#17242E] truncate">
                           {file.name}
@@ -416,7 +366,6 @@ const TambahMateri = ({
                         </p>
                       </div>
                     </div>
-
                     <button
                       type="button"
                       onClick={() => {
@@ -426,7 +375,6 @@ const TambahMateri = ({
                         setFileError('');
                       }}
                       className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 cursor-pointer shrink-0"
-                      aria-label={`Hapus ${file.name}`}
                     >
                       <X size={16} />
                     </button>
@@ -440,12 +388,10 @@ const TambahMateri = ({
             )}
           </div>
 
-          {/* STATUS PUBLIKASI */}
           <div>
             <label className="block text-xs font-bold text-[#17242E] mb-2">
               Status Publikasi
             </label>
-
             <div className="flex items-center gap-6 text-xs font-medium text-[#17242E]">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -458,7 +404,6 @@ const TambahMateri = ({
                 />
                 Publikasi Langsung
               </label>
-
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
@@ -473,17 +418,12 @@ const TambahMateri = ({
             </div>
           </div>
 
-          {/* PESAN ERROR */}
           {formError && (
-            <div
-              className="p-3 rounded-xl border border-red-200 bg-red-50 text-xs text-red-700"
-              role="alert"
-            >
+            <div className="p-3 rounded-xl border border-red-200 bg-red-50 text-xs text-red-700">
               {formError}
             </div>
           )}
 
-          {/* TOMBOL AKSI */}
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
             <button
               type="button"
@@ -493,7 +433,6 @@ const TambahMateri = ({
             >
               Batal
             </button>
-
             <button
               type="submit"
               disabled={isSubmitting || !sectionId}

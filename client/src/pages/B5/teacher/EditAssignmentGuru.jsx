@@ -9,6 +9,10 @@ import {
   Save,
   Loader2,
   AlertCircle,
+  Bold,
+  Italic,
+  Underline,
+  List,
 } from 'lucide-react';
 
 import SidebarGuru from './SidebarGuru'; // <--- Komponen Sidebar Terpisah
@@ -79,6 +83,7 @@ const EditAssignmentGuru = ({ assignmentId, onKembali, onSaveSuccess, onKeProfil
   const [isDragging, setIsDragging] = useState(false);
   const [fileError, setFileError] = useState('');
   const fileInputRef = useRef(null);
+  const editorRef = useRef(null);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -96,15 +101,20 @@ const EditAssignmentGuru = ({ assignmentId, onKembali, onSaveSuccess, onKeProfil
       if (['1', '2', '3'].includes(String(assignmentId))) {
         setLoading(true);
         setLoadError('');
-        setJudul(
+        const dummyJudul = (
           assignmentId === '1' ? 'Latihan Mandiri: Grafik Parabola' : 
           assignmentId === '2' ? 'Proyek Matematika: Analisis Data' : 
           'Tugas Trigonometri'
         );
-        setInstruksi('Contoh instruksi tugas untuk keperluan uji coba tampilan.');
+        const dummyInstruksi = 'Contoh instruksi tugas untuk keperluan uji coba tampilan.';
+        setJudul(dummyJudul);
+        setInstruksi(dummyInstruksi);
         setStartDate('2026-01-20');
         setDeadlineDate('2026-01-27');
         setAllowLate(true);
+        if (editorRef.current) {
+          editorRef.current.innerHTML = dummyInstruksi;
+        }
         setLoading(false);
         return; 
       }
@@ -121,10 +131,15 @@ const EditAssignmentGuru = ({ assignmentId, onKembali, onSaveSuccess, onKeProfil
 
         const data = result.data;
         if (data) {
+          const loadedInstruksi = data.instructions || data.instruction || data.description || '';
           setJudul(data.title || '');
-          setInstruksi(data.instructions || data.instruction || data.description || '');
+          setInstruksi(loadedInstruksi);
           setAllowLate(Boolean(data.allow_late_submission));
           setSectionTitle(data.section?.title || '');
+
+          if (editorRef.current) {
+            editorRef.current.innerHTML = loadedInstruksi;
+          }
 
           // Parse start_at ke format YYYY-MM-DD dan HH:mm WIB
           const startWib = parseIsoToWib(data.start_at || data.start_date, '10:00');
@@ -150,6 +165,24 @@ const EditAssignmentGuru = ({ assignmentId, onKembali, onSaveSuccess, onKeProfil
 
     fetchAssignment();
   }, [assignmentId]);
+
+  // Fungsi khusus untuk menyisipkan bullet point dengan aman ke contentEditable
+  const handleInsertBullet = () => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    editor.focus();
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return;
+    const range = selection.getRangeAt(0);
+
+    const textToInsert = `\n• ${selection.toString() || 'Poin daftar'}`;
+    range.deleteContents();
+    const textNode = document.createTextNode(textToInsert);
+    range.insertNode(textNode);
+    
+    setInstruksi(editor.innerHTML);
+  };
 
   // Handler menambahkan file baru
   const handleAddNewFiles = (fileList) => {
@@ -253,6 +286,10 @@ const EditAssignmentGuru = ({ assignmentId, onKembali, onSaveSuccess, onKeProfil
     }
   };
 
+  const jumlahKataInstruksi = instruksi.trim()
+    ? instruksi.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(Boolean).length
+    : 0;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[500px] w-full">
@@ -348,24 +385,60 @@ const EditAssignmentGuru = ({ assignmentId, onKembali, onSaveSuccess, onKeProfil
             />
           </div>
 
-          {/* Instruksi */}
+          {/* Instruksi dengan Editor Interaktif */}
           <div>
             <label className="block text-xs font-bold text-[#71808D] mb-2">Instruksi</label>
-            <div className="border border-cyan-100 rounded-xl overflow-hidden">
-              <div className="bg-white border-b border-gray-100 p-2 flex gap-3 text-xs text-gray-500 font-bold">
-                <span>Sisipkan</span>
-                <span>Format</span>
-                <span>Alat</span>
-                <span>Tabel</span>
-                <span>Bantuan</span>
+            <div className="border border-cyan-100 rounded-xl overflow-hidden bg-white">
+              <div className="bg-[#F8FAFC] border-b border-gray-200 px-3 py-2 flex flex-wrap items-center gap-2 text-gray-600 text-xs">
+                <button 
+                  type="button" 
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => document.execCommand('bold', false, null)} 
+                  className="p-1.5 hover:bg-gray-200 rounded cursor-pointer" 
+                  title="Tebal"
+                >
+                  <Bold size={14} />
+                </button>
+                <button 
+                  type="button" 
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => document.execCommand('italic', false, null)} 
+                  className="p-1.5 hover:bg-gray-200 rounded cursor-pointer" 
+                  title="Miring"
+                >
+                  <Italic size={14} />
+                </button>
+                <button 
+                  type="button" 
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => document.execCommand('underline', false, null)} 
+                  className="p-1.5 hover:bg-gray-200 rounded cursor-pointer" 
+                  title="Garis Bawah"
+                >
+                  <Underline size={14} />
+                </button>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={handleInsertBullet}
+                  className="p-1.5 hover:bg-gray-200 rounded cursor-pointer flex items-center gap-1"
+                  title="Tambah Bullet Point"
+                >
+                  <List size={14} /> <span className="text-[10px]"></span>
+                </button>
               </div>
-              <textarea
-                rows={4}
-                value={instruksi}
-                onChange={(e) => setInstruksi(e.target.value)}
-                placeholder="Tuliskan instruksi atau panduan tugas..."
-                className="w-full p-4 bg-[#E0F7FA]/30 text-xs text-[#17242E] focus:outline-none"
-              />
+
+              <div
+                ref={editorRef}
+                contentEditable="true"
+                onInput={(e) => setInstruksi(e.currentTarget.innerHTML || '')}
+                className="w-full p-4 text-xs text-[#17242E] focus:outline-none min-h-[120px] bg-[#E0F7FA]/10"
+                style={{ whiteSpace: 'pre-wrap' }}
+              ></div>
+
+              <div className="px-4 py-2 bg-gray-50 text-[10px] text-gray-400 border-t border-gray-100 text-right">
+                {jumlahKataInstruksi} kata
+              </div>
             </div>
           </div>
 

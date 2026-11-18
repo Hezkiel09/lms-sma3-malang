@@ -6,6 +6,10 @@ import {
   X,
   Trash2,
   Save,
+  Bold,
+  Italic,
+  Underline,
+  List,
 } from 'lucide-react';
 
 import SidebarGuru from './SidebarGuru'; // <--- Komponen Sidebar Terpisah
@@ -48,6 +52,7 @@ const EditFileGuru = ({ materialId, onKembali, onSaveSuccess, onKeProfil, onPili
   const [searchTerm, setSearchTerm] = useState('');
 
   const fileInputRef = useRef(null);
+  const editorRef = useRef(null);
 
   // Ambil data materi saat ini dari backend
   useEffect(() => {
@@ -77,6 +82,10 @@ const EditFileGuru = ({ materialId, onKembali, onSaveSuccess, onKeProfil, onPili
           setStatusPublikasi(data.status || 'published');
           setExistingFiles(data.material_files || []);
           setSectionTitle(data.section?.title || '');
+          
+          if (editorRef.current) {
+            editorRef.current.innerHTML = data.description || '';
+          }
         }
       } catch (err) {
         console.error('Error fetching material for edit:', err);
@@ -88,6 +97,24 @@ const EditFileGuru = ({ materialId, onKembali, onSaveSuccess, onKeProfil, onPili
 
     fetchMaterial();
   }, [materialId]);
+
+  // Fungsi khusus untuk menyisipkan bullet point dengan aman ke contentEditable
+  const handleInsertBullet = () => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    editor.focus();
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return;
+    const range = selection.getRangeAt(0);
+
+    const textToInsert = `\n• ${selection.toString() || 'Poin daftar'}`;
+    range.deleteContents();
+    const textNode = document.createTextNode(textToInsert);
+    range.insertNode(textNode);
+    
+    setDeskripsi(editor.innerHTML);
+  };
 
   // Validasi dan tambah file baru
   const handleAddFiles = (fileList) => {
@@ -204,6 +231,10 @@ const EditFileGuru = ({ materialId, onKembali, onSaveSuccess, onKeProfil, onPili
     }
   };
 
+  const jumlahKata = deskripsi.trim()
+    ? deskripsi.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(Boolean).length
+    : 0;
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen bg-white font-sans text-gray-500 text-xs">
@@ -295,18 +326,64 @@ const EditFileGuru = ({ materialId, onKembali, onSaveSuccess, onKeProfil, onPili
             />
           </div>
 
-          {/* DESKRIPSI */}
+          {/* DESKRIPSI DENGAN EDITOR INTERAKTIF */}
           <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-2xs space-y-2">
             <label className="block text-xs font-bold text-[#17242E]">
               Deskripsi Materi
             </label>
-            <textarea
-              rows={5}
-              value={deskripsi}
-              onChange={(e) => setDeskripsi(e.target.value)}
-              placeholder="Tuliskan ringkasan atau petunjuk belajar materi ini..."
-              className="w-full p-4 rounded-2xl border border-gray-200 text-xs text-[#17242E] focus:outline-none focus:border-[#0088A8] bg-[#E0F7FA]/10 leading-relaxed"
-            />
+
+            <div className="border border-cyan-100 rounded-2xl overflow-hidden bg-white">
+              <div className="bg-[#F8FAFC] border-b border-gray-200 px-3 py-2 flex flex-wrap items-center gap-2 text-gray-600 text-xs">
+                <button 
+                  type="button" 
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => document.execCommand('bold', false, null)} 
+                  className="p-1.5 hover:bg-gray-200 rounded cursor-pointer" 
+                  title="Tebal"
+                >
+                  <Bold size={14} />
+                </button>
+                <button 
+                  type="button" 
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => document.execCommand('italic', false, null)} 
+                  className="p-1.5 hover:bg-gray-200 rounded cursor-pointer" 
+                  title="Miring"
+                >
+                  <Italic size={14} />
+                </button>
+                <button 
+                  type="button" 
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => document.execCommand('underline', false, null)} 
+                  className="p-1.5 hover:bg-gray-200 rounded cursor-pointer" 
+                  title="Garis Bawah"
+                >
+                  <Underline size={14} />
+                </button>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={handleInsertBullet}
+                  className="p-1.5 hover:bg-gray-200 rounded cursor-pointer flex items-center gap-1"
+                  title="Tambah Bullet Point"
+                >
+                  <List size={14} /> <span className="text-[10px]"></span>
+                </button>
+              </div>
+
+              <div
+                ref={editorRef}
+                contentEditable="true"
+                onInput={(e) => setDeskripsi(e.currentTarget.innerHTML || '')}
+                className="w-full p-4 text-xs text-[#17242E] focus:outline-none min-h-[140px] bg-[#E0F7FA]/10"
+                style={{ whiteSpace: 'pre-wrap' }}
+              ></div>
+
+              <div className="px-4 py-2 bg-gray-50 text-[10px] text-gray-400 border-t border-gray-100 text-right">
+                {jumlahKata} kata
+              </div>
+            </div>
           </div>
 
           {/* STATUS PUBLIKASI */}

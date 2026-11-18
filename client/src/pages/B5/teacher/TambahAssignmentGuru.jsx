@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { 
-  ArrowLeft, UploadCloud, File as FileIcon, X 
+  ArrowLeft, UploadCloud, File as FileIcon, X, 
+  Bold, Italic, Underline, List 
 } from 'lucide-react';
 
 import SidebarGuru from './SidebarGuru'; // <--- Komponen Sidebar Terpisah
@@ -37,6 +38,25 @@ const TambahAssignmentGuru = ({ onKembali, onSaveSuccess, sectionId, courseId })
   const [isDragging, setIsDragging] = useState(false);
   const [fileError, setFileError] = useState('');
   const fileInputRef = useRef(null);
+  const editorRef = useRef(null);
+
+  // Fungsi khusus untuk menyisipkan bullet point dengan aman ke contentEditable
+  const handleInsertBullet = () => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    editor.focus();
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return;
+    const range = selection.getRangeAt(0);
+
+    const textToInsert = `\n• ${selection.toString() || 'Poin daftar'}`;
+    range.deleteContents();
+    const textNode = document.createTextNode(textToInsert);
+    range.insertNode(textNode);
+    
+    setInstruksi(editor.innerHTML);
+  };
 
   const handleAddFiles = (fileList) => {
     const incomingFiles = Array.from(fileList || []);
@@ -142,6 +162,10 @@ const TambahAssignmentGuru = ({ onKembali, onSaveSuccess, sectionId, courseId })
     }
   };
 
+  const jumlahKataInstruksi = instruksi.trim()
+    ? instruksi.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(Boolean).length
+    : 0;
+
   return (
     <div className="flex min-h-screen bg-white font-sans text-[#17242E] w-full relative">
       {/* SIDEBAR TERPISAH */}
@@ -186,20 +210,60 @@ const TambahAssignmentGuru = ({ onKembali, onSaveSuccess, sectionId, courseId })
             />
           </div>
 
-          {/* Instruksi */}
+          {/* Instruksi dengan Editor Interaktif */}
           <div>
             <label className="block text-xs font-bold text-[#71808D] mb-2">Instruksi</label>
-            <div className="border border-cyan-100 rounded-xl overflow-hidden">
-              <div className="bg-white border-b border-gray-100 p-2 flex gap-3 text-xs text-gray-500 font-bold">
-                <span>Sisipkan</span><span>Format</span><span>Alat</span><span>Tabel</span><span>Bantuan</span>
+            <div className="border border-cyan-100 rounded-xl overflow-hidden bg-white">
+              <div className="bg-[#F8FAFC] border-b border-gray-200 px-3 py-2 flex flex-wrap items-center gap-2 text-gray-600 text-xs">
+                <button 
+                  type="button" 
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => document.execCommand('bold', false, null)} 
+                  className="p-1.5 hover:bg-gray-200 rounded cursor-pointer" 
+                  title="Tebal"
+                >
+                  <Bold size={14} />
+                </button>
+                <button 
+                  type="button" 
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => document.execCommand('italic', false, null)} 
+                  className="p-1.5 hover:bg-gray-200 rounded cursor-pointer" 
+                  title="Miring"
+                >
+                  <Italic size={14} />
+                </button>
+                <button 
+                  type="button" 
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => document.execCommand('underline', false, null)} 
+                  className="p-1.5 hover:bg-gray-200 rounded cursor-pointer" 
+                  title="Garis Bawah"
+                >
+                  <Underline size={14} />
+                </button>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={handleInsertBullet}
+                  className="p-1.5 hover:bg-gray-200 rounded cursor-pointer flex items-center gap-1"
+                  title="Tambah Bullet Point"
+                >
+                  <List size={14} /> <span className="text-[10px]"></span>
+                </button>
               </div>
-              <textarea 
-                rows={4} 
-                placeholder="Tulis instruksi tugas di sini..." 
-                value={instruksi} 
-                onChange={(e) => setInstruksi(e.target.value)} 
-                className="w-full p-4 bg-[#E0F7FA]/30 text-xs text-[#17242E] focus:outline-none" 
-              />
+
+              <div
+                ref={editorRef}
+                contentEditable="true"
+                onInput={(e) => setInstruksi(e.currentTarget.innerHTML || '')}
+                className="w-full p-4 text-xs text-[#17242E] focus:outline-none min-h-[120px] bg-[#E0F7FA]/10"
+                style={{ whiteSpace: 'pre-wrap' }}
+              ></div>
+
+              <div className="px-4 py-2 bg-gray-50 text-[10px] text-gray-400 border-t border-gray-100 text-right">
+                {jumlahKataInstruksi} kata
+              </div>
             </div>
           </div>
 

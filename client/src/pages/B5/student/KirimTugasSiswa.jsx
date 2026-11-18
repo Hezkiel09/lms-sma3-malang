@@ -139,11 +139,6 @@ const KirimTugasSiswa = ({ onKembali, onKirimSukses, onKeProfil, onPilihNotif })
                         <label className="text-xs font-bold text-[#17242E] block">Catatan:</label>
                         <div className="border border-gray-200 rounded-2xl overflow-hidden bg-white">
                             <div className="bg-[#F8FAFC] border-b border-gray-200 px-3 py-2 flex flex-wrap items-center gap-2 text-gray-600 text-xs">
-                                <span className="font-bold text-gray-500 mr-2">Insert</span>
-                                <span className="font-bold text-gray-500 mr-2">Format</span>
-                                <span className="font-bold text-gray-500 mr-2">Tools</span>
-                                <span className="font-bold text-gray-500 mr-4">Table</span>
-                                <div className="h-4 w-[1px] bg-gray-300 mx-1"></div>
                                 <button type="button" onClick={() => document.execCommand('bold', false, null)} className="p-1 hover:bg-gray-200 rounded"><Bold size={14} /></button>
                                 <button type="button" onClick={() => document.execCommand('italic', false, null)} className="p-1 hover:bg-gray-200 rounded"><Italic size={14} /></button>
                                 <button type="button" onClick={() => document.execCommand('underline', false, null)} className="p-1 hover:bg-gray-200 rounded"><Underline size={14} /></button>
