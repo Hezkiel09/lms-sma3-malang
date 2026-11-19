@@ -21,7 +21,6 @@ import { apiFetch } from '../../lib/api';
 import {
   mockBankSoalStats,
   mockKelasList,
-  mockQuestionsList,
 } from '../../data/mockBankSoal';
 
 export default function BankSoalPage() {
@@ -38,7 +37,7 @@ export default function BankSoalPage() {
   const [selectedMapel, setSelectedMapel] = useState(mockKelasList[1].mapelList[0]);
 
   // Data states
-  const [questions, setQuestions] = useState(mockQuestionsList);
+  const [questions, setQuestions] = useState([]);
   const [banks, setBanks] = useState([]);
   const [selectedBankId, setSelectedBankId] = useState('');
   const [isLoadingBanks, setIsLoadingBanks] = useState(true);
@@ -56,9 +55,7 @@ export default function BankSoalPage() {
   const [selectedJenisSoal, setSelectedJenisSoal] = useState('Semua jenis');
   const [selectedWaktu, setSelectedWaktu] = useState('Semua waktu');
 
-  // Toggle for testing Empty State
-  const [showEmptyMapel, setShowEmptyMapel] = useState(false);
-  const [showEmptySoal, setShowEmptySoal] = useState(false);
+  const [questionToDelete, setQuestionToDelete] = useState(null);
 
   // Modal detail view
   const [viewQuestion, setViewQuestion] = useState(null);
@@ -119,7 +116,10 @@ export default function BankSoalPage() {
         }));
       })
       .catch((error) => {
-        if (active) showToast(`Gagal memuat soal bank: ${error.message}`, 'error');
+        if (active) {
+          setQuestions([]);
+          showToast(`Gagal memuat soal bank: ${error.message}`, 'error');
+        }
       })
       .finally(() => {
         if (active) setIsLoadingQuestions(false);
@@ -167,16 +167,20 @@ export default function BankSoalPage() {
   };
 
   // Handler for deleting question
-  const handleDeleteQuestion = (id) => {
-    if (window.confirm('Apakah Anda yakin ingin menghapus soal ini?')) {
-      setQuestions((prev) => prev.filter((q) => q.id !== id));
+  const handleDeleteQuestion = async () => {
+    if (!questionToDelete || !selectedBankId) return;
+    try {
+      await apiFetch(`/banks/${encodeURIComponent(selectedBankId)}/questions/${encodeURIComponent(questionToDelete.id)}`, { method: 'DELETE' });
+      setQuestions((prev) => prev.filter((q) => String(q.id) !== String(questionToDelete.id)));
       showToast('Soal berhasil dihapus.');
+      setQuestionToDelete(null);
+    } catch (error) {
+      showToast(`Gagal menghapus soal: ${error.message}`, 'error');
     }
   };
 
   // Filtered questions
   const filteredQuestions = questions.filter((q) => {
-    if (showEmptySoal) return false;
     const matchSearch = q.pertanyaan.toLowerCase().includes(searchQuery.toLowerCase());
     const matchJenis =
       selectedJenisSoal === 'Semua jenis' || q.tipe === selectedJenisSoal;
@@ -271,6 +275,7 @@ export default function BankSoalPage() {
                   navigate('/b6/buat-kuis/import', {
                     state: {
                       from: 'bank-soal',
+                      bankId: selectedBankId,
                       kelas: selectedKelas.romawi,
                       mapel: selectedMapel?.nama || 'Matematika',
                     },
@@ -392,13 +397,13 @@ export default function BankSoalPage() {
             <div>
               <span className="text-xs text-slate-400 font-medium">Mata pelajaran tersedia</span>
               <div className="text-sm font-bold text-slate-800 mt-1">
-                {showEmptyMapel ? '-' : selectedMapel?.nama || 'Matematika'}
+                {selectedMapel?.nama || 'Matematika'}
               </div>
             </div>
             <div>
               <span className="text-xs text-slate-400 font-medium">Soal tersedia</span>
               <div className="text-sm font-bold text-slate-800 mt-1">
-                {showEmptyMapel ? '0 soal' : `${selectedKelas.totalSoal} soal`}
+                {`${selectedKelas.totalSoal} soal`}
               </div>
             </div>
           </div>
@@ -691,26 +696,7 @@ export default function BankSoalPage() {
         {/* STEP 2 CONTENT */}
         {currentStep === 2 && (
           <div className="pt-2">
-            {showEmptyMapel ? (
-              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 py-16 px-4 text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 mb-3">
-                  <Book className="h-6 w-6 stroke-[1.8]" />
-                </div>
-                <h3 className="text-sm font-bold text-slate-800">
-                  Belum ada mata pelajaran untuk Kelas {selectedKelas.romawi}
-                </h3>
-                <p className="mt-1 text-xs text-slate-400 max-w-sm">
-                  Tambahkan mata pelajaran baru terlebih dahulu atau pilih kelas lain.
-                </p>
-                <button
-                  onClick={() => setCurrentStep(1)}
-                  className="mt-4 rounded-xl bg-[#004d57] px-4 py-2 text-xs font-semibold text-white hover:bg-[#003c44] transition-colors"
-                >
-                  Pilih Kelas Lain
-                </button>
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-cyan-100/90 bg-white p-5 shadow-2xs space-y-4">
+            <div className="rounded-2xl border border-cyan-100/90 bg-white p-5 shadow-2xs space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3.5">
                     <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#e0f7fa] text-[#006064]">
@@ -754,7 +740,6 @@ export default function BankSoalPage() {
                   </button>
                 </div>
               </div>
-            )}
           </div>
         )}
 
@@ -808,12 +793,6 @@ export default function BankSoalPage() {
                 Menampilkan {filteredQuestions.length} dari {questions.length} soal •{' '}
                 {selectedMapel?.materi || 'Komposisi & invers'}
               </span>
-              <button
-                onClick={() => setShowEmptySoal(!showEmptySoal)}
-                className="text-[11px] text-slate-400 hover:text-slate-600 underline"
-              >
-                [Demo: {showEmptySoal ? 'Tampilkan Ada Soal' : 'Tampilkan Kosong'}]
-              </button>
             </div>
 
             {isLoadingQuestions ? (
@@ -884,7 +863,7 @@ export default function BankSoalPage() {
                           Lihat
                         </button>
                         <button
-                          onClick={() => handleDeleteQuestion(q.id)}
+                          onClick={() => setQuestionToDelete(q)}
                           className="rounded-xl border border-red-200 bg-red-50/50 px-3.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100/50 transition-colors"
                         >
                           Hapus
@@ -1006,6 +985,7 @@ export default function BankSoalPage() {
                       navigate('/b6/buat-kuis/import', {
                         state: {
                           from: 'bank-soal',
+                          bankId: selectedBankId,
                           kelas: selectedKelas.romawi,
                           mapel: selectedMapel?.nama || 'Matematika',
                           materi: selectedMapel?.materi || 'Komposisi & invers',
@@ -1110,6 +1090,19 @@ export default function BankSoalPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {questionToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="presentation">
+          <section className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="delete-question-title">
+            <h2 id="delete-question-title" className="text-base font-bold text-slate-800">Hapus soal?</h2>
+            <p className="text-sm text-slate-600">Soal ini akan dihapus dari Bank Soal. Tindakan ini tidak dapat dibatalkan.</p>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setQuestionToDelete(null)} className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600">Batal</button>
+              <button type="button" onClick={handleDeleteQuestion} className="rounded-xl bg-red-600 px-4 py-2 text-xs font-semibold text-white">Hapus Soal</button>
+            </div>
+          </section>
         </div>
       )}
     </div>

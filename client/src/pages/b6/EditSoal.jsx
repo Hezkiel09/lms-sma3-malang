@@ -114,15 +114,16 @@ export default function EditSoal() {
     const formatValid = ["image/png", "image/jpeg"];
 
     if (!formatValid.includes(file.type)) {
-      alert("Format gambar harus PNG atau JPG.");
+      setError("Format gambar harus PNG atau JPG.");
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      alert("Ukuran gambar maksimal 5 MB.");
+      setError("Ukuran gambar maksimal 5 MB.");
       return;
     }
 
+    setError("");
     setGambar(file);
     setPreviewGambar(URL.createObjectURL(file));
   };
@@ -142,7 +143,7 @@ export default function EditSoal() {
     e.preventDefault();
 
     if (!form.pertanyaan.trim()) {
-      alert("Pertanyaan tidak boleh kosong.");
+      setError("Pertanyaan tidak boleh kosong.");
       return;
     }
 
@@ -150,7 +151,7 @@ export default function EditSoal() {
       form.jenis === "Pilihan Ganda" &&
       form.pilihan.some((item) => !item.trim())
     ) {
-      alert("Semua pilihan jawaban harus diisi.");
+      setError("Semua pilihan jawaban harus diisi.");
       return;
     }
 
@@ -158,7 +159,7 @@ export default function EditSoal() {
       form.jenis !== "Esai" &&
       form.kunci < 0
     ) {
-      alert("Silakan tentukan kunci jawaban.");
+      setError("Silakan tentukan kunci jawaban.");
       return;
     }
 

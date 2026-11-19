@@ -52,7 +52,16 @@ export default function RekapHasilPage() {
   }, [searchQuery, filterPengerjaan, filterKetuntasan]);
 
   const handleExport = () => {
-    alert('Rekap hasil berhasil diekspor dalam format Excel (.xlsx)!');
+    const headers = ['Nama', 'Kode', 'Nilai', 'Benar', 'Salah', 'Waktu', 'Pengerjaan', 'Ketuntasan'];
+    const escapeCell = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
+    const rows = filteredStudents.map((student) => [student.nama, student.kode, student.nilai, student.benar, student.salah, student.waktu, student.pengerjaan, student.ketuntasan]);
+    const csv = [headers, ...rows].map((row) => row.map(escapeCell).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'rekap-hasil.csv';
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   return (
@@ -87,7 +96,7 @@ export default function RekapHasilPage() {
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#004d57] px-5 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-xs hover:bg-[#003c44] transition-colors"
         >
           <Download className="h-4 w-4" />
-          <span>Ekspor Rekap</span>
+          <span>Ekspor Rekap CSV</span>
         </button>
       </div>
 

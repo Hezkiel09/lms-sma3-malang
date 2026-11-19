@@ -38,10 +38,20 @@ export default function BuatKuisPage() {
   const hasAddedFromBank = selectedQuestions.length > 0;
   const totalQuestions = selectedQuestions.length;
   const numbersList = Array.from({ length: totalQuestions }, (_, i) => i + 1);
+  const moveQuestion = (index, offset) => {
+    const nextIndex = index + offset;
+    if (nextIndex < 0 || nextIndex >= selectedQuestions.length) return;
+    setSelectedQuestions((current) => {
+      const reordered = [...current];
+      [reordered[index], reordered[nextIndex]] = [reordered[nextIndex], reordered[index]];
+      return reordered;
+    });
+  };
 
   const handleSaveQuiz = async () => {
     if (!formData.judul.trim()) return setFeedback({ type: 'error', message: 'Judul kuis wajib diisi.' });
     if (!selectedQuestions.length) return setFeedback({ type: 'error', message: 'Pilih minimal satu soal dari Bank Soal sebelum menyimpan.' });
+    if (selectedQuestions.some((question) => !Number.isFinite(Number(question.points ?? question.default_points ?? 1)) || Number(question.points ?? question.default_points ?? 1) <= 0)) return setFeedback({ type: 'error', message: 'Bobot setiap soal harus lebih dari 0.' });
     const duration = Number.parseInt(formData.durasi, 10);
     if (!Number.isFinite(duration) || duration <= 0) return setFeedback({ type: 'error', message: 'Durasi harus berupa jumlah menit yang valid.' });
 
@@ -224,7 +234,7 @@ export default function BuatKuisPage() {
           {/* 3 Tombol Aksi: Impor, Ambil dari Bank Soal, Tambah Soal */}
           <div className="flex flex-wrap items-center gap-2.5">
             <button
-              onClick={() => navigate('/b6/buat-kuis/import')}
+              onClick={() => navigate('/b6/buat-kuis/import', { state: { selectedQuestions, formData } })}
               className="flex items-center gap-2 rounded-xl bg-[#e6f7f8] px-4 py-2 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors"
             >
               <Upload className="h-4 w-4 stroke-[2.2]" />
@@ -239,7 +249,7 @@ export default function BuatKuisPage() {
             </button>
 
             <button
-              onClick={() => navigate('/b6/buat-kuis/ambil-bank-soal', { state: { selectedQuestions, formData } })}
+              onClick={() => navigate('/b6/buat-kuis/tambah-soal', { state: { from: 'buat-kuis', selectedQuestions, formData } })}
               className="rounded-xl bg-[#004d57] px-4 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] transition-colors"
             >
               Tambah Soal
@@ -278,7 +288,7 @@ export default function BuatKuisPage() {
 
           {hasAddedFromBank && (
             <span className="rounded-full bg-[#e0f7fa] px-2.5 py-0.5 text-xs font-semibold text-[#006064]">
-              41–42 baru
+              {selectedQuestions.length} soal dipilih
             </span>
           )}
         </div>
@@ -292,6 +302,12 @@ export default function BuatKuisPage() {
                   <span className="rounded-md bg-[#e0f7fa] px-2 py-0.5 text-[11px] font-semibold text-[#006064]">{question.question_type || 'Soal'}</span>
                   <p className="mt-1.5 text-xs font-semibold text-slate-800 sm:text-sm">{question.question_text}</p>
                   <p className="mt-1 text-[11px] text-slate-400">Dari Bank Soal · {question.points ?? question.default_points ?? 1} poin</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <label className="sr-only" htmlFor={`question-points-${question.id}`}>Bobot soal {index + 1}</label>
+                  <input id={`question-points-${question.id}`} type="number" min="0.1" step="0.1" value={question.points ?? question.default_points ?? 1} onChange={(event) => setSelectedQuestions((current) => current.map((item) => String(item.id) === String(question.id) ? { ...item, points: Number(event.target.value) } : item))} className="w-16 rounded-lg border border-slate-200 px-2 py-1 text-xs" aria-label={`Bobot soal ${index + 1}`} />
+                  <button type="button" disabled={index === 0} onClick={() => moveQuestion(index, -1)} className="rounded-md px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-30" aria-label={`Naikkan soal ${index + 1}`}>↑</button>
+                  <button type="button" disabled={index === selectedQuestions.length - 1} onClick={() => moveQuestion(index, 1)} className="rounded-md px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-30" aria-label={`Turunkan soal ${index + 1}`}>↓</button>
                 </div>
                 <button type="button" onClick={() => setSelectedQuestions((current) => current.filter((item) => String(item.id) !== String(question.id)))} className="rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50">Hapus</button>
               </div>

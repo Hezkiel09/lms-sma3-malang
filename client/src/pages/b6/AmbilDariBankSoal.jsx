@@ -78,6 +78,25 @@ export default function AmbilDariBankSoalPage() {
   }, [selectedBankId, banks]);
 
   const selectedBank = banks.find((bank) => String(bank.id) === String(selectedBankId));
+  const classOptions = [...new Set(banks.map((bank) => bank.class_level).filter(Boolean))];
+  const subjectOptions = [...new Set(banks.filter((bank) => !selectedKelas || `Kelas ${bank.class_level}` === selectedKelas || bank.class_level === selectedKelas).map((bank) => bank.subject_name).filter(Boolean))];
+  const topicOptions = [...new Set(banks.filter((bank) => bank.subject_name === selectedMapel).map((bank) => bank.topic_name).filter(Boolean))];
+
+  useEffect(() => {
+    if (!selectedBank) return;
+    setSelectedKelas(selectedBank.class_level ? `Kelas ${selectedBank.class_level}` : '');
+    setSelectedMapel(selectedBank.subject_name || '');
+    setSelectedMateri(selectedBank.topic_name || '');
+  }, [selectedBankId, banks]);
+
+  const chooseMatchingBank = (field, value) => {
+    const match = banks.find((bank) => {
+      if (field === 'class_level') return bank.class_level === value;
+      if (field === 'subject_name') return bank.subject_name === value && (!selectedBank || bank.class_level === selectedBank.class_level);
+      return bank.topic_name === value && (!selectedBank || (bank.class_level === selectedBank.class_level && bank.subject_name === selectedBank.subject_name));
+    });
+    if (match) setSelectedBankId(String(match.id));
+  };
 
   // Toggle single item
   const handleToggle = (id) => {
@@ -175,12 +194,10 @@ export default function AmbilDariBankSoalPage() {
             <div className="relative">
               <select
                 value={selectedKelas}
-                onChange={(e) => setSelectedKelas(e.target.value)}
+                onChange={(e) => chooseMatchingBank('class_level', e.target.value)}
                 className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-9 text-xs sm:text-sm font-medium text-slate-800 focus:border-[#004d57] focus:outline-none"
               >
-                <option value="Kelas X">Kelas X</option>
-                <option value="Kelas XI">Kelas XI</option>
-                <option value="Kelas XII">Kelas XII</option>
+                {classOptions.map((level) => <option key={level} value={level}>Kelas {level}</option>)}
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             </div>
@@ -194,12 +211,10 @@ export default function AmbilDariBankSoalPage() {
             <div className="relative">
               <select
                 value={selectedMapel}
-                onChange={(e) => setSelectedMapel(e.target.value)}
+                onChange={(e) => chooseMatchingBank('subject_name', e.target.value)}
                 className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-9 text-xs sm:text-sm font-medium text-slate-800 focus:border-[#004d57] focus:outline-none"
               >
-                <option value="Matematika">Matematika</option>
-                <option value="Fisika">Fisika</option>
-                <option value="Kimia">Kimia</option>
+                {subjectOptions.map((subject) => <option key={subject} value={subject}>{subject}</option>)}
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             </div>
@@ -213,12 +228,10 @@ export default function AmbilDariBankSoalPage() {
             <div className="relative">
               <select
                 value={selectedMateri}
-                onChange={(e) => setSelectedMateri(e.target.value)}
+                onChange={(e) => chooseMatchingBank('topic_name', e.target.value)}
                 className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-9 text-xs sm:text-sm font-medium text-slate-800 focus:border-[#004d57] focus:outline-none"
               >
-                <option value="Komposisi & invers">Komposisi &amp; invers</option>
-                <option value="Persamaan kuadrat">Persamaan kuadrat</option>
-                <option value="Peluang">Peluang</option>
+                {topicOptions.map((topic) => <option key={topic} value={topic}>{topic}</option>)}
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             </div>

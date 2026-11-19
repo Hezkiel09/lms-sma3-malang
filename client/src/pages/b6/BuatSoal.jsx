@@ -243,6 +243,7 @@ export default function BuatSoal() {
                   navigate('/b6/buat-kuis/import', {
                     state: {
                       from: 'bank-soal',
+                      bankId,
                       kelas,
                       mapel,
                       materi,
