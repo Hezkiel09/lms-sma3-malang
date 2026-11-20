@@ -38,6 +38,11 @@ export default function TambahSoalKuisPage() {
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState(null);
 
+  const bankReturnState = (targetBankId = bankId) => ({
+    refreshBankId: targetBankId,
+    returnToStep: 4,
+  });
+
   useEffect(() => {
     if (fromSource !== 'buat-kuis') return;
     let active = true;
@@ -96,7 +101,7 @@ export default function TambahSoalKuisPage() {
         const question = { ...created, id: created.id, points: Number(bobot) };
         navigate('/b6/buat-kuis', { state: { selectedQuestions: [...selectedQuestions, question], formData, flashMessage: 'Soal berhasil ditambahkan dari Bank Soal.' } });
       } else {
-        navigate('/b6/bank-soal', { state: { refreshBankId: targetBankId, flashMessage: 'Soal berhasil disimpan.' } });
+        navigate('/b6/bank-soal', { state: { ...bankReturnState(targetBankId), flashMessage: 'Soal berhasil disimpan.' } });
       }
     } catch (error) {
       setFeedback({ type: 'error', message: `Gagal menyimpan soal: ${error.message}` });
@@ -114,7 +119,7 @@ export default function TambahSoalKuisPage() {
         </Link>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
         {fromSource === 'bank-soal' ? (
-          <Link to="/b6/bank-soal" className="hover:text-slate-600 transition-colors">
+          <Link to="/b6/bank-soal" state={bankReturnState()} className="hover:text-slate-600 transition-colors">
             Bank Soal
           </Link>
         ) : (
@@ -450,7 +455,7 @@ export default function TambahSoalKuisPage() {
               type="button"
               onClick={() => {
                 if (fromSource === 'bank-soal') {
-                  navigate('/b6/bank-soal');
+                  navigate('/b6/bank-soal', { state: bankReturnState() });
                 } else {
                   navigate('/b6/buat-kuis');
                 }

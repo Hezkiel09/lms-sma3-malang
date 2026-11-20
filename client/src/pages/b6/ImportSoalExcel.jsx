@@ -85,7 +85,7 @@ export default function ImportSoalExcelPage() {
         </Link>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
         {fromSource === 'bank-soal' ? (
-          <Link to="/b6/bank-soal" className="hover:text-slate-600 transition-colors">
+          <Link to="/b6/bank-soal" state={{ refreshBankId: bankId, returnToStep: 4 }} className="hover:text-slate-600 transition-colors">
             Bank Soal
           </Link>
         ) : (
@@ -280,7 +280,7 @@ export default function ImportSoalExcelPage() {
         <button
           onClick={() => {
             if (fromSource === 'bank-soal') {
-              navigate('/b6/bank-soal', { state: { refreshBankId: bankId } });
+              navigate('/b6/bank-soal', { state: { refreshBankId: bankId, returnToStep: 4 } });
             } else {
               navigate('/b6/buat-kuis', { state: { selectedQuestions: location.state?.selectedQuestions, formData: location.state?.formData } });
             }

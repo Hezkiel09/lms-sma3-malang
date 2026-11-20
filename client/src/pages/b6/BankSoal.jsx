@@ -87,8 +87,10 @@ export default function BankSoalPage() {
         setBanks(bankList);
         const requestedBankId = location.state?.refreshBankId;
         const targetBankId = requestedBankId && bankList.some((bank) => String(bank.id) === String(requestedBankId)) ? requestedBankId : bankList[0]?.id || '';
-        setSelectedBankId((current) => current || targetBankId);
-        if (requestedBankId && targetBankId) setCurrentStep(3);
+        setSelectedBankId((current) => requestedBankId ? targetBankId : current || targetBankId);
+        const returnToStep = location.state?.returnToStep;
+        if ([1, 2, 3, 4].includes(returnToStep)) setCurrentStep(returnToStep);
+        else if (requestedBankId && targetBankId) setCurrentStep(3);
         if (location.state?.flashMessage) showToast(location.state.flashMessage);
         if (bankList.length > 0) setIsLoadingQuestions(true);
       })
@@ -100,7 +102,7 @@ export default function BankSoalPage() {
       });
 
     return () => { active = false; };
-  }, []);
+  }, [location.state?.flashMessage, location.state?.refreshBankId, location.state?.returnToStep]);
 
   useEffect(() => {
     if (currentStep !== 3 || !selectedBankId) return undefined;
