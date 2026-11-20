@@ -45,3 +45,24 @@ export const deleteAttempt = async (req, res) => res.status(405).json({
   success: false,
   message: 'Attempt tidak dapat dihapus melalui API Student.',
 });
+
+export const getRecapQuizzes = async (req, res) => {
+  try {
+    const data = await attemptService.getRecapQuizzes(req.user.id);
+    return res.status(200).json({ success: true, data });
+  } catch (error) { return respondError(res, error, 'Gagal mengambil daftar kuis untuk rekap'); }
+};
+
+export const getQuizAttemptRecap = async (req, res) => {
+  try {
+    const data = await attemptService.getQuizAttemptRecap(req.query.quiz_id, req.user.id);
+    return res.status(200).json({ success: true, data });
+  } catch (error) { return respondError(res, error, 'Gagal mengambil rekap hasil kuis'); }
+};
+
+export const getAttemptRecapDetail = async (req, res) => {
+  try {
+    const data = await attemptService.getAttemptRecapDetail(req.params.id, req.user.id);
+    return res.status(200).json({ success: true, data });
+  } catch (error) { return respondError(res, error, 'Gagal mengambil detail hasil attempt'); }
+};

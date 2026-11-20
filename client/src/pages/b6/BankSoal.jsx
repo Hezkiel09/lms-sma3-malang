@@ -67,6 +67,17 @@ export default function BankSoalPage() {
     setTimeout(() => setToast(null), 3500);
   };
 
+  const openManualQuestionForm = (initialType) => navigate('/b6/buat-kuis/tambah-soal', {
+    state: {
+      from: 'bank-soal',
+      initialType,
+      bankId: selectedBankId,
+      kelas: selectedKelas.romawi,
+      mapel: selectedMapel?.nama || 'Matematika',
+      materi: selectedMapel?.materi || 'Komposisi & invers',
+    },
+  });
+
   useEffect(() => {
     let active = true;
     apiFetch('/banks')
@@ -901,17 +912,7 @@ export default function BankSoalPage() {
                 <div className="space-y-2.5 pt-2">
                   <button
                     type="button"
-                    onClick={() =>
-                      navigate('/b6/buat-soal', {
-                        state: {
-                          bankId: selectedBankId,
-                          from: 'bank-soal',
-                          kelas: selectedKelas.romawi,
-                          mapel: selectedMapel?.nama || 'Matematika',
-                          materi: selectedMapel?.materi || 'Komposisi & invers',
-                        },
-                      })
-                    }
+                    onClick={() => openManualQuestionForm('Pilihan Ganda')}
                     className="w-full rounded-xl bg-[#e6f7f8] py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors text-center border border-cyan-100/60"
                   >
                     Pilihan Ganda
@@ -919,17 +920,7 @@ export default function BankSoalPage() {
 
                   <button
                     type="button"
-                    onClick={() =>
-                      navigate('/b6/buat-soal', {
-                        state: {
-                          bankId: selectedBankId,
-                          from: 'bank-soal',
-                          kelas: selectedKelas.romawi,
-                          mapel: selectedMapel?.nama || 'Matematika',
-                          materi: selectedMapel?.materi || 'Komposisi & invers',
-                        },
-                      })
-                    }
+                    onClick={() => openManualQuestionForm('Benar / Salah')}
                     className="w-full rounded-xl bg-[#e6f7f8] py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors text-center border border-cyan-100/60"
                   >
                     Benar / Salah
@@ -937,17 +928,7 @@ export default function BankSoalPage() {
 
                   <button
                     type="button"
-                    onClick={() =>
-                      navigate('/b6/buat-soal', {
-                        state: {
-                          bankId: selectedBankId,
-                          from: 'bank-soal',
-                          kelas: selectedKelas.romawi,
-                          mapel: selectedMapel?.nama || 'Matematika',
-                          materi: selectedMapel?.materi || 'Komposisi & invers',
-                        },
-                      })
-                    }
+                    onClick={() => openManualQuestionForm('Esai')}
                     className="w-full rounded-xl bg-[#e6f7f8] py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors text-center border border-cyan-100/60"
                   >
                     Esai

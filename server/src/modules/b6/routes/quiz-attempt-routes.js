@@ -6,6 +6,9 @@ import { gradeAttemptController } from '../controllers/grading-controller.js';
 const router = Router();
 
 router.use(authenticateUser);
+router.get('/recap/quizzes', attemptController.getRecapQuizzes);
+router.get('/recap', attemptController.getQuizAttemptRecap);
+router.get('/:id/recap', attemptController.getAttemptRecapDetail);
 router.get('/', attemptController.getAllAttempts);
 router.post('/:attemptId/grade', gradeAttemptController);
 router.get('/:id', attemptController.getAttemptById);

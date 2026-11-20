@@ -1,722 +1,250 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronDown,
   ChevronRight,
+  Clock3,
   Download,
   FileText,
-  Clock,
+  LoaderCircle,
   Search,
-  ChevronDown,
-  Info,
-  CheckCircle2,
-  XCircle,
-  HelpCircle,
   X,
+  XCircle,
 } from 'lucide-react';
-import {
-  mockAsesmenHeader,
-  mockRekapKpi,
-  mockDistribusiNilai,
-  mockSiswaRekapList,
-} from '../../data/mockRekapHasil';
+import { apiFetch } from '../../lib/api';
+
+const formatDate = (value) => value
+  ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+  : '—';
+
+const attemptStatus = (value) => ({
+  SEDANG_MENGERJAKAN: 'BERLANGSUNG',
+  BELUM_MULAI: 'BELUM_MULAI',
+  SELESAI: 'SELESAI',
+}[value] || value || '—');
+
+const gradingStatus = (value) => value || 'BELUM_MULAI';
+
+function StatusPill({ value, grading = false }) {
+  const complete = value === 'SELESAI' || value === 'SELESAI_DINILAI';
+  const inProgress = value === 'BERLANGSUNG' || value === 'SEDANG_MENGERJAKAN';
+  return (
+    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+      complete ? 'bg-emerald-50 text-emerald-700' : inProgress ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'
+    }`}>
+      {grading ? gradingStatus(value) : attemptStatus(value)}
+    </span>
+  );
+}
 
 export default function RekapHasilPage() {
-  // Filters & Search
-  const [selectedAsesmen, setSelectedAsesmen] = useState('Ulangan Harian Matematika XI');
-  const [selectedJenis, setSelectedJenis] = useState('Ulangan Harian');
-  const [selectedKelas, setSelectedKelas] = useState('XI IPA 1 (contoh)');
-  const [selectedSemester, setSelectedSemester] = useState('Ganjil 2026/2027');
+  const [quizzes, setQuizzes] = useState([]);
+  const [selectedQuizId, setSelectedQuizId] = useState('');
+  const [attempts, setAttempts] = useState([]);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('SEMUA');
+  const [pageError, setPageError] = useState('');
+  const [isLoadingQuizzes, setIsLoadingQuizzes] = useState(true);
+  const [isLoadingAttempts, setIsLoadingAttempts] = useState(false);
+  const [selectedAttemptId, setSelectedAttemptId] = useState('');
+  const [attemptDetail, setAttemptDetail] = useState(null);
+  const [detailError, setDetailError] = useState('');
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterPengerjaan, setFilterPengerjaan] = useState('Semua status');
-  const [filterKetuntasan, setFilterKetuntasan] = useState('Semua hasil');
+  useEffect(() => {
+    let active = true;
+    apiFetch('/attempts/recap/quizzes')
+      .then((data) => {
+        if (!active) return;
+        const list = data || [];
+        setQuizzes(list);
+        setIsLoadingAttempts(Boolean(list.length));
+        setSelectedQuizId(list[0]?.id || '');
+      })
+      .catch((error) => active && setPageError(error.message))
+      .finally(() => active && setIsLoadingQuizzes(false));
+    return () => { active = false; };
+  }, []);
 
-  // Selected student for detail modal
-  const [selectedSiswa, setSelectedSiswa] = useState(null);
+  useEffect(() => {
+    if (!selectedQuizId) return undefined;
+    let active = true;
+    apiFetch(`/attempts/recap?quiz_id=${encodeURIComponent(selectedQuizId)}`)
+      .then((data) => active && setAttempts(data?.attempts || []))
+      .catch((error) => active && setPageError(error.message))
+      .finally(() => active && setIsLoadingAttempts(false));
+    return () => { active = false; };
+  }, [selectedQuizId]);
 
-  // Filtered student list
-  const filteredStudents = useMemo(() => {
-    return mockSiswaRekapList.filter((item) => {
-      const matchSearch =
-        item.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.kode.toLowerCase().includes(searchQuery.toLowerCase());
+  useEffect(() => {
+    if (!selectedAttemptId) return undefined;
+    let active = true;
+    apiFetch(`/attempts/${encodeURIComponent(selectedAttemptId)}/recap`)
+      .then((data) => active && setAttemptDetail(data))
+      .catch((error) => active && setDetailError(error.message))
+      .finally(() => active && setIsLoadingDetail(false));
+    return () => { active = false; };
+  }, [selectedAttemptId]);
 
-      const matchPengerjaan =
-        filterPengerjaan === 'Semua status' || item.pengerjaan === filterPengerjaan;
+  const selectedQuiz = quizzes.find((quiz) => quiz.id === selectedQuizId);
+  const filteredAttempts = useMemo(() => attempts.filter((attempt) => {
+    const term = search.trim().toLowerCase();
+    const name = attempt.student?.name || '';
+    const nis = attempt.student?.nis || '';
+    const matchesSearch = !term || name.toLowerCase().includes(term) || String(nis).toLowerCase().includes(term);
+    const matchesStatus = statusFilter === 'SEMUA' || attemptStatus(attempt.status) === statusFilter;
+    return matchesSearch && matchesStatus;
+  }), [attempts, search, statusFilter]);
 
-      const matchKetuntasan =
-        filterKetuntasan === 'Semua hasil' || item.ketuntasan === filterKetuntasan;
+  const gradedAttempts = attempts.filter((attempt) => Number.isFinite(Number(attempt.total_score)) && attempt.total_score !== null);
+  const averageScore = gradedAttempts.length
+    ? (gradedAttempts.reduce((sum, attempt) => sum + Number(attempt.total_score), 0) / gradedAttempts.length).toFixed(1)
+    : '—';
+  const submittedCount = attempts.filter((attempt) => attempt.status === 'SELESAI').length;
 
-      return matchSearch && matchPengerjaan && matchKetuntasan;
-    });
-  }, [searchQuery, filterPengerjaan, filterKetuntasan]);
-
-  const handleExport = () => {
-    const headers = ['Nama', 'Kode', 'Nilai', 'Benar', 'Salah', 'Waktu', 'Pengerjaan', 'Ketuntasan'];
-    const escapeCell = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
-    const rows = filteredStudents.map((student) => [student.nama, student.kode, student.nilai, student.benar, student.salah, student.waktu, student.pengerjaan, student.ketuntasan]);
-    const csv = [headers, ...rows].map((row) => row.map(escapeCell).join(',')).join('\r\n');
+  const exportCsv = () => {
+    const headers = ['Nama siswa', 'NIS', 'Kuis', 'Status attempt', 'Nilai', 'Benar', 'Salah', 'Mulai', 'Submit', 'Status grading'];
+    const escape = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
+    const rows = filteredAttempts.map((attempt) => [
+      attempt.student?.name, attempt.student?.nis, selectedQuiz?.title, attemptStatus(attempt.status),
+      attempt.total_score, attempt.correct_count, attempt.incorrect_count, attempt.started_at,
+      attempt.submitted_at, gradingStatus(attempt.grading_status),
+    ]);
+    const csv = [headers, ...rows].map((row) => row.map(escape).join(',')).join('\r\n');
     const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = 'rekap-hasil.csv';
+    anchor.download = `rekap-${selectedQuiz?.title || 'hasil'}.csv`;
     anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
-      {/* 1. Breadcrumbs */}
+    <div className="mx-auto max-w-7xl space-y-6 pb-12">
       <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
-        <Link to="/b6/beranda" className="hover:text-slate-600 transition-colors">
-          Beranda
-        </Link>
+        <Link to="/b6/beranda" className="transition-colors hover:text-slate-600">Beranda</Link>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-        <Link to="/b6/buat-kuis" className="hover:text-slate-600 transition-colors">
-          Asesmen
-        </Link>
+        <Link to="/b6/buat-kuis" className="transition-colors hover:text-slate-600">Asesmen</Link>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-        <span className="text-[#005b64] font-semibold">Rekap Hasil</span>
+        <span className="font-semibold text-[#005b64]">Rekap Hasil</span>
       </nav>
 
-      {/* 2. Page Header & Action */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">
-            Rekap Hasil
-          </h1>
-          <p className="mt-1 text-xs sm:text-sm text-slate-400">
-            Pantau capaian belajar dan tentukan tindak lanjut untuk siswa.
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">Rekap Hasil</h1>
+          <p className="mt-1 text-sm text-slate-500">Hasil attempt dan jawaban siswa dari data tersimpan.</p>
         </div>
-
-        <button
-          type="button"
-          onClick={handleExport}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#004d57] px-5 py-2.5 text-xs sm:text-sm font-semibold text-white shadow-xs hover:bg-[#003c44] transition-colors"
-        >
-          <Download className="h-4 w-4" />
-          <span>Ekspor Rekap CSV</span>
+        <button type="button" onClick={exportCsv} disabled={!filteredAttempts.length} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#004d57] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#003c44] disabled:cursor-not-allowed disabled:opacity-50">
+          <Download className="h-4 w-4" /> Ekspor CSV
         </button>
       </div>
 
-      {/* 3. Filter Card & Asesmen Metadata */}
-      <div className="rounded-2xl border border-slate-100 bg-white p-5 sm:p-6 shadow-xs space-y-5">
-        {/* Dropdowns Row */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {/* Asesmen */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-slate-700">
-              Asesmen
-            </label>
-            <div className="relative">
-              <select
-                value={selectedAsesmen}
-                onChange={(e) => setSelectedAsesmen(e.target.value)}
-                className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-8 text-xs sm:text-sm font-semibold text-slate-800 focus:border-[#004d57] focus:outline-none"
-              >
-                <option value="Ulangan Harian Matematika XI">
-                  Ulangan Harian Matematika XI
-                </option>
-                <option value="Kuis Logika Matematika">Kuis Logika Matematika</option>
-                <option value="Penilaian Akhir Semester">Penilaian Akhir Semester</option>
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            </div>
-          </div>
+      <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs sm:p-6">
+        <label htmlFor="quiz-select" className="mb-2 block text-xs font-semibold text-slate-700">Pilih kuis</label>
+        <div className="relative max-w-xl">
+          <select id="quiz-select" value={selectedQuizId} onChange={(event) => { setAttempts([]); setPageError(''); setIsLoadingAttempts(true); setSelectedQuizId(event.target.value); }} disabled={isLoadingQuizzes || !quizzes.length} className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-9 text-sm font-semibold text-slate-800 focus:border-[#004d57] focus:outline-none disabled:bg-slate-50">
+            {isLoadingQuizzes && <option value="">Memuat kuis…</option>}
+            {!isLoadingQuizzes && !quizzes.length && <option value="">Belum ada kuis milik Anda</option>}
+            {quizzes.map((quiz) => <option key={quiz.id} value={quiz.id}>{quiz.title}</option>)}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        </div>
+        {selectedQuiz && <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-100 pt-4 text-xs text-slate-500">
+          <span className="inline-flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" />{selectedQuiz.status || '—'}</span>
+          <span className="inline-flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5" />{selectedQuiz.duration_minutes ? `${selectedQuiz.duration_minutes} menit` : 'Durasi tidak diatur'}</span>
+          <span>KKM {selectedQuiz.passing_grade ?? '—'}</span>
+          {selectedQuiz.start_at && <span>Mulai {formatDate(selectedQuiz.start_at)}</span>}
+        </div>}
+      </section>
 
-          {/* Jenis Asesmen */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-slate-700">
-              Jenis Asesmen
-            </label>
-            <div className="relative">
-              <select
-                value={selectedJenis}
-                onChange={(e) => setSelectedJenis(e.target.value)}
-                className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-8 text-xs sm:text-sm font-semibold text-slate-800 focus:border-[#004d57] focus:outline-none"
-              >
-                <option value="Ulangan Harian">Ulangan Harian</option>
-                <option value="Tugas Mandiri">Tugas Mandiri</option>
-                <option value="Ujian Tengah Semester">Ujian Tengah Semester</option>
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            </div>
-          </div>
+      {pageError && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{pageError}</div>}
 
-          {/* Kelas */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-slate-700">
-              Kelas
-            </label>
-            <div className="relative">
-              <select
-                value={selectedKelas}
-                onChange={(e) => setSelectedKelas(e.target.value)}
-                className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-8 text-xs sm:text-sm font-semibold text-slate-800 focus:border-[#004d57] focus:outline-none"
-              >
-                <option value="XI IPA 1 (contoh)">XI IPA 1 (contoh)</option>
-                <option value="XI IPA 2">XI IPA 2</option>
-                <option value="XI IPA 3">XI IPA 3</option>
-                <option value="XI IPS 1">XI IPS 1</option>
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            </div>
-          </div>
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {[
+          { label: 'Total attempt', value: attempts.length },
+          { label: 'Sudah submit', value: submittedCount },
+          { label: 'Rata-rata nilai dinilai', value: averageScore },
+        ].map((item) => <div key={item.label} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
+          <p className="text-xs font-medium text-slate-500">{item.label}</p><p className="mt-2 text-2xl font-bold text-slate-800">{item.value}</p>
+        </div>)}
+      </section>
 
-          {/* Semester */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-slate-700">
-              Semester
-            </label>
-            <div className="relative">
-              <select
-                value={selectedSemester}
-                onChange={(e) => setSelectedSemester(e.target.value)}
-                className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-8 text-xs sm:text-sm font-semibold text-slate-800 focus:border-[#004d57] focus:outline-none"
-              >
-                <option value="Ganjil 2026/2027">Ganjil 2026/2027</option>
-                <option value="Genap 2026/2027">Genap 2026/2027</option>
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            </div>
+      <section className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-xs">
+        <div className="space-y-4 border-b border-slate-100 p-5 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div><h2 className="text-base font-bold text-slate-800">Hasil per siswa</h2><p className="mt-0.5 text-xs text-slate-500">Klik detail untuk melihat jawaban tersimpan dan kunci jawaban.</p></div>
+            <span className="rounded-md bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-800">{filteredAttempts.length} attempt</span>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="relative flex-1"><Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari nama atau NIS siswa…" className="w-full rounded-xl border border-slate-200 py-2 pl-9 pr-4 text-sm focus:border-[#004d57] focus:outline-none" /></div>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 focus:border-[#004d57] focus:outline-none">
+              <option value="SEMUA">Semua status</option><option value="BERLANGSUNG">Berlangsung</option><option value="SELESAI">Selesai</option>
+            </select>
           </div>
         </div>
 
-        {/* Asesmen Info Bar */}
-        <div className="flex flex-col gap-3 pt-3 border-t border-slate-100 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-base font-bold text-slate-800">
-              {mockAsesmenHeader.judul}
-            </h2>
-            <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
-              <span className="flex items-center gap-1.5">
-                <FileText className="h-3.5 w-3.5 text-slate-400" />
-                {mockAsesmenHeader.soalInfo}
-              </span>
-              <span>•</span>
-              <span className="flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5 text-slate-400" />
-                {mockAsesmenHeader.durasi}
-              </span>
-              <span>•</span>
-              <span className="font-semibold text-slate-700">
-                KKM {mockAsesmenHeader.kkm}
-              </span>
-              <span>•</span>
-              <span>
-                {mockAsesmenHeader.tanggal} • {mockAsesmenHeader.waktu}
-              </span>
-            </div>
-          </div>
-
-          <div>
-            <span className="inline-flex items-center rounded-md bg-[#e0f7fa] px-3 py-1 text-xs font-semibold text-[#006064]">
-              {mockAsesmenHeader.status}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 4. KPI Summary Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* KPI 1 */}
-        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
-          <p className="text-xs font-medium text-slate-400">Jumlah siswa</p>
-          <div className="mt-2 flex items-baseline gap-1.5">
-            <span className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-800">
-              {mockRekapKpi.jumlahSiswa}
-            </span>
-            <span className="text-xs font-semibold text-slate-500">siswa</span>
-          </div>
-          <p className="mt-1 text-[11px] text-slate-400">Terdaftar di kelas contoh</p>
-        </div>
-
-        {/* KPI 2 */}
-        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
-          <p className="text-xs font-medium text-slate-400">Rata-rata nilai</p>
-          <div className="mt-2 flex items-baseline gap-1.5">
-            <span className="text-2xl sm:text-3xl font-bold tracking-tight text-[#005b64]">
-              {mockRekapKpi.rataRata}
-            </span>
-            <span className="text-xs font-semibold text-slate-400">/ 100</span>
-          </div>
-          <p className="mt-1 text-[11px] text-slate-400">Dari 10 siswa yang selesai</p>
-        </div>
-
-        {/* KPI 3 */}
-        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
-          <p className="text-xs font-medium text-slate-400">Ketuntasan</p>
-          <div className="mt-2 flex items-baseline gap-1.5">
-            <span className="text-2xl sm:text-3xl font-bold tracking-tight text-[#008994]">
-              {mockRekapKpi.ketuntasanPersen}%
-            </span>
-            <span className="text-xs font-semibold text-slate-500">tuntas</span>
-          </div>
-          <p className="mt-1 text-[11px] text-slate-400">{mockRekapKpi.ketuntasanSiswa}</p>
-        </div>
-
-        {/* KPI 4 */}
-        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
-          <p className="text-xs font-medium text-slate-400">Pengerjaan selesai</p>
-          <div className="mt-2 flex items-baseline gap-1.5">
-            <span className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-800">
-              {mockRekapKpi.pengerjaanSelesai}
-            </span>
-            <span className="text-xs font-semibold text-slate-500">siswa</span>
-          </div>
-          <p className="mt-1 text-[11px] text-slate-400">{mockRekapKpi.pengerjaanSub}</p>
-        </div>
-      </div>
-
-      {/* 5. Middle Section: Distribusi Nilai & Ketuntasan Belajar */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Left: Distribusi Nilai */}
-        <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between pb-3">
-              <h2 className="text-base font-bold text-slate-800">Distribusi Nilai</h2>
-              <span className="text-xs text-slate-400">10 siswa selesai</span>
-            </div>
-
-            {/* Bar Chart Container */}
-            <div className="mt-4 relative h-48 w-full flex items-end justify-between px-6 pb-6 pt-6 border-b border-slate-100">
-              {/* Horizontal grid lines */}
-              <div className="absolute inset-x-0 top-6 bottom-6 flex flex-col justify-between pointer-events-none opacity-40">
-                <div className="border-b border-dashed border-slate-200 w-full relative">
-                  <span className="absolute -left-5 -top-2 text-[10px] text-slate-400">5</span>
-                </div>
-                <div className="border-b border-dashed border-slate-200 w-full relative">
-                  <span className="absolute -left-5 -top-2 text-[10px] text-slate-400">4</span>
-                </div>
-                <div className="border-b border-dashed border-slate-200 w-full relative">
-                  <span className="absolute -left-5 -top-2 text-[10px] text-slate-400">3</span>
-                </div>
-                <div className="border-b border-dashed border-slate-200 w-full relative">
-                  <span className="absolute -left-5 -top-2 text-[10px] text-slate-400">2</span>
-                </div>
-                <div className="border-b border-dashed border-slate-200 w-full relative">
-                  <span className="absolute -left-5 -top-2 text-[10px] text-slate-400">1</span>
-                </div>
-                <div className="border-b border-slate-200 w-full relative">
-                  <span className="absolute -left-5 -top-2 text-[10px] text-slate-400">0</span>
-                </div>
-              </div>
-
-              {/* Bars */}
-              {mockDistribusiNilai.map((item, idx) => {
-                // Color variation as in mockup:
-                // 0-59: light cyan #b2ebf2
-                // 60-74: medium soft cyan #80deea
-                // 75-89: strong cyan #008994
-                // 90-100: strong cyan #008994
-                const barColor =
-                  idx === 0
-                    ? 'bg-[#a5e3e8]'
-                    : idx === 1
-                    ? 'bg-[#80deea]'
-                    : 'bg-[#008994]';
-
-                return (
-                  <div
-                    key={item.rentang}
-                    className="relative flex flex-col items-center flex-1 z-10"
-                  >
-                    <span className="mb-1 text-xs font-bold text-slate-700">
-                      {item.jumlah}
-                    </span>
-                    <div
-                      className={`w-14 sm:w-16 rounded-t-lg transition-all duration-500 ${barColor}`}
-                      style={{ height: item.height }}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* X-axis labels */}
-            <div className="flex items-center justify-between px-6 pt-2 text-xs font-semibold text-slate-500">
-              {mockDistribusiNilai.map((item) => (
-                <div key={item.rentang} className="flex-1 text-center">
-                  {item.rentang}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Subnote */}
-          <p className="mt-6 text-[11px] text-slate-400">
-            Nilai tertinggi 95 • Nilai terendah 55 • Nilai = benar / 40 × 100
-          </p>
-        </div>
-
-        {/* Right: Ketuntasan Belajar */}
-        <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xs flex flex-col justify-between">
-          <div>
-            <h2 className="text-base font-bold text-slate-800">Ketuntasan Belajar</h2>
-
-            <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-8">
-              {/* Donut Gauge SVG */}
-              <div className="relative flex items-center justify-center">
-                <svg className="h-36 w-36 transform -rotate-90">
-                  {/* Background Circle */}
-                  <circle
-                    cx="72"
-                    cy="72"
-                    r="52"
-                    stroke="#e6f4f5"
-                    strokeWidth="14"
-                    fill="transparent"
-                  />
-                  {/* Progress Circle (70%) */}
-                  {/* 2 * Math.PI * 52 = 326.72 */}
-                  <circle
-                    cx="72"
-                    cy="72"
-                    r="52"
-                    stroke="#008994"
-                    strokeWidth="14"
-                    fill="transparent"
-                    strokeDasharray={326.72}
-                    strokeDashoffset={326.72 * (1 - 0.7)}
-                    strokeLinecap="round"
-                    className="transition-all duration-1000 ease-out"
-                  />
-                </svg>
-                {/* Center text */}
-                <div className="absolute flex flex-col items-center justify-center text-center">
-                  <span className="text-2xl font-bold tracking-tight text-slate-800">
-                    70%
-                  </span>
-                  <span className="text-[11px] font-medium text-slate-400">tuntas</span>
-                </div>
-              </div>
-
-              {/* Legend */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2.5">
-                  <span className="h-3 w-3 rounded-full bg-[#008994]" />
-                  <div>
-                    <span className="text-xs text-slate-500">Tuntas</span>
-                    <p className="text-xs font-bold text-slate-800">7 siswa</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2.5">
-                  <span className="h-3 w-3 rounded-full bg-[#a5e3e8]" />
-                  <div>
-                    <span className="text-xs text-slate-500">Belum tuntas</span>
-                    <p className="text-xs font-bold text-slate-800">3 siswa</p>
-                  </div>
-                </div>
-
-                <p className="text-[11px] text-slate-400 pt-1">KKM ≥ 75</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Remedial Recommendation Box */}
-          <div className="mt-6 rounded-xl bg-slate-50/80 border border-slate-100 p-3.5">
-            <h4 className="text-xs font-bold text-slate-800">
-              3 siswa perlu penguatan materi
-            </h4>
-            <p className="mt-0.5 text-[11px] text-slate-500">
-              Siapkan remedial; 2 siswa lainnya belum memiliki nilai akhir.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* 6. Hasil per Siswa (Table Card) */}
-      <div className="rounded-2xl border border-slate-100 bg-white shadow-xs overflow-hidden">
-        {/* Table Header & Search */}
-        <div className="p-5 sm:p-6 border-b border-slate-100 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-bold text-slate-800">Hasil per Siswa</h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Nilai akhir hanya ditampilkan setelah siswa menyelesaikan asesmen.
-              </p>
-            </div>
-            <span className="rounded-md bg-[#e0f7fa] px-3 py-1 text-xs font-semibold text-[#006064]">
-              {mockSiswaRekapList.length} siswa
-            </span>
-          </div>
-
-          {/* Search & Status Filters */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            {/* Search Input */}
-            <div className="relative flex-1">
-              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Cari nama atau kode siswa..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-4 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:border-[#004d57] focus:outline-none"
-              />
-            </div>
-
-            {/* Filter Pengerjaan */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-500 whitespace-nowrap hidden md:inline">
-                Pengerjaan
-              </span>
-              <div className="relative min-w-[140px]">
-                <select
-                  value={filterPengerjaan}
-                  onChange={(e) => setFilterPengerjaan(e.target.value)}
-                  className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 pr-8 text-xs font-semibold text-slate-700 focus:border-[#004d57] focus:outline-none"
-                >
-                  <option value="Semua status">Semua status</option>
-                  <option value="Selesai">Selesai</option>
-                  <option value="Mengerjakan">Mengerjakan</option>
-                  <option value="Belum mulai">Belum mulai</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-              </div>
-            </div>
-
-            {/* Filter Ketuntasan */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-500 whitespace-nowrap hidden md:inline">
-                Ketuntasan
-              </span>
-              <div className="relative min-w-[140px]">
-                <select
-                  value={filterKetuntasan}
-                  onChange={(e) => setFilterKetuntasan(e.target.value)}
-                  className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 pr-8 text-xs font-semibold text-slate-700 focus:border-[#004d57] focus:outline-none"
-                >
-                  <option value="Semua hasil">Semua hasil</option>
-                  <option value="Tuntas">Tuntas</option>
-                  <option value="Belum tuntas">Belum tuntas</option>
-                  <option value="Belum dinilai">Belum dinilai</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Data Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs sm:text-sm">
-            <thead className="border-b border-slate-100 bg-slate-50/60 text-[11px] font-semibold text-slate-500">
-              <tr>
-                <th className="py-3 px-4 w-12 text-center">No.</th>
-                <th className="py-3 px-4 min-w-[180px]">Siswa</th>
-                <th className="py-3 px-3 text-center">Nilai</th>
-                <th className="py-3 px-3 text-center">Benar</th>
-                <th className="py-3 px-3 text-center">Salah</th>
-                <th className="py-3 px-3 text-center">Waktu</th>
-                <th className="py-3 px-4">Pengerjaan</th>
-                <th className="py-3 px-4">Ketuntasan</th>
-                <th className="py-3 px-4 text-center">Aksi</th>
-              </tr>
-            </thead>
+          <table className="w-full min-w-[1100px] text-left text-sm">
+            <thead className="border-b border-slate-100 bg-slate-50 text-[11px] font-semibold text-slate-500"><tr>
+              <th className="px-4 py-3 text-center">No.</th><th className="px-4 py-3">Siswa</th><th className="px-3 py-3">Kuis</th><th className="px-3 py-3 text-center">Attempt</th><th className="px-3 py-3 text-center">Nilai</th><th className="px-3 py-3 text-center">Benar</th><th className="px-3 py-3 text-center">Salah</th><th className="px-3 py-3">Mulai</th><th className="px-3 py-3">Submit</th><th className="px-3 py-3">Grading</th><th className="px-4 py-3 text-center">Detail</th>
+            </tr></thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
-              {filteredStudents.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="py-8 text-center text-xs text-slate-400">
-                    Tidak ada siswa yang sesuai filter.
-                  </td>
-                </tr>
-              ) : (
-                filteredStudents.map((siswa) => (
-                  <tr
-                    key={siswa.no}
-                    className="hover:bg-cyan-50/20 transition-colors"
-                  >
-                    <td className="py-3.5 px-4 text-center font-medium text-slate-400">
-                      {siswa.no}
-                    </td>
-
-                    <td className="py-3.5 px-4">
-                      <div className="font-bold text-slate-800">{siswa.nama}</div>
-                      <div className="text-[11px] text-slate-400">{siswa.kode}</div>
-                    </td>
-
-                    <td className="py-3.5 px-3 text-center">
-                      <span
-                        className={`font-bold ${
-                          typeof siswa.nilai === 'number'
-                            ? siswa.nilai >= 75
-                              ? 'text-slate-800'
-                              : 'text-amber-700'
-                            : 'text-slate-400'
-                        }`}
-                      >
-                        {siswa.nilai}
-                      </span>
-                    </td>
-
-                    <td className="py-3.5 px-3 text-center text-slate-600 font-medium">
-                      {siswa.benar}
-                    </td>
-
-                    <td className="py-3.5 px-3 text-center text-slate-600 font-medium">
-                      {siswa.salah}
-                    </td>
-
-                    <td className="py-3.5 px-3 text-center text-slate-600 font-medium">
-                      {siswa.waktu}
-                    </td>
-
-                    {/* Status Pengerjaan */}
-                    <td className="py-3.5 px-4">
-                      {siswa.pengerjaan === 'Selesai' && (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#008994]">
-                          <span className="h-1.5 w-1.5 rounded-full bg-[#008994]" />
-                          Selesai
-                        </span>
-                      )}
-                      {siswa.pengerjaan === 'Mengerjakan' && (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-600">
-                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                          Mengerjakan
-                        </span>
-                      )}
-                      {siswa.pengerjaan === 'Belum mulai' && (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400">
-                          <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                          Belum mulai
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Status Ketuntasan */}
-                    <td className="py-3.5 px-4">
-                      {siswa.ketuntasan === 'Tuntas' && (
-                        <span className="inline-flex items-center rounded-md bg-[#e0f7fa] px-2.5 py-1 text-xs font-semibold text-[#006064]">
-                          Tuntas
-                        </span>
-                      )}
-                      {siswa.ketuntasan === 'Belum tuntas' && (
-                        <span className="inline-flex items-center rounded-md bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
-                          Belum tuntas
-                        </span>
-                      )}
-                      {siswa.ketuntasan === 'Belum dinilai' && (
-                        <span className="inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">
-                          Belum dinilai
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Aksi */}
-                    <td className="py-3.5 px-4 text-center">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedSiswa(siswa)}
-                        className="inline-flex items-center text-xs font-semibold text-[#005b64] hover:text-[#003c44] hover:underline"
-                      >
-                        Detail &gt;
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
+              {isLoadingAttempts ? <tr><td colSpan={11} className="py-12 text-center text-slate-500"><LoaderCircle className="mr-2 inline h-4 w-4 animate-spin" />Memuat rekap…</td></tr>
+                : filteredAttempts.length === 0 ? <tr><td colSpan={11} className="py-12 text-center text-sm text-slate-400">{selectedQuizId ? 'Belum ada attempt untuk kuis ini.' : 'Pilih kuis untuk melihat rekap.'}</td></tr>
+                  : filteredAttempts.map((attempt, index) => <tr key={attempt.id} className="hover:bg-cyan-50/30">
+                    <td className="px-4 py-3.5 text-center text-slate-400">{index + 1}</td>
+                    <td className="px-4 py-3.5"><div className="font-semibold text-slate-800">{attempt.student?.name || 'Profil siswa tidak ditemukan'}</div><div className="text-xs text-slate-400">NIS {attempt.student?.nis || '—'}</div></td>
+                    <td className="px-3 py-3.5">{selectedQuiz?.title || '—'}</td>
+                    <td className="px-3 py-3.5 text-center"><StatusPill value={attempt.status} /></td>
+                    <td className="px-3 py-3.5 text-center font-bold">{attempt.total_score ?? '—'}</td>
+                    <td className="px-3 py-3.5 text-center">{attempt.correct_count ?? '—'}</td>
+                    <td className="px-3 py-3.5 text-center">{attempt.incorrect_count ?? '—'}</td>
+                    <td className="px-3 py-3.5 text-xs">{formatDate(attempt.started_at)}</td>
+                    <td className="px-3 py-3.5 text-xs">{formatDate(attempt.submitted_at)}</td>
+                    <td className="px-3 py-3.5"><StatusPill value={attempt.grading_status} grading /></td>
+                    <td className="px-4 py-3.5 text-center"><button type="button" onClick={() => { setAttemptDetail(null); setDetailError(''); setIsLoadingDetail(true); setSelectedAttemptId(attempt.id); }} className="font-semibold text-[#005b64] hover:underline">Lihat</button></td>
+                  </tr>)}
             </tbody>
           </table>
         </div>
+      </section>
 
-        {/* Table Footer */}
-        <div className="flex flex-col gap-2 p-4 border-t border-slate-100 sm:flex-row sm:items-center sm:justify-between text-xs text-slate-400">
-          <div>
-            <span>Menampilkan {filteredStudents.length} dari {mockSiswaRekapList.length} siswa contoh</span>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              * Waktu berjalan untuk siswa yang masih mengerjakan. Tanda — berarti hasil akhir belum tersedia.
-            </p>
+      {selectedAttemptId && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-3 sm:p-6" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedAttemptId(''); }}>
+        <section role="dialog" aria-modal="true" aria-labelledby="attempt-detail-title" className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+          <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-100 bg-white p-5 sm:p-6">
+            <div><h2 id="attempt-detail-title" className="text-lg font-bold text-slate-800">Detail hasil attempt</h2>{attemptDetail && <p className="mt-1 text-sm text-slate-500">{attemptDetail.attempt.student?.name || 'Siswa'} · {attemptDetail.quiz.title}</p>}</div>
+            <button type="button" onClick={() => setSelectedAttemptId('')} aria-label="Tutup detail" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+          </header>
+          <div className="space-y-5 p-5 sm:p-6">
+            {isLoadingDetail && <p className="py-8 text-center text-sm text-slate-500"><LoaderCircle className="mr-2 inline h-4 w-4 animate-spin" />Memuat jawaban…</p>}
+            {detailError && <p role="alert" className="rounded-xl bg-rose-50 p-4 text-sm text-rose-700">{detailError}</p>}
+            {attemptDetail && <>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="rounded-xl bg-slate-50 p-3"><span className="block text-xs text-slate-500">Nilai</span><strong className="mt-1 block text-lg">{attemptDetail.attempt.total_score ?? 'Belum dinilai'}</strong></div>
+                <div className="rounded-xl bg-slate-50 p-3"><span className="block text-xs text-slate-500">Status attempt</span><div className="mt-1"><StatusPill value={attemptDetail.attempt.status} /></div></div>
+                <div className="rounded-xl bg-slate-50 p-3"><span className="block text-xs text-slate-500">Mulai</span><strong className="mt-1 block text-xs">{formatDate(attemptDetail.attempt.started_at)}</strong></div>
+                <div className="rounded-xl bg-slate-50 p-3"><span className="block text-xs text-slate-500">Submit</span><strong className="mt-1 block text-xs">{formatDate(attemptDetail.attempt.submitted_at)}</strong></div>
+              </div>
+              <div className="space-y-3">
+                {attemptDetail.questions.map((question, index) => <article key={question.question_id} className="rounded-xl border border-slate-200 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3"><h3 className="font-semibold text-slate-800">Soal {question.question_order || index + 1}. {question.question_text || 'Teks soal tidak tersedia'}</h3>
+                    {question.answer?.is_correct === true ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><CheckCircle2 className="h-4 w-4" />Benar</span>
+                      : question.answer?.is_correct === false ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-rose-700"><XCircle className="h-4 w-4" />Salah</span>
+                        : <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">Belum dinilai</span>}</div>
+                  <p className="mt-2 text-xs text-slate-500">Nilai soal: {question.answer?.score ?? '—'} / {question.points ?? '—'}</p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-500">Jawaban siswa</p><p className="mt-1 text-sm text-slate-800">{question.answer?.options?.length ? question.answer.options.map((option) => `${option.option_label ? `${option.option_label}. ` : ''}${option.option_text}`).join(' · ') : question.answer?.text_answer || 'Belum menjawab'}</p></div>
+                    <div className="rounded-lg bg-emerald-50/70 p-3"><p className="text-xs font-semibold text-emerald-800">Jawaban benar</p><p className="mt-1 text-sm text-slate-800">{question.correct_answer?.options?.length ? question.correct_answer.options.map((option) => `${option.option_label ? `${option.option_label}. ` : ''}${option.option_text}`).join(' · ') : 'Tidak tersedia / penilaian manual'}</p></div>
+                  </div>
+                </article>)}
+                {!attemptDetail.questions.length && <p className="py-8 text-center text-sm text-slate-500">Kuis ini belum memiliki soal.</p>}
+              </div>
+            </>}
           </div>
-          <div className="text-right text-[11px] text-slate-400">
-            Snapshot simulasi: 9 Oktober 2026, 09.10 WIB
-          </div>
-        </div>
-      </div>
-
-      {/* 7. Bottom Footnote Info */}
-      <div className="flex items-start gap-2.5 text-xs text-slate-400 leading-relaxed pt-2">
-        <Info className="h-4 w-4 text-slate-400 flex-shrink-0 mt-0.5" />
-        <span>
-          Rata-rata, ketuntasan, dan distribusi dihitung dari 10 siswa selesai. Setiap soal berbobot sama; seluruh jawaban siswa selesai terisi. Rata-rata waktu pengerjaan: 56,1 menit.
-        </span>
-      </div>
-
-      {/* Modal Detail Siswa */}
-      {selectedSiswa && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-2xs">
-          <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-base font-bold text-slate-800">
-                  Rincian Hasil Siswa
-                </h3>
-                <p className="text-xs text-slate-400">{selectedSiswa.nama} ({selectedSiswa.kode})</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedSiswa(null)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 text-xs sm:text-sm">
-              <div className="rounded-xl bg-slate-50 p-3">
-                <span className="text-slate-400 block text-xs">Nilai Akhir</span>
-                <span className="text-xl font-bold text-slate-800 mt-1 block">
-                  {selectedSiswa.nilai} / 100
-                </span>
-              </div>
-              <div className="rounded-xl bg-slate-50 p-3">
-                <span className="text-slate-400 block text-xs">Status Ketuntasan</span>
-                <span className="text-sm font-bold text-[#005b64] mt-1.5 block">
-                  {selectedSiswa.ketuntasan}
-                </span>
-              </div>
-              <div className="rounded-xl bg-slate-50 p-3">
-                <span className="text-slate-400 block text-xs">Jawaban Benar</span>
-                <span className="text-base font-bold text-emerald-600 mt-1 block">
-                  {selectedSiswa.benar} soal
-                </span>
-              </div>
-              <div className="rounded-xl bg-slate-50 p-3">
-                <span className="text-slate-400 block text-xs">Jawaban Salah</span>
-                <span className="text-base font-bold text-rose-500 mt-1 block">
-                  {selectedSiswa.salah} soal
-                </span>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-slate-100 p-3.5 text-xs text-slate-600 space-y-1">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Durasi Pengerjaan:</span>
-                <span className="font-semibold text-slate-700">{selectedSiswa.waktu}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Status Pengerjaan:</span>
-                <span className="font-semibold text-slate-700">{selectedSiswa.pengerjaan}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Batas KKM:</span>
-                <span className="font-semibold text-slate-700">75 poin</span>
-              </div>
-            </div>
-
-            <div className="pt-2 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setSelectedSiswa(null)}
-                className="rounded-xl bg-[#004d57] px-5 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] transition-colors"
-              >
-                Tutup
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+        </section>
+      </div>}
     </div>
   );
 }
