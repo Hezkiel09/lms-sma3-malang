@@ -46,8 +46,12 @@ const handleUserMutationError = (res, error, action, entity) => {
   return res.status(500).json({ success: false, message: `Gagal ${action} ${entity}`, data: null, error: error.message });
 };
 
-const handleControllerError = (res, message, error) =>
-  res.status(500).json({ success: false, message, data: null, error: error.message });
+const handleControllerError = (res, message, error) => {
+  console.error(`${message}:`, error);
+  const detail = error?.message || (typeof error === 'string' ? error : '');
+  const fullMessage = detail ? `${message}: ${detail}` : message;
+  return res.status(500).json({ success: false, message: fullMessage, data: null, error: detail });
+};
 
 // --- KELAS ---
 export const getAllClasses = async (req, res) => {
@@ -111,6 +115,16 @@ export const updateHomeroom = async (req, res) => {
   }
 };
 
+export const updateClass = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updatedClass = await masterService.updateClassService(id, req.body);
+    return res.status(200).json({ success: true, message: 'Berhasil mengupdate kelas', data: updatedClass });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Gagal mengupdate kelas', data: null, error: error.message });
+  }
+};
+
 // --- MATA PELAJARAN ---
 export const getAllSubjects = async (req, res) => {
   try {
@@ -123,14 +137,11 @@ export const getAllSubjects = async (req, res) => {
 
 export const createSubject = async (req, res) => {
   try {
-    const { name, code, credit_hours } = req.body;
-    if (!hasNonEmptyFields(req.body, ['name'])) {
+    const { name } = req.body;
+    if (!name || !String(name).trim()) {
       return res.status(400).json({ success: false, message: 'Nama mata pelajaran wajib diisi!', data: null });
     }
-    if (credit_hours !== undefined && (!Number.isInteger(credit_hours) || credit_hours <= 0)) {
-      return res.status(400).json({ success: false, message: 'credit_hours harus berupa bilangan bulat positif', data: null });
-    }
-    const newSubject = await masterService.createSubjectService({ name, code, credit_hours });
+    const newSubject = await masterService.createSubjectService({ name: String(name).trim() });
     return res.status(201).json({ success: true, message: 'Berhasil membuat mata pelajaran baru', data: newSubject });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Gagal membuat mata pelajaran baru', data: null, error: error.message });
@@ -139,14 +150,11 @@ export const createSubject = async (req, res) => {
 
 export const updateSubject = async (req, res) => {
   try {
-    const { credit_hours } = req.body;
-    if (!hasValidUpdateFields(req.body, ['name', 'code', 'credit_hours'])) {
-      return res.status(400).json({ success: false, message: 'Isi minimal satu field valid untuk diperbarui', data: null });
+    const { name } = req.body;
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ success: false, message: 'Nama mata pelajaran tidak boleh kosong', data: null });
     }
-    if (credit_hours !== undefined && (!Number.isInteger(credit_hours) || credit_hours <= 0)) {
-      return res.status(400).json({ success: false, message: 'credit_hours harus berupa bilangan bulat positif', data: null });
-    }
-    const subject = await masterService.updateSubjectService(req.params.id, req.body);
+    const subject = await masterService.updateSubjectService(req.params.id, { name: String(name).trim() });
     return res.status(200).json({ success: true, message: 'Berhasil mengupdate mata pelajaran', data: subject });
   } catch (error) {
     return handleAcademicError(res, error, 'mengupdate mata pelajaran');
@@ -164,11 +172,12 @@ export const deleteSubject = async (req, res) => {
 
 const handleAcademicError = (res, error, action) => {
   const notFound = error.message.includes('tidak ditemukan');
-  return res.status(notFound ? 404 : 500).json({
+  const status = error.status || (notFound ? 404 : 500);
+  return res.status(status).json({
     success: false,
-    message: notFound ? error.message : `Gagal ${action}`,
+    message: status === 500 ? `Gagal ${action}` : error.message,
     data: null,
-    ...(notFound ? {} : { error: error.message }),
+    ...(status === 500 ? { error: error.message } : {}),
   });
 };
 
@@ -229,7 +238,7 @@ export const getAllTeachers = async (req, res) => {
 
 export const createTeacher = async (req, res) => {
   try {
-    const { email, password, name, nip } = req.body;
+    const { email, password, name, nip, phone } = req.body;
     if (!hasNonEmptyFields(req.body, ['email', 'password', 'name', 'nip'])) {
       return res.status(400).json({ 
         success: false, 
@@ -240,8 +249,11 @@ export const createTeacher = async (req, res) => {
     if (!isValidEmail(email)) {
       return res.status(400).json({ success: false, message: 'Format email tidak valid', data: null });
     }
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Kata sandi minimal 6 karakter', data: null });
+    }
 
-    const newTeacher = await masterService.createTeacherService({ email, password, name, nip });
+    const newTeacher = await masterService.createTeacherService({ email, password, name, nip, phone });
     
     return res.status(201).json({ 
       success: true, 
@@ -249,9 +261,11 @@ export const createTeacher = async (req, res) => {
       data: newTeacher 
     });
   } catch (error) {
-    return res.status(500).json({ 
+    const isConflict = error.message.includes('sudah terdaftar') || error.message.includes('already');
+    const statusCode = isConflict ? 400 : 500;
+    return res.status(statusCode).json({ 
       success: false, 
-      message: 'Gagal mendaftarkan Guru baru', 
+      message: error.message || 'Gagal mendaftarkan Guru baru', 
       data: null,
       error: error.message 
     });
@@ -260,7 +274,7 @@ export const createTeacher = async (req, res) => {
 
 export const updateTeacher = async (req, res) => {
   try {
-    const allowedFields = ['name', 'nip', 'phone'];
+    const allowedFields = ['name', 'nip', 'phone', 'password'];
     if (!hasValidUpdateFields(req.body, allowedFields)) {
       return res.status(400).json({ success: false, message: 'Isi minimal satu field valid untuk diperbarui', data: null });
     }
@@ -299,16 +313,27 @@ export const createStudent = async (req, res) => {
     if (!isValidEmail(email)) {
       return res.status(400).json({ success: false, message: 'Format email tidak valid', data: null });
     }
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Kata sandi minimal 6 karakter', data: null });
+    }
+
     const newStudent = await masterService.createStudentService({ email, password, name, nis, class_id });
     return res.status(201).json({ success: true, message: 'Berhasil mendaftarkan siswa baru', data: newStudent });
   } catch (error) {
-    return handleControllerError(res, 'Gagal mendaftarkan siswa', error);
+    const isConflict = error.message.includes('sudah terdaftar') || error.message.includes('already');
+    const statusCode = isConflict ? 400 : 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Gagal mendaftarkan siswa',
+      data: null,
+      error: error.message,
+    });
   }
 };
 
 export const updateStudent = async (req, res) => {
   try {
-    const allowedFields = ['name', 'nis', 'class_id', 'parent_id'];
+    const allowedFields = ['name', 'nis', 'class_id', 'parent_id', 'password'];
     if (!hasValidUpdateFields(req.body, allowedFields, ['class_id', 'parent_id'])) {
       return res.status(400).json({ success: false, message: 'Isi minimal satu field valid untuk diperbarui', data: null });
     }
@@ -335,16 +360,27 @@ export const createParent = async (req, res) => {
     if (!hasNonEmptyFields(req.body, ['nis', 'password', 'name'])) {
       return res.status(400).json({ success: false, message: 'NIS anak, password, dan nama orang tua wajib diisi!', data: null });
     }
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Kata sandi minimal 6 karakter', data: null });
+    }
+
     const newParent = await masterService.createParentService({ nis, password, name, phone });
     return res.status(201).json({ success: true, message: 'Berhasil mendaftarkan Orang Tua', data: newParent });
   } catch (error) {
-    return handleControllerError(res, 'Gagal mendaftarkan Orang Tua', error);
+    const isConflict = error.message.includes('sudah terdaftar') || error.message.includes('already');
+    const statusCode = isConflict ? 400 : 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Gagal mendaftarkan Orang Tua',
+      data: null,
+      error: error.message,
+    });
   }
 };
 
 export const updateParent = async (req, res) => {
   try {
-    const allowedFields = ['name', 'phone', 'address'];
+    const allowedFields = ['name', 'phone', 'address', 'password'];
     if (!hasValidUpdateFields(req.body, allowedFields)) {
       return res.status(400).json({ success: false, message: 'Isi minimal satu field valid untuk diperbarui', data: null });
     }
@@ -375,16 +411,36 @@ export const getAllParents = async (req, res) => {
 
 
 // --- COURSES ---
+const handleCourseError = (res, error, defaultMessage = 'Terjadi kesalahan') => {
+  const status = error.status || (error.message?.includes('tidak ditemukan') ? 404 : 500);
+  return res.status(status).json({
+    success: false,
+    message: error.message || defaultMessage,
+    data: null,
+    ...(status === 500 ? { error: error.message } : {}),
+  });
+};
+
+const isValidAcademicYear = (value) => value === undefined || (
+  typeof value === 'string' && value.trim().length > 0 && value.trim().length <= 20
+);
+
 export const getAllCourses = async (req, res) => {
   try {
-    const courses = await masterService.getAllCoursesService();
+    const { search, class_id, semester, academic_year } = req.query;
+    const courses = await masterService.getAllCoursesService({
+      search,
+      class_id,
+      semester,
+      academic_year,
+    });
     return res.status(200).json({
       success: true,
       message: 'Berhasil mengambil data course',
       data: courses,
     });
   } catch (error) {
-    return handleControllerError(res, 'Gagal mengambil data course', error);
+    return handleCourseError(res, error, 'Gagal mengambil data course');
   }
 };
 
@@ -392,10 +448,18 @@ export const createCourse = async (req, res) => {
   try {
     const { class_id, subject_id, teacher_id, academic_year, semester } = req.body;
 
-    if (!class_id || !subject_id) {
+    if (!class_id || !subject_id || !teacher_id) {
       return res.status(400).json({
         success: false,
-        message: 'Class ID dan Subject ID wajib diisi!',
+        message: 'Mata pelajaran, kelas, dan guru pengampu wajib diisi!',
+        data: null,
+      });
+    }
+
+    if (!isValidAcademicYear(academic_year)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tahun ajaran wajib berupa teks maksimal 20 karakter.',
         data: null,
       });
     }
@@ -414,6 +478,49 @@ export const createCourse = async (req, res) => {
       data: newCourse,
     });
   } catch (error) {
-    return handleControllerError(res, 'Gagal membuat course baru', error);
+    return handleCourseError(res, error, 'Gagal membuat course baru');
+  }
+};
+
+export const updateCourse = async (req, res) => {
+  try {
+    const { class_id, subject_id, teacher_id, academic_year, semester } = req.body;
+
+    if (!isValidAcademicYear(academic_year)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tahun ajaran wajib berupa teks maksimal 20 karakter.',
+        data: null,
+      });
+    }
+
+    const updatedCourse = await masterService.updateCourseService(req.params.id, {
+      class_id,
+      subject_id,
+      teacher_id,
+      academic_year,
+      semester,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Berhasil mengupdate course',
+      data: updatedCourse,
+    });
+  } catch (error) {
+    return handleCourseError(res, error, 'Gagal mengupdate course');
+  }
+};
+
+export const deleteCourse = async (req, res) => {
+  try {
+    const deleted = await masterService.deleteCourseService(req.params.id);
+    return res.status(200).json({
+      success: true,
+      message: 'Berhasil menghapus course',
+      data: deleted,
+    });
+  } catch (error) {
+    return handleCourseError(res, error, 'Gagal menghapus course');
   }
 };
