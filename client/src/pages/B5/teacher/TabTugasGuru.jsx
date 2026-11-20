@@ -9,26 +9,7 @@ import {
 const DEFAULT_COURSE_ID = "bf720e90-1886-4c01-9868-249181f900dc";
 
 const TabTugasGuru = ({ searchTerm = '', courseId = DEFAULT_COURSE_ID, onKeEditTugas, onPilihTugas }) => {
-  const [daftarTugas, setDaftarTugas] = useState([
-    {
-      id: '5b889cf4-a272-4095-b5b9-053b76e4d7e9',
-      judul: 'Latihan Mandiri: Grafik Parabola',
-      dibuat: 'Dibuat pada 20 Jan 2026',
-      mapel: 'Matematika X A',
-      kelas: 'Kelas X-A',
-      tenggat: '27 Jan 2026',
-      status: 'Aktif'
-    },
-    {
-      id: '01d765c1-eea2-44c9-95f2-64e703a63a39',
-      judul: 'Proyek Matematika: Analisis Data',
-      dibuat: 'Dibuat pada 15 Feb 2026',
-      mapel: 'Matematika X A',
-      kelas: 'Kelas X-A',
-      tenggat: '05 Mar 2026',
-      status: 'Dijadwalkan'
-    },
-  ]);
+  const [daftarTugas, setDaftarTugas] = useState([]);
 
   useEffect(() => {
     const fetchTugas = async () => {
@@ -49,8 +30,8 @@ const TabTugasGuru = ({ searchTerm = '', courseId = DEFAULT_COURSE_ID, onKeEditT
                 dibuat: t.created_at
                   ? `Dibuat pada ${new Date(t.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`
                   : '-',
-                mapel: 'Matematika X A',
-                kelas: 'Kelas X-A',
+                mapel: t.course_name || t.subject || '-',
+                kelas: t.class_name || t.kelas || '-',
                 tenggat: t.deadline
                   ? new Date(t.deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
                   : '-',
@@ -58,6 +39,8 @@ const TabTugasGuru = ({ searchTerm = '', courseId = DEFAULT_COURSE_ID, onKeEditT
               };
             });
             setDaftarTugas(mapped);
+          } else {
+            setDaftarTugas([]);
           }
         }
       } catch (err) {

@@ -7,8 +7,7 @@ import {
     ClipboardList,
     Download,
     CheckCircle,
-    MessageSquare,
-    HelpCircle
+    ExternalLink
 } from 'lucide-react';
 import SidebarSiswa from './SidebarSiswa';
 import TopbarSiswa from './TopbarSiswa';
@@ -28,6 +27,14 @@ const DetailCourseSiswa = ({ kelasData, onKembali, onKeDashboard, onKeDaftarKela
     const [daftarBab, setDaftarBab] = useState([]);
     const [daftarMateri, setDaftarMateri] = useState([]);
     const [daftarTugas, setDaftarTugas] = useState([]);
+    const [daftarLink, setDaftarLink] = useState(() => {
+        try {
+            const saved = JSON.parse(localStorage.getItem(`links_${courseId}`) || '[]');
+            return Array.isArray(saved) ? saved : [];
+        } catch {
+            return [];
+        }
+    });
     const [loadingAPI, setLoadingAPI] = useState(true);
     const [errorAPI, setErrorAPI] = useState('');
 
@@ -62,11 +69,17 @@ const DetailCourseSiswa = ({ kelasData, onKembali, onKeDashboard, onKeDaftarKela
         (tugas.instructions && tugas.instructions.toLowerCase().includes(keywordPencarian.toLowerCase()))
     );
 
+    const filteredLink = daftarLink.filter(link =>
+        (link.title && link.title.toLowerCase().includes(keywordPencarian.toLowerCase())) ||
+        (link.description && link.description.toLowerCase().includes(keywordPencarian.toLowerCase())) ||
+        (link.url && link.url.toLowerCase().includes(keywordPencarian.toLowerCase()))
+    );
+
     const infoTab = {
         materi: {
             breadcrumb: "MATERI",
-            judul: kelasData ? (kelasData.nama || kelasData.title) : "Matematika X A",
-            deskripsi: kelasData ? (kelasData.desc || kelasData.deskripsi || "Pelajari materi pembelajaran melalui modul dan latihan.") : "Pelajari persamaan linear, fungsi, dan grafik melalui latihan serta diskusi kelas."
+            judul: kelasData ? (kelasData.nama || kelasData.title || "") : "",
+            deskripsi: kelasData ? (kelasData.desc || kelasData.deskripsi || "") : ""
         },
         tugas: {
             breadcrumb: "TUGAS",
@@ -88,6 +101,25 @@ const DetailCourseSiswa = ({ kelasData, onKembali, onKeDashboard, onKeDaftarKela
             [id]: !prev[id]
         }));
     };
+
+    useEffect(() => {
+        const syncSavedLinks = () => {
+            try {
+                const saved = JSON.parse(localStorage.getItem(`links_${courseId}`) || '[]');
+                setDaftarLink(Array.isArray(saved) ? saved : []);
+            } catch {
+                setDaftarLink([]);
+            }
+        };
+
+        syncSavedLinks();
+        window.addEventListener('focus', syncSavedLinks);
+        window.addEventListener('storage', syncSavedLinks);
+        return () => {
+            window.removeEventListener('focus', syncSavedLinks);
+            window.removeEventListener('storage', syncSavedLinks);
+        };
+    }, [courseId, tabAktif]);
 
     useEffect(() => {
         // Ambil data tugas yang sudah disubmit/selesai dari localStorage browser
@@ -243,6 +275,9 @@ const DetailCourseSiswa = ({ kelasData, onKembali, onKeDashboard, onKeDaftarKela
                                 const tugasPerSection = filteredTugas.filter(
                                     (tugas) => tugas.section_id === bab.id
                                 );
+                                const linkPerSection = filteredLink.filter(
+                                    (link) => link.section_id === bab.id
+                                );
 
                                 return (
                                     <div
@@ -265,15 +300,17 @@ const DetailCourseSiswa = ({ kelasData, onKembali, onKeDashboard, onKeDaftarKela
                                                 </h3>
                                             </div>
 
-                                            <span className="text-[11px] text-[#71808D]">
-                                                12 Okt 2026
-                                            </span>
+                                            {bab.created_at_formatted || bab.date_formatted ? (
+                                                <span className="text-[11px] text-[#71808D]">
+                                                    {bab.created_at_formatted || bab.date_formatted}
+                                                </span>
+                                            ) : null}
                                         </div>
 
                                         {/* Isi Bab */}
                                         {openBab[bab.id] && (
                                             <div className="p-6 space-y-4">
-                                                {materiPerSection.length === 0 && tugasPerSection.length === 0 ? (
+                                                {materiPerSection.length === 0 && tugasPerSection.length === 0 && linkPerSection.length === 0 ? (
                                                     <p className="text-xs text-gray-500">Belum ada materi atau tugas pada bagian ini.</p>
                                                 ) : null}
 
@@ -288,28 +325,22 @@ const DetailCourseSiswa = ({ kelasData, onKembali, onKeDashboard, onKeDaftarKela
                                                         }}
                                                         className="bg-white border border-cyan-100/80 p-4 rounded-2xl shadow-2xs space-y-3 cursor-pointer hover:border-[#0088A8] transition"
                                                     >
-                                                        <div>
-                                                            <p className="text-xs text-[#71808D] leading-relaxed mb-2">
-                                                                {materi.description || "Materi pembelajaran interaktif untuk memahami konsep dasar."}
-                                                            </p>
-                                                            <p className="text-xs font-semibold text-[#17242E] mb-1">Tujuan :</p>
-                                                            <ul className="text-xs text-[#71808D] list-disc list-inside space-y-0.5 pl-1">
-                                                                <li>Memahami definisi dan rumus dasar dengan akurat.</li>
-                                                                <li>Menerapkan konsep ke dalam latihan soal sehari-hari.</li>
-                                                            </ul>
-                                                        </div>
-
-                                                        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="w-9 h-9 rounded-xl bg-[#E0F7FA] text-[#0088A8] flex items-center justify-center shrink-0">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-start gap-3">
+                                                                <div className="w-9 h-9 rounded-xl bg-[#E0F7FA] text-[#0088A8] flex items-center justify-center shrink-0 mt-0.5">
                                                                     <FileText size={18} />
                                                                 </div>
                                                                 <div>
                                                                     <h4 className="font-bold text-xs text-[#17242E] transition">
-                                                                        {materi.title || 'Dokumen Materi.pdf'}
+                                                                        {materi.title || materi.file_name || ''}
                                                                     </h4>
-                                                                    <p className="text-[10px] text-[#71808D] uppercase">
-                                                                        {materi.file_name ? materi.file_name : 'DOKUMEN'} • {materi.file_size ? `${Math.round(materi.file_size / 1024)} KB` : 'PDF'}
+                                                                    {materi.description && (
+                                                                        <p className="text-xs text-[#71808D] leading-relaxed mt-0.5">
+                                                                            {materi.description}
+                                                                        </p>
+                                                                    )}
+                                                                    <p className="text-[10px] text-[#71808D] uppercase mt-1">
+                                                                        {materi.file_name ? materi.file_name : 'DOKUMEN'}{materi.file_size ? ` • ${Math.round(materi.file_size / 1024)} KB` : ''}
                                                                     </p>
                                                                 </div>
                                                             </div>
@@ -331,33 +362,53 @@ const DetailCourseSiswa = ({ kelasData, onKembali, onKeDashboard, onKeDaftarKela
                                                     </div>
                                                 ))}
 
-                                                {/* 2. Contoh Forum */}
-                                                <div className="bg-white border border-cyan-100/80 p-4 rounded-2xl shadow-2xs flex items-center justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-9 h-9 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
-                                                            <MessageSquare size={18} />
-                                                        </div>
-                                                        <div>
-                                                            <span className="text-[9px] font-bold uppercase tracking-wider bg-orange-50 text-orange-600 px-2 py-0.5 rounded border border-orange-100">
-                                                                FORUM
-                                                            </span>
-                                                            <h4 className="font-bold text-xs text-[#17242E] mt-0.5">Contoh Mendeskripsikan Research Gap</h4>
+                                                {/* List Tautan (URL) dalam Bab */}
+                                                {linkPerSection.map((link) => (
+                                                    <div
+                                                        key={link.id}
+                                                        className="bg-white border border-cyan-100/80 p-4 rounded-2xl shadow-2xs space-y-2.5 hover:border-[#0088A8] transition"
+                                                    >
+                                                        <div className="flex items-start justify-between gap-3">
+                                                            <div className="flex items-start gap-3 min-w-0">
+                                                                <div className="w-9 h-9 rounded-xl bg-[#E0F7FA] text-[#0088A8] flex items-center justify-center shrink-0 mt-0.5">
+                                                                    <ExternalLink size={18} />
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <span className="text-[9px] font-bold uppercase tracking-wider bg-cyan-50 text-[#0088A8] px-2 py-0.5 rounded border border-cyan-100 inline-block">
+                                                                        TAUTAN (URL)
+                                                                    </span>
+                                                                    <h4 className="font-bold text-xs text-[#17242E] mt-1">
+                                                                        {link.title}
+                                                                    </h4>
+                                                                    {link.description && (
+                                                                        <p className="text-xs text-[#71808D] leading-relaxed mt-0.5">
+                                                                            {link.description}
+                                                                        </p>
+                                                                    )}
+                                                                    <a
+                                                                        href={link.url}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="text-[11px] text-[#0088A8] hover:underline break-all inline-block mt-1"
+                                                                    >
+                                                                        {link.url}
+                                                                    </a>
+                                                                </div>
+                                                            </div>
+
+                                                            <a
+                                                                href={link.url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 bg-[#054C5A] text-white hover:bg-[#033742]"
+                                                            >
+                                                                <ExternalLink size={14} /> Buka
+                                                            </a>
                                                         </div>
                                                     </div>
+                                                ))}
 
-                                                    <button
-                                                        onClick={() => toggleSelesai('forum-1')}
-                                                        className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 ${statusSelesai['forum-1']
-                                                            ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs'
-                                                            : 'bg-[#E0F7FA] text-[#007088] hover:bg-[#B2EBF2]'
-                                                            }`}
-                                                    >
-                                                        {statusSelesai['forum-1'] ? <CheckCircle size={14} /> : null}
-                                                        {statusSelesai['forum-1'] ? 'Selesai' : 'Tandai Selesai'}
-                                                    </button>
-                                                </div>
-
-                                                {/* 3. List Tugas dalam Bab */}
+                                                {/* 2. List Tugas dalam Bab */}
                                                 {tugasPerSection.map((tugas) => {
                                                     // Cek status dari state lokal atau localStorage
                                                     const savedSelesai = JSON.parse(localStorage.getItem('tugasSelesai_siswa') || '{}');
@@ -378,22 +429,24 @@ const DetailCourseSiswa = ({ kelasData, onKembali, onKeDashboard, onKeDaftarKela
                                                                     <ClipboardList size={18} />
                                                                 </div>
                                                                 <div className="flex-1">
-                                                                    <div className="flex items-center gap-2 mb-1">
-                                                                        <span className="text-[9px] font-bold uppercase tracking-wider bg-pink-50 text-pink-600 px-2 py-0.5 rounded border border-pink-100">
-                                                                            TUGAS
-                                                                        </span>
-                                                                        <h4 className="font-bold text-xs text-[#17242E]">{tugas.title || 'Latihan Mandiri'}</h4>
-                                                                    </div>
+                                                                    <span className="text-[9px] font-bold uppercase tracking-wider bg-pink-50 text-pink-600 px-2 py-0.5 rounded border border-pink-100 inline-block">
+                                                                        TUGAS
+                                                                    </span>
+                                                                    <h4 className="font-bold text-xs text-[#17242E] mt-1">{tugas.title || ''}</h4>
                                                                     {tugas.instructions && (
-                                                                        <p className="text-xs text-[#71808D] leading-relaxed">{tugas.instructions}</p>
+                                                                        <p className="text-xs text-[#71808D] leading-relaxed mt-0.5">{tugas.instructions}</p>
                                                                     )}
                                                                 </div>
                                                             </div>
 
                                                             <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                                                                <span className="text-[11px] text-[#71808D]">
-                                                                    Tenggat: <span className="font-semibold text-cyan-800">{tugas.deadline_formatted || '20 Okt 2026'}</span>
-                                                                </span>
+                                                                {tugas.deadline_formatted ? (
+                                                                    <span className="text-[11px] text-[#71808D]">
+                                                                        Tenggat: <span className="font-semibold text-cyan-800">{tugas.deadline_formatted}</span>
+                                                                    </span>
+                                                                ) : (
+                                                                    <span />
+                                                                )}
 
                                                                 {/* TOMBOL STATUS SELESAI */}
                                                                 <button
@@ -413,32 +466,6 @@ const DetailCourseSiswa = ({ kelasData, onKembali, onKeDashboard, onKeDaftarKela
                                                         </div>
                                                     );
                                                 })}
-
-                                                {/* 4. Contoh Quiz */}
-                                                <div className="bg-white border border-cyan-100/80 p-4 rounded-2xl shadow-2xs flex items-center justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                                                            <HelpCircle size={18} />
-                                                        </div>
-                                                        <div>
-                                                            <span className="text-[9px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded border border-emerald-100">
-                                                                QUIZ
-                                                            </span>
-                                                            <h4 className="font-bold text-xs text-[#17242E] mt-0.5">Quiz Logaritma</h4>
-                                                        </div>
-                                                    </div>
-
-                                                    <button
-                                                        onClick={() => toggleSelesai('quiz-1')}
-                                                        className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 ${statusSelesai['quiz-1']
-                                                            ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs'
-                                                            : 'bg-[#E0F7FA] text-[#007088] hover:bg-[#B2EBF2]'
-                                                            }`}
-                                                    >
-                                                        {statusSelesai['quiz-1'] ? <CheckCircle size={14} /> : null}
-                                                        {statusSelesai['quiz-1'] ? 'Selesai' : 'Tandai Selesai'}
-                                                    </button>
-                                                </div>
 
                                             </div>
                                         )}

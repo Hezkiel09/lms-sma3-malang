@@ -1,21 +1,15 @@
 import React, { useState } from 'react';
-import { 
-  Search,
+import {
   TrendingUp,
   Award,
   TrendingDown,
-  Clock,
-  ChevronDown
+  Clock
 } from 'lucide-react';
 
 // ==========================================
 // TAB REKAP NILAI GURU
 // ==========================================
 const TabNilaiGuru = ({ searchTerm = '', onKeDetailNilai, onKeEditNilai, onKeTinjauNilai }) => {
-  const [filterAsesmen, setFilterAsesmen] = useState('Latihan Mandiri: Grafik Parabola');
-  const [filterJenis, setFilterJenis] = useState('Tugas');
-  const [cariSiswa, setCariSiswa] = useState('');
-
   const [daftarNilai] = useState([
     { id: 1, nama: 'Aditya Pratama', nis: '0012345', asesmen: 'Latihan Mandiri: Grafik Parabola', jenis: 'TUGAS', dikumpulkan: '21 Jan 2026', status: 'SUDAH DINILAI', nilai: 85 },
     { id: 2, nama: 'Nadia Putri', nis: '0012346', asesmen: 'Latihan Mandiri: Grafik Parabola', jenis: 'TUGAS', dikumpulkan: '21 Jan 2026', status: 'SUDAH DINILAI', nilai: 98 },
@@ -27,65 +21,21 @@ const TabNilaiGuru = ({ searchTerm = '', onKeDetailNilai, onKeEditNilai, onKeTin
     { id: 8, nama: 'Fajar Hidayat', nis: '0012352', asesmen: 'Latihan Mandiri: Grafik Parabola', jenis: 'TUGAS', dikumpulkan: '--', status: 'TERLEWAT', nilai: '--' },
   ]);
 
-  // Perbaikan: Gunakan daftarNilai dan gabungkan filter dari searchTerm atas dan input cariSiswa
-  const filteredSiswa = daftarNilai.filter(item => {
-    const matchGlobal = item.nama.toLowerCase().includes((searchTerm || '').toLowerCase()) ||
-                        item.nis.toLowerCase().includes((searchTerm || '').toLowerCase());
-    const matchLocal = item.nama.toLowerCase().includes((cariSiswa || '').toLowerCase()) ||
-                       item.nis.toLowerCase().includes((cariSiswa || '').toLowerCase());
-    return matchGlobal && matchLocal;
+  const query = (searchTerm || '').toLowerCase().trim();
+
+  const filteredSiswa = daftarNilai.filter((item) => {
+    if (!query) return true;
+    return (
+      item.nama.toLowerCase().includes(query) ||
+      item.nis.toLowerCase().includes(query) ||
+      item.asesmen.toLowerCase().includes(query) ||
+      item.jenis.toLowerCase().includes(query) ||
+      item.status.toLowerCase().includes(query)
+    );
   });
 
   return (
     <div className="space-y-8 w-full">
-
-      {/* FILTER & PENCARIAN BOX */}
-      <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-[0_8px_20px_rgba(0,136,168,0.06)] grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="relative">
-          <label className="block text-[10px] font-bold text-[#71808D] uppercase tracking-wider mb-2">Asesmen</label>
-          <div className="relative w-full">
-            <select
-              value={filterAsesmen}
-              onChange={(e) => setFilterAsesmen(e.target.value)}
-              className="w-full px-4 py-3 bg-cyan-50/30 rounded-2xl border border-cyan-100 text-xs font-semibold text-[#17242E] focus:outline-none appearance-none cursor-pointer pr-10"
-            >
-              <option>Latihan Mandiri: Grafik Parabola</option>
-              <option>Proyek Analisis Data</option>
-            </select>
-            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
-          </div>
-        </div>
-
-        <div className="relative">
-          <label className="block text-[10px] font-bold text-[#71808D] uppercase tracking-wider mb-2">Jenis Asesmen</label>
-          <div className="relative w-full">
-            <select
-              value={filterJenis}
-              onChange={(e) => setFilterJenis(e.target.value)}
-              className="w-full px-4 py-3 bg-cyan-50/30 rounded-2xl border border-cyan-100 text-xs font-semibold text-[#17242E] focus:outline-none appearance-none cursor-pointer pr-10"
-            >
-              <option>Tugas</option>
-              <option>Kuis</option>
-              <option>Ujian</option>
-            </select>
-            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
-          </div>
-        </div>
-
-        <div className="relative">
-          <label className="block text-[10px] font-bold text-[#71808D] uppercase tracking-wider mb-2">Cari Siswa</label>
-          <div className="relative w-full">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-600" size={16} />
-            <input
-              type="text"
-              placeholder="Nama..."
-              value={cariSiswa}
-              onChange={(e) => setCariSiswa(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-cyan-50/30 rounded-2xl border border-cyan-100 text-xs text-[#17242E] focus:outline-none placeholder-gray-400"
-            />
-          </div>
-        </div>
-      </div>
 
       {/* STATS CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 w-full">

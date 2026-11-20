@@ -1,20 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  ChevronDown, 
-  ChevronUp, 
-  Edit3, 
-  ArrowLeft, 
-  FileText, 
+import {
+  ChevronDown,
+  ChevronUp,
+  Edit3,
+  ArrowLeft,
+  FileText,
   ClipboardList,
-  Download
+  Download,
+  ExternalLink
 } from 'lucide-react';
-import TabTugasGuru from './TabTugasGuru'; 
+import TabTugasGuru from './TabTugasGuru';
 import TabNilaiGuru from './TabNilaiGuru';
 import TinjauNilaiGuru from './TinjauNilaiGuru';
 import DetailNilaiGuru from './DetailNilaiGuru';
 import EditNilaiGuru from './EditNilaiGuru';
 import DetailTugasGuru from './DetailTugasGuru';
-import SidebarGuru from './SidebarGuru'; 
+import SidebarGuru from './SidebarGuru';
 import TopbarGuru from './TopbarGuru';
 
 const COURSE_ID = 'bf720e90-1886-4c01-9868-249181f900dc';
@@ -23,6 +24,14 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
   const [daftarBab, setDaftarBab] = useState([]);
   const [daftarMateri, setDaftarMateri] = useState([]);
   const [daftarTugas, setDaftarTugas] = useState([]);
+  const [daftarLink, setDaftarLink] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(`links_${COURSE_ID}`) || '[]');
+      return Array.isArray(saved) ? saved : [];
+    } catch {
+      return [];
+    }
+  });
   const [loadingAPI, setLoadingAPI] = useState(true);
   const [errorAPI, setErrorAPI] = useState('');
 
@@ -41,6 +50,12 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
   const filteredTugas = daftarTugas.filter(tugas =>
     (tugas.title && tugas.title.toLowerCase().includes(keywordPencarian.toLowerCase())) ||
     (tugas.instructions && tugas.instructions.toLowerCase().includes(keywordPencarian.toLowerCase()))
+  );
+
+  const filteredLink = daftarLink.filter(link =>
+    (link.title && link.title.toLowerCase().includes(keywordPencarian.toLowerCase())) ||
+    (link.description && link.description.toLowerCase().includes(keywordPencarian.toLowerCase())) ||
+    (link.url && link.url.toLowerCase().includes(keywordPencarian.toLowerCase()))
   );
 
   const [subHalamanNilai, setSubHalamanNilai] = useState('utama');
@@ -77,6 +92,25 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
       [id]: !prev[id]
     }));
   };
+
+  useEffect(() => {
+    const syncSavedLinks = () => {
+      try {
+        const saved = JSON.parse(localStorage.getItem(`links_${COURSE_ID}`) || '[]');
+        setDaftarLink(Array.isArray(saved) ? saved : []);
+      } catch {
+        setDaftarLink([]);
+      }
+    };
+
+    syncSavedLinks();
+    window.addEventListener('focus', syncSavedLinks);
+    window.addEventListener('storage', syncSavedLinks);
+    return () => {
+      window.removeEventListener('focus', syncSavedLinks);
+      window.removeEventListener('storage', syncSavedLinks);
+    };
+  }, [tabAktif, subHalamanNilai, subHalamanTugas]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -135,13 +169,13 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
 
       {/* --- SIDEBAR TERPISAH --- */}
       {(subHalamanNilai === 'utama' || subHalamanNilai === 'detailNilai' || subHalamanNilai === 'tinjauNilai' || subHalamanNilai === 'editNilai') && (
-        <SidebarGuru 
-          menuAktif="beranda" 
+        <SidebarGuru
+          menuAktif="beranda"
           onPilihMenu={(menu) => {
             if (menu === 'beranda' && onKembali) {
               onKembali();
             }
-          }} 
+          }}
         />
       )}
 
@@ -149,7 +183,7 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
       <main className="flex-1 p-7 overflow-y-auto w-full bg-white rounded-tl-[32px] rounded-bl-[32px] shadow-[0_0_30px_rgba(0,136,168,0.12)] border-l border-[#DDF6F9]">
 
         {/* TOPBAR GURU TERPISAH */}
-        <TopbarGuru 
+        <TopbarGuru
           searchTerm={keywordPencarian}
           onSearchChange={(val) => setKeywordPencarian(val)}
           placeholder="Cari informasi..."
@@ -248,7 +282,7 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
           </>
         )}
 
-        {/* ISI TAB: MATERI (Murni dari Database Backend) */}
+        {/* ISI TAB: MATERI) */}
         {tabAktif === 'materi' && subHalamanNilai === 'utama' && (
           <div className="space-y-6 w-full">
 
@@ -267,6 +301,9 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
                 );
                 const tugasPerSection = filteredTugas.filter(
                   (tugas) => tugas.section_id === bab.id
+                );
+                const linkPerSection = filteredLink.filter(
+                  (link) => link.section_id === bab.id
                 );
 
                 return (
@@ -291,14 +328,14 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
                       </div>
 
                       <span className="text-[11px] text-[#71808D]">
-                        {materiPerSection.length} materi • {tugasPerSection.length} tugas
+                        {materiPerSection.length + linkPerSection.length} materi • {tugasPerSection.length} tugas
                       </span>
                     </div>
 
                     {/* Isi Bab */}
                     {openBab[bab.id] && (
                       <div className="p-6 space-y-4">
-                        {materiPerSection.length === 0 && tugasPerSection.length === 0 ? (
+                        {materiPerSection.length === 0 && tugasPerSection.length === 0 && linkPerSection.length === 0 ? (
                           <p className="text-xs text-gray-500">Belum ada materi atau tugas pada bagian ini.</p>
                         ) : null}
 
@@ -315,24 +352,21 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
                             }}
                             className="bg-white border border-cyan-100/80 p-4 rounded-2xl shadow-2xs space-y-3 cursor-pointer hover:border-[#0088A8] transition"
                           >
-                            {materi.description && (
-                              <div>
-                                <p className="text-xs text-[#71808D] leading-relaxed mb-2">
-                                  {materi.description}
-                                </p>
-                              </div>
-                            )}
-
-                            <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                              <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-[#E0F7FA] text-[#0088A8] flex items-center justify-center shrink-0">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-start gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-[#E0F7FA] text-[#0088A8] flex items-center justify-center shrink-0 mt-0.5">
                                   <FileText size={18} />
                                 </div>
                                 <div>
                                   <h4 className="font-bold text-xs text-[#17242E] transition">
                                     {materi.title || 'Dokumen Materi.pdf'}
                                   </h4>
-                                  <p className="text-[10px] text-[#71808D] uppercase">DOKUMEN • 2.4 MB</p>
+                                  {materi.description && (
+                                    <p className="text-xs text-[#71808D] leading-relaxed mt-0.5">
+                                      {materi.description}
+                                    </p>
+                                  )}
+                                  <p className="text-[10px] text-[#71808D] uppercase mt-1">DOKUMEN • 2.4 MB</p>
                                 </div>
                               </div>
 
@@ -349,7 +383,53 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
                           </div>
                         ))}
 
-                        {/* 2. List Tugas dari Database */}
+                        {/* 2. List Tautan (URL) Tersimpan */}
+                        {linkPerSection.map((link) => (
+                          <div
+                            key={link.id}
+                            className="bg-white border border-cyan-100/80 p-4 rounded-2xl shadow-2xs space-y-2.5 hover:border-[#0088A8] transition"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-start gap-3 min-w-0">
+                                <div className="w-9 h-9 rounded-xl bg-[#E0F7FA] text-[#0088A8] flex items-center justify-center shrink-0 mt-0.5">
+                                  <ExternalLink size={18} />
+                                </div>
+                                <div className="min-w-0">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider bg-cyan-50 text-[#0088A8] px-2 py-0.5 rounded border border-cyan-100 inline-block">
+                                    TAUTAN (URL)
+                                  </span>
+                                  <h4 className="font-bold text-xs text-[#17242E] mt-1">
+                                    {link.title}
+                                  </h4>
+                                  {link.description && (
+                                    <p className="text-xs text-[#71808D] leading-relaxed mt-0.5">
+                                      {link.description}
+                                    </p>
+                                  )}
+                                  <a
+                                    href={link.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[11px] text-[#0088A8] hover:underline break-all inline-block mt-1"
+                                  >
+                                    {link.url}
+                                  </a>
+                                </div>
+                              </div>
+
+                              <a
+                                href={link.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 bg-[#054C5A] text-white hover:bg-[#033742]"
+                              >
+                                <ExternalLink size={14} /> Buka
+                              </a>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* 3. List Tugas dari Database */}
                         {tugasPerSection.map((tugas) => (
                           <div
                             key={tugas.id}
@@ -367,14 +447,12 @@ const DetailCourseGuru = ({ kelasData, tingkatKelas = '10', onKembali, onKeModeE
                                 <ClipboardList size={18} />
                               </div>
                               <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-[9px] font-bold uppercase tracking-wider bg-pink-50 text-pink-600 px-2 py-0.5 rounded border border-pink-100">
-                                    TUGAS
-                                  </span>
-                                  <h4 className="font-bold text-xs text-[#17242E]">{tugas.title || 'Latihan Mandiri'}</h4>
-                                </div>
+                                <span className="text-[9px] font-bold uppercase tracking-wider bg-pink-50 text-pink-600 px-2 py-0.5 rounded border border-pink-100 inline-block">
+                                  TUGAS
+                                </span>
+                                <h4 className="font-bold text-xs text-[#17242E] mt-1">{tugas.title || 'Latihan Mandiri'}</h4>
                                 {tugas.instructions && (
-                                  <p className="text-xs text-[#71808D] leading-relaxed">{tugas.instructions}</p>
+                                  <p className="text-xs text-[#71808D] leading-relaxed mt-0.5">{tugas.instructions}</p>
                                 )}
                               </div>
                             </div>

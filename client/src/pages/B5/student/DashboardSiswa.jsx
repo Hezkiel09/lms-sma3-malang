@@ -284,12 +284,76 @@ const DashboardSiswa = () => {
                     placeholder="Cari informasi..."
                     onKeProfil={handleKeProfil}
                     onPilihNotif={(notif) => {
-                        // Cek jika teks notifikasi mengandung kata 'nilai', arahkan langsung ke Detail Nilai
-                        if (notif.text && (notif.text.toLowerCase().includes('nilai') || notif.text.toLowerCase().includes('memberikan nilai'))) {
-                            ubahHalaman('detailNilaiSiswa', '/kelas/detail/nilai');
+                        const targetCourseId =
+                            notif?.course_id ||
+                            notif?.courseId ||
+                            notif?.data?.course_id ||
+                            notif?.data?.courseId;
+
+                        if (targetCourseId && kelasSaya.length > 0) {
+                            const matchedCourse = kelasSaya.find(
+                                (k) =>
+                                    String(k.id) === String(targetCourseId) ||
+                                    String(k.course_id) === String(targetCourseId)
+                            );
+                            if (matchedCourse) {
+                                setKelasTerpilih(matchedCourse);
+                            }
+                        }
+
+                        const teksNotif = (
+                            notif?.text ||
+                            notif?.title ||
+                            notif?.message ||
+                            ''
+                        ).toLowerCase();
+
+                        // Cek jika teks notifikasi mengandung kata 'nilai', arahkan langsung ke Detail Nilai beserta ID-nya
+                        if (
+                            notif?.type === 'grade' ||
+                            notif?.type === 'nilai' ||
+                            teksNotif.includes('nilai') ||
+                            teksNotif.includes('memberikan nilai')
+                        ) {
+                            const nilaiId =
+                                notif?.nilai_id ||
+                                notif?.grade_id ||
+                                notif?.submission_id ||
+                                notif?.submissionId ||
+                                notif?.assignment_id ||
+                                notif?.assignmentId ||
+                                notif?.target_id ||
+                                notif?.data?.submission_id ||
+                                notif?.data?.assignment_id ||
+                                notif?.id ||
+                                null;
+                            setIdNilaiTerpilih(nilaiId);
+                            ubahHalaman(
+                                'detailNilaiSiswa',
+                                nilaiId ? `/kelas/detail/nilai/${nilaiId}` : '/kelas/detail/nilai'
+                            );
                         } else {
-                            // Jika notifikasi tugas, arahkan ke detail course/tugas
-                            ubahHalaman('detailCourseSiswa', '/kelas/detail');
+                            // Jika notifikasi tugas baru, ambil ID tugas dan arahkan langsung ke Detail Tugas
+                            const tugasId =
+                                notif?.assignment_id ||
+                                notif?.assignmentId ||
+                                notif?.tugas_id ||
+                                notif?.tugasId ||
+                                notif?.task_id ||
+                                notif?.taskId ||
+                                notif?.target_id ||
+                                notif?.reference_id ||
+                                notif?.entity_id ||
+                                notif?.data?.assignment_id ||
+                                notif?.data?.tugas_id ||
+                                notif?.id ||
+                                null;
+
+                            setIdTugasTerpilih(tugasId);
+                            ubahHalaman(
+                                'detailTugasSiswa',
+                                tugasId ? `/kelas/detail/tugas/${tugasId}` : '/kelas/detail/tugas'
+                            );
                         }
                     }}
                 />

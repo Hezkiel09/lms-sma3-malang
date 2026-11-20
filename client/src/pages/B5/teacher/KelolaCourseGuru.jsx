@@ -13,8 +13,6 @@ import {
   ClipboardList,
   ExternalLink,
   File,
-  FileCode,
-  Edit2,
   HelpCircle,
   Check,
   FolderPlus,
@@ -22,14 +20,14 @@ import {
   Download
 } from 'lucide-react';
 
-import SidebarGuru from './SidebarGuru'; 
+import SidebarGuru from './SidebarGuru';
 import TopbarGuru from './TopbarGuru';
 import TambahMateri from './TambahMateri';
 import EditFileGuru from './EditFileGuru';
 import EditAssignmentGuru from './EditAssignmentGuru';
 import TambahAssignmentGuru from './TambahAssignmentGuru';
 import DetailFileGuru from './DetailFileGuru';
-import DetailTugasGuru from './DetailTugasGuru'; 
+import DetailTugasGuru from './DetailTugasGuru';
 
 // ID course Matematika X A untuk keperluan demo
 const COURSE_ID = 'bf720e90-1886-4c01-9868-249181f900dc';
@@ -40,6 +38,14 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
   const [errorAPI, setErrorAPI] = useState('');
   const [daftarMateriAPI, setDaftarMateriAPI] = useState([]);
   const [daftarTugasAPI, setDaftarTugasAPI] = useState([]);
+  const [daftarLink, setDaftarLink] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(`links_${COURSE_ID}`) || '[]');
+      return Array.isArray(saved) ? saved : [];
+    } catch {
+      return [];
+    }
+  });
 
   // State halaman
   const [subHalaman, setSubHalaman] = useState(null);
@@ -275,7 +281,7 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
       setAddingSubBabId(null);
     }
   };
-  
+
   // PENGONDISIAN SUB-HALAMAN
 
   // UC-02: Tambah Materi
@@ -422,16 +428,16 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
   if (subHalaman === 'tambahLink') {
     return (
       <div className="flex min-h-screen bg-white font-sans text-[#17242E] w-full relative">
-        <SidebarGuru 
-          menuAktif="beranda" 
+        <SidebarGuru
+          menuAktif="beranda"
           onPilihMenu={(menu) => {
             if (menu === 'beranda') setSubHalaman(null);
-          }} 
+          }}
         />
 
         <main onClick={() => { setActiveMaterialPopover(null); setActiveAssignmentPopover(null); }} className="flex-1 p-7 overflow-y-auto w-full bg-white rounded-tl-[32px] rounded-bl-[32px] shadow-[0_0_30px_rgba(0,136,168,0.12)] border-l border-[#DDF6F9]">
-          
-          <TopbarGuru 
+
+          <TopbarGuru
             searchTerm={searchTerm}
             onSearchChange={(val) => setSearchTerm(val)}
             placeholder="Cari informasi..."
@@ -517,7 +523,35 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
 
               <button
                 onClick={() => {
-                  alert('Link berhasil ditambahkan!');
+                  const cleanJudul = linkJudul.trim();
+                  const cleanURL = linkURL.trim();
+
+                  if (!cleanJudul || !cleanURL) {
+                    alert('Judul link dan URL wajib diisi.');
+                    return;
+                  }
+
+                  const formattedURL = /^https?:\/\//i.test(cleanURL)
+                    ? cleanURL
+                    : `https://${cleanURL}`;
+
+                  const newLink = {
+                    id: `link-${Date.now()}`,
+                    section_id: selectedSectionId,
+                    title: cleanJudul,
+                    url: formattedURL,
+                    description: linkDeskripsi.trim(),
+                  };
+
+                  setDaftarLink((prev) => {
+                    const updated = [newLink, ...prev];
+                    localStorage.setItem(`links_${COURSE_ID}`, JSON.stringify(updated));
+                    return updated;
+                  });
+
+                  setLinkJudul('');
+                  setLinkURL('');
+                  setLinkDeskripsi('');
                   setSubHalaman(null);
                 }}
                 className="px-7 py-2.5 bg-[#054C5A] text-white rounded-xl text-xs font-bold hover:bg-[#033742] cursor-pointer transition shadow-xs flex items-center gap-2"
@@ -537,8 +571,6 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
     { id: 'Tugas', title: 'Tugas', icon: ClipboardList },
     { id: 'Link (URL)', title: 'Tautan (URL)', icon: ExternalLink },
     { id: 'File', title: 'File', icon: File },
-    { id: 'Page', title: 'Halaman', icon: FileCode },
-    { id: 'Text and media area', title: 'Teks dan media', icon: Edit2 },
     { id: 'Quiz', title: 'Kuis', icon: HelpCircle },
     { id: 'Forum', title: 'Forum', icon: MessageSquare }
   ];
@@ -546,18 +578,18 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
   return (
     <div className="flex min-h-screen bg-white font-sans text-[#17242E] w-full relative">
       {/* SIDEBAR TERPISAH */}
-      <SidebarGuru 
-        menuAktif="beranda" 
+      <SidebarGuru
+        menuAktif="beranda"
         onPilihMenu={(menu) => {
           if (menu === 'beranda' && onKembali) onKembali();
-        }} 
+        }}
       />
 
       {/* MAIN CONTENT */}
       <main className="flex-1 p-7 overflow-y-auto w-full bg-white rounded-tl-[32px] rounded-bl-[32px] shadow-[0_0_30px_rgba(0,136,168,0.12)] border-l border-[#DDF6F9]">
-        
+
         {/* TOPBAR GURU */}
-        <TopbarGuru 
+        <TopbarGuru
           searchTerm={searchTerm}
           onSearchChange={(val) => setSearchTerm(val)}
           placeholder="Cari informasi..."
@@ -640,6 +672,9 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
               );
               const tugasPerSection = daftarTugasAPI.filter(
                 (tugas) => tugas.section_id === bab.id
+              );
+              const linkPerSection = daftarLink.filter(
+                (link) => link.section_id === bab.id
               );
 
               return (
@@ -748,7 +783,7 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
                   {/* ISI KONTEN BAB */}
                   {bab.isOpen && (
                     <div className="p-6 space-y-4">
-                      {materiPerSection.length === 0 && tugasPerSection.length === 0 ? (
+                      {materiPerSection.length === 0 && tugasPerSection.length === 0 && linkPerSection.length === 0 ? (
                         <div className="p-4 rounded-2xl border border-dashed border-cyan-200 bg-cyan-50/20">
                           <p className="text-xs text-gray-500">
                             Belum ada materi atau tugas pada bagian ini.
@@ -768,24 +803,21 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
                               }}
                               className="bg-white border border-cyan-100/80 p-4 rounded-2xl shadow-2xs space-y-3 cursor-pointer hover:border-[#0088A8] transition relative"
                             >
-                              {materi.description && (
-                                <div>
-                                  <p className="text-xs text-[#71808D] leading-relaxed mb-2">
-                                    {materi.description}
-                                  </p>
-                                </div>
-                              )}
-
-                              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-9 h-9 rounded-xl bg-[#E0F7FA] text-[#0088A8] flex items-center justify-center shrink-0">
+                              <div className="flex items-center justify-between pr-8">
+                                <div className="flex items-start gap-3">
+                                  <div className="w-9 h-9 rounded-xl bg-[#E0F7FA] text-[#0088A8] flex items-center justify-center shrink-0 mt-0.5">
                                     <FileText size={18} />
                                   </div>
                                   <div>
                                     <h4 className="font-bold text-xs text-[#17242E] transition">
                                       {materi.title || 'Dokumen Materi.pdf'}
                                     </h4>
-                                    <p className="text-[10px] text-[#71808D] uppercase">
+                                    {materi.description && (
+                                      <p className="text-xs text-[#71808D] leading-relaxed mt-0.5">
+                                        {materi.description}
+                                      </p>
+                                    )}
+                                    <p className="text-[10px] text-[#71808D] uppercase mt-1">
                                       DOKUMEN • 2.4 MB &nbsp;•&nbsp; Status:{' '}
                                       <span className={materi.status && materi.status.toLowerCase() === 'published' ? 'text-green-600 font-semibold' : 'text-amber-600 font-semibold'}>
                                         {materi.status && materi.status.toLowerCase() === 'published' ? 'Dipublikasikan' : 'Draf'}
@@ -869,6 +901,45 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
                         </div>
                       )}
 
+                      {/* TAUTAN (URL) TERSIMPAN PER SECTION */}
+                      {linkPerSection.length > 0 && (
+                        <div className="space-y-3">
+                          {linkPerSection.map((link) => (
+                            <div
+                              key={link.id}
+                              className="bg-white border border-cyan-100/80 p-4 rounded-2xl shadow-2xs flex items-center justify-between gap-3"
+                            >
+                              <div className="flex items-start gap-3 min-w-0">
+                                <div className="w-9 h-9 rounded-xl bg-[#E0F7FA] text-[#0088A8] flex items-center justify-center shrink-0 mt-0.5">
+                                  <ExternalLink size={18} />
+                                </div>
+                                <div className="min-w-0">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider bg-cyan-50 text-[#0088A8] px-2 py-0.5 rounded border border-cyan-100 inline-block">
+                                    TAUTAN (URL)
+                                  </span>
+                                  <h4 className="font-bold text-xs text-[#17242E] mt-1">
+                                    {link.title}
+                                  </h4>
+                                  {link.description && (
+                                    <p className="text-xs text-[#71808D] mt-0.5 leading-relaxed">
+                                      {link.description}
+                                    </p>
+                                  )}
+                                  <a
+                                    href={link.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[11px] text-[#0088A8] hover:underline break-all inline-block mt-1"
+                                  >
+                                    {link.url}
+                                  </a>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
                       {/* Tugas dari backend */}
                       {tugasPerSection.length > 0 && (
                         <div className="space-y-4">
@@ -886,14 +957,12 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
                                   <ClipboardList size={18} />
                                 </div>
                                 <div className="flex-1 pr-8">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-[9px] font-bold uppercase tracking-wider bg-pink-50 text-pink-600 px-2 py-0.5 rounded border border-pink-100">
-                                      TUGAS
-                                    </span>
-                                    <h4 className="font-bold text-xs text-[#17242E]">{tugas.title || 'Latihan Mandiri'}</h4>
-                                  </div>
+                                  <span className="text-[9px] font-bold uppercase tracking-wider bg-pink-50 text-pink-600 px-2 py-0.5 rounded border border-pink-100 inline-block">
+                                    TUGAS
+                                  </span>
+                                  <h4 className="font-bold text-xs text-[#17242E] mt-1">{tugas.title || 'Latihan Mandiri'}</h4>
                                   {tugas.instructions && (
-                                    <p className="text-xs text-[#71808D] leading-relaxed">{tugas.instructions}</p>
+                                    <p className="text-xs text-[#71808D] leading-relaxed mt-0.5">{tugas.instructions}</p>
                                   )}
                                 </div>
                               </div>
@@ -1056,11 +1125,11 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
                                         prev.map((b) =>
                                           b.id === bab.id
                                             ? {
-                                                ...b,
-                                                subBagian: b.subBagian.filter(
-                                                  (s) => s.id !== sub.id
-                                                )
-                                              }
+                                              ...b,
+                                              subBagian: b.subBagian.filter(
+                                                (s) => s.id !== sub.id
+                                              )
+                                            }
                                             : b
                                         )
                                       );
@@ -1252,11 +1321,10 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
                   <div
                     key={item.id}
                     onClick={() => setPilihanAktivitas(item.id)}
-                    className={`p-5 rounded-2xl border flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 ${
-                      isSelected
+                    className={`p-5 rounded-2xl border flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 ${isSelected
                         ? 'border-[#0088A8] bg-cyan-50/40 shadow-xs ring-1 ring-[#0088A8]'
                         : 'border-gray-100 hover:border-cyan-200 hover:bg-gray-50/80'
-                    }`}
+                      }`}
                   >
                     <div className="w-12 h-12 rounded-2xl bg-cyan-50 text-[#0088A8] flex items-center justify-center mb-3">
                       <IconComponent size={22} />

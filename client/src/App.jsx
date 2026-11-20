@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Routes,
   Route,
@@ -7,6 +7,8 @@ import {
   useParams,
   useLocation
 } from 'react-router-dom';
+
+import AuthLayout from './pages/B5/auth/AuthLayout';
 
 import DashboardGuru from './pages/B5/teacher/DashboardGuru';
 import ProfilGuru from './pages/B5/teacher/ProfilGuru';
@@ -26,14 +28,37 @@ const COURSE_ID = 'bf720e90-1886-4c01-9868-249181f900dc';
 
 function App() {
   const navigate = useNavigate();
+  // State untuk melacak status autentikasi role ('auth', 'student', atau 'teacher')
+  // Ubah ke 'teacher' atau 'student' jika ingin bypass langsung ke dashboard saat testing
+  const [authRole, setAuthRole] = useState('auth'); 
+
+  // Jika belum login / berada di halaman auth, tampilkan layout autentikasi (Landing, Login, Lupa Password)
+  if (authRole === 'auth') {
+    return (
+      <AuthLayout
+        onLoginSuccess={(role) => {
+          setAuthRole(role);
+          if (role === 'teacher') navigate('/dashboard');
+          if (role === 'student') navigate('/dashboard-siswa');
+        }}
+      />
+    );
+  }
 
   return (
     <Routes>
-      {/* Kalau buka localhost:5173, otomatis diarahkan ke /dashboard */}
+      {/* Kalau buka root, arahkan berdasarkan role */}
       <Route
         path="/"
-        element={<Navigate to="/dashboard" replace />}
+        element={
+          authRole === 'teacher' ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <Navigate to="/dashboard-siswa" replace />
+          )
+        }
       />
+
       <Route path="/profil" element={<ProfilGuru />} />
 
       {/* Halaman Dashboard Guru */}
@@ -175,7 +200,6 @@ function DetailTugasGuruWrapper({
   onViewSubmission
 }) {
   const { assignmentId } = useParams();
-  const navigate = useNavigate();
 
   return (
     <DetailTugasGuru
