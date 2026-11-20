@@ -3,6 +3,23 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
+const roleHome = (role) => {
+  if (role === 'admin') return '/admin/dashboard';
+  if (role === 'teacher') return '/b6/buat-kuis';
+  if (role === 'student') return '/siswa';
+  if (role === 'parent') return '/ortu';
+  return '/login';
+};
+
+const isPathAllowedForRole = (pathname, role) => {
+  if (!pathname || pathname === '/login') return false;
+  if (pathname.startsWith('/admin')) return role === 'admin';
+  if (pathname.startsWith('/b6') || pathname.startsWith('/guru')) return role === 'teacher';
+  if (pathname.startsWith('/siswa')) return role === 'student' || role === 'admin';
+  if (pathname.startsWith('/ortu')) return role === 'parent' || role === 'admin';
+  return false;
+};
+
 export default function LoginPage() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -11,24 +28,29 @@ export default function LoginPage() {
   const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const roleHome = (role) => role === 'admin' ? '/admin/dashboard' : role === 'teacher' ? '/b6/buat-kuis' : '/login';
 
   useEffect(() => {
-   if (isAuthenticated && user?.role) {
-    const target = location.state?.from?.pathname;
-    navigate(target && ((target.startsWith('/admin') && user.role === 'admin') || (target.startsWith('/b6') && user.role === 'teacher')) ? target : roleHome(user.role), { replace: true });
-   }
+    if (!isAuthenticated || !user?.role) return;
+    const fromPath = location.state?.from?.pathname;
+    navigate(isPathAllowedForRole(fromPath, user.role) ? fromPath : roleHome(user.role), { replace: true });
   }, [isAuthenticated, user, location.state, navigate]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
-    setSubmitting(true);
+    const cleanIdentifier = identifier.trim();
+    if (!cleanIdentifier || !password) {
+      setError('Silakan masukkan Email / NIS dan kata sandi.');
+      return;
+    }
+
     try {
-      const loggedUser = await login({ identifier: identifier.trim(), password });
-      navigate(roleHome(loggedUser.role), { replace: true });
-    } catch (err) {
-      setError(err.message || 'Login gagal. Periksa kembali email/NIS dan kata sandi.');
+      setSubmitting(true);
+      const loggedUser = await login({ identifier: cleanIdentifier, password });
+      const fromPath = location.state?.from?.pathname;
+      navigate(isPathAllowedForRole(fromPath, loggedUser.role) ? fromPath : roleHome(loggedUser.role), { replace: true });
+    } catch (loginError) {
+      setError(loginError.message || 'Login gagal. Periksa kembali email/NIS dan kata sandi.');
     } finally {
       setSubmitting(false);
     }
@@ -48,35 +70,13 @@ export default function LoginPage() {
         {error && <div role="alert" className="mb-4 flex items-center gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-700"><AlertCircle className="h-4 w-4" />{error}</div>}
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
-              Email atau NIS / NIP
-            </label>
-            <input
-              type="text"
-              required
-              autoComplete="username"
-              value={identifier}
-              onChange={(event) => setIdentifier(event.target.value)}
-              placeholder="nama@sma3malang.sch.id"
-              className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
-            />
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">Email atau NIS / NIP</label>
+            <input type="text" required autoComplete="username" value={identifier} onChange={(event) => setIdentifier(event.target.value)} placeholder="nama@sma3malang.sch.id" className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10" />
           </div>
-
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
-              Kata Sandi
-            </label>
-            <input
-              type="password"
-              required
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="••••••••"
-              className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10"
-            />
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">Kata Sandi</label>
+            <input type="password" required autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="••••••••" className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10" />
           </div>
-
           <button type="submit" disabled={submitting} className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-700 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><span>Masuk ke Dashboard</span><ArrowRight className="h-4 w-4" /></>}
           </button>

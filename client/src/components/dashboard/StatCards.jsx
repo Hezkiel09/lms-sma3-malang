@@ -16,7 +16,7 @@ export default function StatCards() {
   useEffect(() => {
     let active = true;
 
-    apiFetch('/master/dashboard/summary')
+    apiFetch('/master/analytics/dashboard')
       .then((res) => {
         const data = res?.data || res;
         if (active && data) {
@@ -24,8 +24,8 @@ export default function StatCards() {
             {
               id: 1,
               title: 'Total Siswa',
-              value: data.total_students ? data.total_students.toLocaleString('id-ID') : '1.248',
-              subtitle: `${data.total_classes || 36} rombel aktif`,
+              value: (data.total_students ?? 0).toLocaleString('id-ID'),
+              subtitle: `${data.total_classes ?? 0} rombel aktif`,
               change: '↗ 2,4%',
               icon: 'Users',
               iconBg: 'bg-cyan-50 text-cyan-600',
@@ -33,8 +33,8 @@ export default function StatCards() {
             {
               id: 2,
               title: 'Guru & Staf',
-              value: data.total_teachers ? data.total_teachers.toString() : '86',
-              subtitle: '82 akun aktif',
+              value: String(data.total_teachers ?? 0),
+              subtitle: `${data.total_teachers ?? 0} akun guru`,
               change: '↗ 2,4%',
               icon: 'GraduationCap',
               iconBg: 'bg-blue-50 text-blue-600',
@@ -42,8 +42,8 @@ export default function StatCards() {
             {
               id: 3,
               title: 'Kehadiran Hari Ini',
-              value: data.attendance_rate || '94,8%',
-              subtitle: `${data.total_students || 1183} siswa hadir`,
+              value: data.attendance_rate ?? '—',
+              subtitle: `${data.total_students ?? 0} total siswa`,
               change: '↗ 2,4%',
               icon: 'Monitor',
               iconBg: 'bg-amber-50 text-amber-600',
@@ -51,7 +51,7 @@ export default function StatCards() {
             {
               id: 4,
               title: 'Aktivitas Sistem',
-              value: data.active_activities ? data.active_activities.toString() : '328',
+              value: String(data.active_activities ?? 0),
               subtitle: '+12% dari kemarin',
               change: '↗ 2,4%',
               icon: 'FileText',

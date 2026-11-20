@@ -13,23 +13,30 @@ function readSavedUser() {
   }
 }
 
+function readSavedToken() {
+  return localStorage.getItem('token')
+    || localStorage.getItem('admin_token')
+    || sessionStorage.getItem('b8-token')
+    || sessionStorage.getItem('b8-teacher-token')
+    || null;
+}
+
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() =>
-    localStorage.getItem('token') || localStorage.getItem('admin_token') ||
-    sessionStorage.getItem('b8-token') || sessionStorage.getItem('b8-teacher-token') || null
-  );
+  const [token, setToken] = useState(readSavedToken);
   const [user, setUser] = useState(readSavedUser);
   const [loading, setLoading] = useState(true);
 
   const syncTokens = (newToken, newUser) => {
     setToken(newToken);
     setUser(newUser);
+
     if (newToken) {
       localStorage.setItem('token', newToken);
       localStorage.setItem('admin_token', newToken);
       sessionStorage.setItem('b8-token', newToken);
       sessionStorage.setItem('b8-teacher-token', newToken);
     }
+
     if (newUser) {
       localStorage.setItem('user', JSON.stringify(newUser));
       localStorage.setItem('admin_user', JSON.stringify(newUser));
@@ -46,18 +53,21 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let mounted = true;
+
     const verifySession = async () => {
-      const activeToken = localStorage.getItem('token') || localStorage.getItem('admin_token') ||
-        sessionStorage.getItem('b8-token') || sessionStorage.getItem('b8-teacher-token');
+      const activeToken = readSavedToken();
       if (!activeToken) {
-        if (mounted) { clearTokens(); setLoading(false); }
+        if (mounted) {
+          clearTokens();
+          setLoading(false);
+        }
         return;
       }
+
       try {
         const freshUser = await apiFetch('/auth/me');
-        if (!freshUser || !['admin', 'teacher', 'student', 'parent'].includes(freshUser.role)) {
-          throw new Error('Sesi tidak valid');
-        }
+        const validRoles = ['admin', 'teacher', 'student', 'parent'];
+        if (!freshUser || !validRoles.includes(freshUser.role)) throw new Error('Sesi tidak valid');
         if (mounted) syncTokens(activeToken, freshUser);
       } catch {
         if (mounted) clearTokens();
@@ -65,6 +75,7 @@ export function AuthProvider({ children }) {
         if (mounted) setLoading(false);
       }
     };
+
     verifySession();
     return () => { mounted = false; };
   }, []);
@@ -79,11 +90,36 @@ export function AuthProvider({ children }) {
     return data.user;
   };
 
-  const value = {
-    user, token, role: user?.role || null,
-    isAuthenticated: Boolean(token && user?.role),
-    loading, login, logout: clearTokens,
+  const updateProfile = async (profileData) => {
+    const updated = await apiFetch('/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(profileData),
+    });
+    syncTokens(token, updated);
+    return updated;
   };
+
+  const updatePassword = async (newPassword) => apiFetch('/auth/password', {
+    method: 'PUT',
+    body: JSON.stringify({ newPassword }),
+  });
+
+  const value = {
+    user,
+    token,
+    role: user?.role || null,
+    isAuthenticated: Boolean(token && user?.role),
+    isAdmin: user?.role === 'admin',
+    isTeacher: user?.role === 'teacher',
+    isStudent: user?.role === 'student',
+    isParent: user?.role === 'parent',
+    loading,
+    login,
+    logout: clearTokens,
+    updateProfile,
+    updatePassword,
+  };
+
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
