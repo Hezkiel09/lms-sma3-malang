@@ -22,7 +22,10 @@ import TambahSoalKuisPage from './pages/guru/TambahSoalKuis';
 import RekapHasilPage from './pages/guru/RekapHasil';
 
 // Siswa & Ortu Portal
+import SiswaLayout from './layouts/SiswaLayout';
 import SiswaDashboard from './pages/siswa/SiswaDashboard';
+import MengerjakanKuisPage from './pages/siswa/MengerjakanKuis';
+import HasilAkhirPage from './pages/siswa/HasilAkhir';
 import OrtuDashboard from './pages/ortu/OrtuDashboard';
 
 // Placeholder for remaining guru pages
@@ -95,15 +98,16 @@ export default function App() {
             <Route path="*" element={<Navigate to="/guru/buat-kuis" replace />} />
           </Route>
 
-          {/* Siswa Portal (Khusus Siswa & Admin) */}
-          <Route
-            path="/siswa"
-            element={
-              <ProtectedRoute allowedRoles={['student', 'admin']}>
-                <SiswaDashboard />
-              </ProtectedRoute>
-            }
-          />
+          {/* Siswa Portal */}
+          <Route path="/siswa" element={<SiswaLayout />}>
+            <Route index element={<SiswaDashboard />} />
+            <Route path="beranda" element={<SiswaDashboard />} />
+            <Route path="mengerjakan-kuis" element={<MengerjakanKuisPage />} />
+            <Route path="hasil-akhir" element={<HasilAkhirPage />} />
+            <Route path="presensi" element={<GuruPlaceholder title="Presensi Siswa" />} />
+            <Route path="pesan" element={<GuruPlaceholder title="Pesan Siswa" />} />
+            <Route path="*" element={<Navigate to="/siswa/mengerjakan-kuis" replace />} />
+          </Route>
 
           {/* Orang Tua Portal (Khusus Orang Tua & Admin) */}
           <Route
@@ -142,6 +146,9 @@ export default function App() {
           <Route path="/bank-soal" element={<Navigate to="/guru/bank-soal" replace />} />
           <Route path="/rekap-nilai" element={<Navigate to="/guru/rekap-nilai" replace />} />
           <Route path="/rekap-hasil" element={<Navigate to="/guru/rekap-nilai" replace />} />
+          <Route path="/mengerjakan-kuis" element={<Navigate to="/siswa/mengerjakan-kuis" replace />} />
+          <Route path="/hasil-akhir" element={<Navigate to="/siswa/hasil-akhir" replace />} />
+          <Route path="/kuis" element={<Navigate to="/siswa/mengerjakan-kuis" replace />} />
 
           {/* Root redirect */}
           <Route path="/" element={<RootRedirect />} />
