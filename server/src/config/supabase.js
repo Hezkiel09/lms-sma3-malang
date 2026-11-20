@@ -5,27 +5,15 @@ dotenv.config();
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseKey;
 
 if (!supabaseUrl || !supabaseKey) {
   throw new Error('Set SUPABASE_URL and SUPABASE_SECRET_KEY in server/.env.');
 }
 
-// Client untuk operasi database server dengan hak akses service role (persistSession: false menjaga agar service role token tidak tertimpa saat login)
-export const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-  },
-});
+const authOptions = { persistSession: false, autoRefreshToken: false };
 
-export const supabaseAdmin = supabase;
+export const supabase = createClient(supabaseUrl, supabaseKey, { auth: authOptions });
+export const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, { auth: authOptions });
 
-// Helper untuk membuat client autentikasi ephemeral per-request
-export const createAuthClient = () => {
-  return createClient(supabaseUrl, supabaseKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-};
+export const createAuthClient = () => createClient(supabaseUrl, supabaseKey, { auth: authOptions });

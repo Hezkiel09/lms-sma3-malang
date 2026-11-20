@@ -12,25 +12,25 @@ import LaporanPage from './pages/admin/Laporan';
 import ProfilPage from './pages/admin/Profil';
 import LoginPage from './pages/auth/Login';
 
-// Guru Portal
 import GuruLayout from './layouts/GuruLayout';
-import BankSoalPage from './pages/guru/BankSoal';
-import BuatKuisPage from './pages/guru/BuatKuis';
-import ImportSoalExcelPage from './pages/guru/ImportSoalExcel';
-import AmbilDariBankSoalPage from './pages/guru/AmbilDariBankSoal';
-import TambahSoalKuisPage from './pages/guru/TambahSoalKuis';
-import RekapHasilPage from './pages/guru/RekapHasil';
+import BankSoalPage from './pages/b6/BankSoal';
+import BuatKuisPage from './pages/b6/BuatKuis';
+import ImportSoalExcelPage from './pages/b6/ImportSoalExcel';
+import AmbilDariBankSoalPage from './pages/b6/AmbilDariBankSoal';
+import TambahSoalKuisPage from './pages/b6/TambahSoalKuis';
+import RekapHasilPage from './pages/b6/RekapHasil';
+import EditSoalPage from './pages/b6/EditSoal';
+import LihatSoalPage from './pages/b6/LihatSoal';
+import BuatSoal from './pages/b6/BuatSoal';
 
-// Siswa & Ortu Portal
 import SiswaDashboard from './pages/siswa/SiswaDashboard';
 import OrtuDashboard from './pages/ortu/OrtuDashboard';
 
-// Placeholder for remaining guru pages
 function GuruPlaceholder({ title }) {
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800 tracking-tight sm:text-3xl">{title}</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">{title}</h1>
         <p className="mt-1 text-sm text-slate-400">Halaman {title} guru SMANTI Connect.</p>
       </div>
       <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
@@ -41,26 +41,14 @@ function GuruPlaceholder({ title }) {
   );
 }
 
-// Redirect dinamis halaman root sesuai role pengguna yang login
 function RootRedirect() {
   const { user, isAuthenticated, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-3 border-[#008994] border-t-transparent" />
-      </div>
-    );
-  }
-
-  if (isAuthenticated && user?.role) {
-    if (user.role === 'admin') return <Navigate to="/admin/dashboard" replace />;
-    if (user.role === 'teacher') return <Navigate to="/guru/buat-kuis" replace />;
-    if (user.role === 'student') return <Navigate to="/siswa" replace />;
-    if (user.role === 'parent') return <Navigate to="/ortu" replace />;
-  }
-
-  // Jika belum login, arahkan ke portal Login bersama B5
+  if (loading) return <div className="flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-3 border-[#008994] border-t-transparent" /></div>;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (user?.role === 'admin') return <Navigate to="/admin/dashboard" replace />;
+  if (user?.role === 'teacher') return <Navigate to="/b6/buat-kuis" replace />;
+  if (user?.role === 'student') return <Navigate to="/siswa" replace />;
+  if (user?.role === 'parent') return <Navigate to="/ortu" replace />;
   return <Navigate to="/login" replace />;
 }
 
@@ -69,21 +57,15 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          {/* Universal Login (Milik B5 - Single Login Entrypoint) */}
           <Route path="/login" element={<LoginPage />} />
 
-          {/* Guru Portal (Khusus Guru & Admin) */}
-          <Route
-            path="/guru"
-            element={
-              <ProtectedRoute allowedRoles={['teacher', 'admin']}>
-                <GuruLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="/guru/buat-kuis" replace />} />
+          <Route path="/b6" element={<ProtectedRoute allowedRoles={['teacher']}><GuruLayout /></ProtectedRoute>}>
+            <Route index element={<Navigate to="/b6/buat-kuis" replace />} />
             <Route path="beranda" element={<GuruPlaceholder title="Beranda Guru" />} />
             <Route path="bank-soal" element={<BankSoalPage />} />
+            <Route path="bank-soal/edit-soal" element={<EditSoalPage />} />
+            <Route path="bank-soal/lihat-soal" element={<LihatSoalPage />} />
+            <Route path="buat-soal" element={<BuatSoal />} />
             <Route path="buat-kuis" element={<BuatKuisPage />} />
             <Route path="buat-kuis/import" element={<ImportSoalExcelPage />} />
             <Route path="buat-kuis/ambil-bank-soal" element={<AmbilDariBankSoalPage />} />
@@ -92,38 +74,13 @@ export default function App() {
             <Route path="asesmen/rekap-hasil" element={<RekapHasilPage />} />
             <Route path="presensi" element={<GuruPlaceholder title="Presensi Guru" />} />
             <Route path="pesan" element={<GuruPlaceholder title="Pesan" />} />
-            <Route path="*" element={<Navigate to="/guru/buat-kuis" replace />} />
+            <Route path="*" element={<Navigate to="/b6/buat-kuis" replace />} />
           </Route>
 
-          {/* Siswa Portal (Khusus Siswa & Admin) */}
-          <Route
-            path="/siswa"
-            element={
-              <ProtectedRoute allowedRoles={['student', 'admin']}>
-                <SiswaDashboard />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/siswa" element={<ProtectedRoute allowedRoles={['student', 'admin']}><SiswaDashboard /></ProtectedRoute>} />
+          <Route path="/ortu" element={<ProtectedRoute allowedRoles={['parent', 'admin']}><OrtuDashboard /></ProtectedRoute>} />
 
-          {/* Orang Tua Portal (Khusus Orang Tua & Admin) */}
-          <Route
-            path="/ortu"
-            element={
-              <ProtectedRoute allowedRoles={['parent', 'admin']}>
-                <OrtuDashboard />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Admin Portal (Protected: Khusus Admin) */}
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <AdminLayout />
-              </ProtectedRoute>
-            }
-          >
+          <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout /></ProtectedRoute>}>
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="pengguna" element={<PenggunaPage />} />
@@ -137,16 +94,13 @@ export default function App() {
             <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
           </Route>
 
-          {/* Direct shortcuts */}
-          <Route path="/buat-kuis" element={<Navigate to="/guru/buat-kuis" replace />} />
-          <Route path="/bank-soal" element={<Navigate to="/guru/bank-soal" replace />} />
-          <Route path="/rekap-nilai" element={<Navigate to="/guru/rekap-nilai" replace />} />
-          <Route path="/rekap-hasil" element={<Navigate to="/guru/rekap-nilai" replace />} />
-
-          {/* Root redirect */}
+          <Route path="/buat-kuis" element={<Navigate to="/b6/buat-kuis" replace />} />
+          <Route path="/bank-soal" element={<Navigate to="/b6/bank-soal" replace />} />
+          <Route path="/buat-soal" element={<Navigate to="/b6/buat-soal" replace />} />
+          <Route path="/rekap-nilai" element={<Navigate to="/b6/rekap-nilai" replace />} />
+          <Route path="/rekap-hasil" element={<Navigate to="/b6/rekap-nilai" replace />} />
+          <Route path="/guru/*" element={<Navigate to="/b6/buat-kuis" replace />} />
           <Route path="/" element={<RootRedirect />} />
-
-          {/* 404 fallback */}
           <Route path="*" element={<RootRedirect />} />
         </Routes>
       </AuthProvider>

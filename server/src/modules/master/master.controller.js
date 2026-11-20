@@ -255,19 +255,19 @@ export const createTeacher = async (req, res) => {
 
     const newTeacher = await masterService.createTeacherService({ email, password, name, nip, phone });
     
-    return res.status(201).json({ 
-      success: true, 
-      message: 'Berhasil mendaftarkan akun Guru baru', 
-      data: newTeacher 
+    return res.status(201).json({
+      success: true,
+      message: 'Berhasil mendaftarkan akun Guru baru',
+      data: newTeacher
     });
   } catch (error) {
     const isConflict = error.message.includes('sudah terdaftar') || error.message.includes('already');
     const statusCode = isConflict ? 400 : 500;
-    return res.status(statusCode).json({ 
-      success: false, 
-      message: error.message || 'Gagal mendaftarkan Guru baru', 
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Gagal mendaftarkan Guru baru',
       data: null,
-      error: error.message 
+      error: error.message
     });
   }
 };

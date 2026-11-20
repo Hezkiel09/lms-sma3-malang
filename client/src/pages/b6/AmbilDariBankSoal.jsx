@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   ChevronRight,
   ChevronDown,
@@ -8,10 +8,21 @@ import {
   Check,
   X,
 } from 'lucide-react';
-import { mockBankSoalPilihan } from '../../data/mockKuis';
+import { apiFetch } from '../../lib/api';
+
+const getQuestionTypeLabel = (type) => ({
+  PILIHAN_GANDA: 'Pilihan Ganda',
+  BENAR_SALAH: 'Benar / Salah',
+  ESSAY: 'Esai',
+})[type] || type || 'Soal';
 
 export default function AmbilDariBankSoalPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [banks, setBanks] = useState([]);
+  const [selectedBankId, setSelectedBankId] = useState(location.state?.bankId || '');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   // Dropdowns source selection
   const [selectedKelas, setSelectedKelas] = useState('Kelas XI');
@@ -23,8 +34,69 @@ export default function AmbilDariBankSoalPage() {
   const [selectedJenisSoal, setSelectedJenisSoal] = useState('Semua jenis');
 
   // Selected questions checkbox state
-  const [items, setItems] = useState(mockBankSoalPilihan);
+  const [items, setItems] = useState([]);
   const [previewItem, setPreviewItem] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    apiFetch('/banks')
+      .then((data) => {
+        if (!active) return;
+        const bankList = Array.isArray(data) ? data : [];
+        setBanks(bankList);
+        setSelectedBankId((current) => bankList.some((bank) => String(bank.id) === String(current)) ? String(current) : String(bankList[0]?.id || ''));
+        if (!bankList.length) setLoading(false);
+      })
+      .catch((fetchError) => { if (active) { setError(`Gagal memuat bank soal: ${fetchError.message}`); setLoading(false); } });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedBankId) return undefined;
+    let active = true;
+    setLoading(true);
+    apiFetch(`/banks/${encodeURIComponent(selectedBankId)}/questions`)
+      .then((data) => {
+        if (!active) return;
+        const existingIds = new Set((location.state?.selectedQuestions || []).map((question) => String(question.id)));
+        setItems((Array.isArray(data) ? data : []).map((question) => ({
+          ...question,
+          tipe: getQuestionTypeLabel(question.question_type),
+          metode: 'Bank Soal',
+          tanggal: question.created_at ? new Date(question.created_at).toLocaleDateString('id-ID') : 'Tersimpan',
+          pertanyaan: question.question_text || '',
+          tag: [selectedBank?.class_level, selectedBank?.subject_name, selectedBank?.topic_name].filter(Boolean).join(' • '),
+          kunciJawaban: (question.question_options || []).find((option) => option.is_correct)?.option_text || '—',
+          points: Number(question.default_points ?? 1),
+          selected: existingIds.has(String(question.id)),
+        })));
+        setError('');
+      })
+      .catch((fetchError) => { if (active) { setError(`Gagal memuat soal bank: ${fetchError.message}`); setItems([]); } })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [selectedBankId, banks]);
+
+  const selectedBank = banks.find((bank) => String(bank.id) === String(selectedBankId));
+  const classOptions = [...new Set(banks.map((bank) => bank.class_level).filter(Boolean))];
+  const subjectOptions = [...new Set(banks.filter((bank) => !selectedKelas || `Kelas ${bank.class_level}` === selectedKelas || bank.class_level === selectedKelas).map((bank) => bank.subject_name).filter(Boolean))];
+  const topicOptions = [...new Set(banks.filter((bank) => bank.subject_name === selectedMapel).map((bank) => bank.topic_name).filter(Boolean))];
+
+  useEffect(() => {
+    if (!selectedBank) return;
+    setSelectedKelas(selectedBank.class_level ? `Kelas ${selectedBank.class_level}` : '');
+    setSelectedMapel(selectedBank.subject_name || '');
+    setSelectedMateri(selectedBank.topic_name || '');
+  }, [selectedBankId, banks]);
+
+  const chooseMatchingBank = (field, value) => {
+    const match = banks.find((bank) => {
+      if (field === 'class_level') return bank.class_level === value;
+      if (field === 'subject_name') return bank.subject_name === value && (!selectedBank || bank.class_level === selectedBank.class_level);
+      return bank.topic_name === value && (!selectedBank || (bank.class_level === selectedBank.class_level && bank.subject_name === selectedBank.subject_name));
+    });
+    if (match) setSelectedBankId(String(match.id));
+  };
 
   // Toggle single item
   const handleToggle = (id) => {
@@ -43,22 +115,38 @@ export default function AmbilDariBankSoalPage() {
   };
 
   // Selected count
+  const visibleItems = useMemo(() => items.filter((item) => {
+    const matchesSearch = item.pertanyaan.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesType = selectedJenisSoal === 'Semua jenis' || item.tipe === selectedJenisSoal;
+    return matchesSearch && matchesType;
+  }), [items, searchQuery, selectedJenisSoal]);
   const selectedCount = items.filter((i) => i.selected).length;
+  const selectedFromPrevious = location.state?.selectedQuestions || [];
+  const returnToQuiz = () => navigate('/b6/buat-kuis', { state: { selectedQuestions: selectedFromPrevious, formData: location.state?.formData } });
 
   const handleTambahkanKeKuis = () => {
-    // Navigate to Buat Kuis with addedFromBank = true
-    navigate('/guru/buat-kuis', { state: { addedFromBank: true } });
+    const selectedQuestions = items.filter((item) => item.selected).map((item) => ({
+      id: item.id,
+      question_id: item.id,
+      question_text: item.question_text,
+      question_type: item.question_type,
+      default_points: item.default_points,
+      points: item.points,
+      question_bank_id: item.question_bank_id,
+    }));
+    const deduplicated = [...new Map([...selectedFromPrevious, ...selectedQuestions].map((question) => [String(question.id), question])).values()];
+    navigate('/b6/buat-kuis', { state: { selectedQuestions: deduplicated, formData: location.state?.formData } });
   };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* 1. Breadcrumbs */}
       <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
-        <Link to="/guru/beranda" className="hover:text-slate-600">
+        <Link to="/b6/beranda" className="hover:text-slate-600">
           Beranda
         </Link>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-        <Link to="/guru/buat-kuis" className="hover:text-slate-600">
+        <Link to="/b6/buat-kuis" className="hover:text-slate-600">
           Buat Kuis
         </Link>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
@@ -77,7 +165,7 @@ export default function AmbilDariBankSoalPage() {
         </div>
         <div>
           <button
-            onClick={() => navigate('/guru/buat-kuis')}
+            onClick={returnToQuiz}
             className="rounded-xl bg-[#e6f7f8] px-4 py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors"
           >
             Kembali ke Kuis
@@ -106,12 +194,10 @@ export default function AmbilDariBankSoalPage() {
             <div className="relative">
               <select
                 value={selectedKelas}
-                onChange={(e) => setSelectedKelas(e.target.value)}
+                onChange={(e) => chooseMatchingBank('class_level', e.target.value)}
                 className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-9 text-xs sm:text-sm font-medium text-slate-800 focus:border-[#004d57] focus:outline-none"
               >
-                <option value="Kelas X">Kelas X</option>
-                <option value="Kelas XI">Kelas XI</option>
-                <option value="Kelas XII">Kelas XII</option>
+                {classOptions.map((level) => <option key={level} value={level}>Kelas {level}</option>)}
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             </div>
@@ -125,12 +211,10 @@ export default function AmbilDariBankSoalPage() {
             <div className="relative">
               <select
                 value={selectedMapel}
-                onChange={(e) => setSelectedMapel(e.target.value)}
+                onChange={(e) => chooseMatchingBank('subject_name', e.target.value)}
                 className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-9 text-xs sm:text-sm font-medium text-slate-800 focus:border-[#004d57] focus:outline-none"
               >
-                <option value="Matematika">Matematika</option>
-                <option value="Fisika">Fisika</option>
-                <option value="Kimia">Kimia</option>
+                {subjectOptions.map((subject) => <option key={subject} value={subject}>{subject}</option>)}
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             </div>
@@ -144,12 +228,10 @@ export default function AmbilDariBankSoalPage() {
             <div className="relative">
               <select
                 value={selectedMateri}
-                onChange={(e) => setSelectedMateri(e.target.value)}
+                onChange={(e) => chooseMatchingBank('topic_name', e.target.value)}
                 className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-9 text-xs sm:text-sm font-medium text-slate-800 focus:border-[#004d57] focus:outline-none"
               >
-                <option value="Komposisi & invers">Komposisi &amp; invers</option>
-                <option value="Persamaan kuadrat">Persamaan kuadrat</option>
-                <option value="Peluang">Peluang</option>
+                {topicOptions.map((topic) => <option key={topic} value={topic}>{topic}</option>)}
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             </div>
@@ -159,6 +241,14 @@ export default function AmbilDariBankSoalPage() {
         <p className="text-xs text-slate-400 pt-1">
           Daftar hanya menampilkan soal dari {selectedKelas} sesuai mata pelajaran dan materi yang dipilih.
         </p>
+        <label className="block max-w-xl text-xs font-semibold text-slate-600">Bank Soal
+          <select value={selectedBankId} onChange={(event) => setSelectedBankId(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-800">
+            <option value="">Pilih bank soal</option>
+            {banks.map((bank) => <option key={bank.id} value={bank.id}>{bank.name}</option>)}
+          </select>
+        </label>
+        {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+        {loading && <p role="status" className="text-sm text-slate-500">Memuat bank dan soal...</p>}
       </div>
 
       {/* 4. Card 2: Soal Komposisi & Invers (Checklist Soal) */}
@@ -169,7 +259,7 @@ export default function AmbilDariBankSoalPage() {
               Soal {selectedMateri}
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              {items.length} soal tersedia untuk ditambahkan ke kuis.
+              {items.length} soal tersedia di {selectedBank?.name || 'bank terpilih'}.
             </p>
           </div>
           <span className="rounded-full bg-[#e6f7f8] px-3.5 py-1 text-xs font-semibold text-[#005b64]">
@@ -213,16 +303,16 @@ export default function AmbilDariBankSoalPage() {
               onChange={handleToggleAll}
               className="h-4 w-4 rounded accent-[#004d57]"
             />
-            <span>Pilih semua ({items.length} soal)</span>
+            <span>Pilih semua ({visibleItems.length} soal)</span>
           </label>
           <span className="text-slate-400">
-            Menampilkan {items.length} dari {items.length} soal
+            Menampilkan {visibleItems.length} dari {items.length} soal
           </span>
         </div>
 
         {/* Question Cards List */}
         <div className="space-y-3.5">
-          {items.map((q) => (
+          {visibleItems.map((q) => (
             <div
               key={q.id}
               onClick={() => handleToggle(q.id)}
@@ -292,13 +382,13 @@ export default function AmbilDariBankSoalPage() {
               {selectedCount} soal dipilih
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              40 soal saat ini + {selectedCount} soal pilihan = {40 + selectedCount} soal
+              Soal yang dipilih akan ditambahkan ke daftar kuis.
             </p>
           </div>
 
           <div className="flex items-center gap-2.5">
             <button
-              onClick={() => navigate('/guru/buat-kuis')}
+              onClick={returnToQuiz}
               className="rounded-xl bg-[#e6f7f8] px-4 py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors"
             >
               Batal
@@ -306,7 +396,7 @@ export default function AmbilDariBankSoalPage() {
 
             <button
               onClick={handleTambahkanKeKuis}
-              disabled={selectedCount === 0}
+              disabled={selectedCount === 0 || loading}
               className="rounded-xl bg-[#004d57] px-5 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] shadow-xs transition-colors disabled:opacity-50"
             >
               Tambahkan {selectedCount} Soal ke Kuis
@@ -358,4 +448,3 @@ export default function AmbilDariBankSoalPage() {
     </div>
   );
 }
-

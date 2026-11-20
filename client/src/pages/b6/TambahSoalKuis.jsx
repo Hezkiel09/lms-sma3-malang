@@ -1,33 +1,65 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   ChevronRight,
   Upload,
   CheckCircle2,
   FileText,
 } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
 
 export default function TambahSoalKuisPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Read state passed from Bank Soal or Buat Kuis
+  const initialType = location.state?.initialType || 'Benar / Salah';
+  const fromSource = location.state?.from || 'buat-kuis';
+  const customKelas = location.state?.kelas;
+  const customMapel = location.state?.mapel;
+  const customMateri = location.state?.materi;
+  const selectedQuestions = location.state?.selectedQuestions || [];
+  const formData = location.state?.formData;
 
   // State
-  const [jenisSoal, setJenisSoal] = useState('Benar / Salah'); // Default to Gambar 1, easily toggled
-  const [pertanyaan, setPertanyaan] = useState(
-    'Pada barisan aritmetika 5, 8, 11, ..., suku ke-10 adalah 32.'
-  );
+  const [jenisSoal, setJenisSoal] = useState(initialType);
+  const [pertanyaan, setPertanyaan] = useState('');
   const [kunciJawabanPG, setKunciJawabanPG] = useState('B');
   const [kunciBenarSalah, setKunciBenarSalah] = useState('Benar');
-  const [bobot, setBobot] = useState(5);
+  const [bobot, setBobot] = useState(1);
   const [pilihanPG, setPilihanPG] = useState({
-    A: '84',
-    B: '96',
-    C: '108',
-    D: '120',
+    A: '',
+    B: '',
+    C: '',
+    D: '',
   });
+  const [banks, setBanks] = useState([]);
+  const [bankId, setBankId] = useState(location.state?.bankId || '');
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState(null);
+
+  const bankReturnState = (targetBankId = bankId) => ({
+    refreshBankId: targetBankId,
+    returnToStep: 4,
+  });
+
+  useEffect(() => {
+    if (fromSource !== 'buat-kuis') return;
+    let active = true;
+    apiFetch('/banks').then((list) => {
+      if (!active) return;
+      const availableBanks = Array.isArray(list) ? list : [];
+      setBanks(availableBanks);
+      setBankId((current) => current || String(availableBanks[0]?.id || ''));
+    }).catch((error) => {
+      if (active) setFeedback({ type: 'error', message: `Gagal memuat bank soal: ${error.message}` });
+    });
+    return () => { active = false; };
+  }, [fromSource]);
 
   // Esai reference & rubric
   const [jawabanAcuan, setJawabanAcuan] = useState(
-    `Diketahui a = 5 dan b = 8 – 5 = 3.\nU₁₀ = a + (10 – 1)b = 5 + 9 × 3 = 32.\nS₁₀ = 10/2 × (2 × 5 + 9 × 3) = 5 × 37 = 185.`
+    ''
   );
   const rubricList = [
     { text: 'Menentukan a = 5 dan b = 3 dengan benar.', poin: '2 poin' },
@@ -38,37 +70,63 @@ export default function TambahSoalKuisPage() {
 
   const handleTabChange = (type) => {
     setJenisSoal(type);
-    if (type === 'Benar / Salah') {
-      setPertanyaan('Pada barisan aritmetika 5, 8, 11, ..., suku ke-10 adalah 32.');
-      setBobot(5);
-    } else if (type === 'Esai') {
-      setPertanyaan(
-        'Diketahui barisan aritmetika 5, 8, 11, .... Tentukan suku ke-10 dan jumlah 10 suku pertama. Tuliskan langkah penyelesaiannya.'
-      );
-      setBobot(10);
-    } else {
-      setPertanyaan('Hasil dari 12 × 8 adalah ...');
-      setBobot(5);
-    }
+    setPertanyaan('');
+    setBobot(type === 'Esai' ? 10 : 1);
   };
 
-  const handleSimpanSoal = (e) => {
+  const handleSimpanSoal = async (e) => {
     e.preventDefault();
-    alert(`Soal 41 (${jenisSoal}) berhasil disimpan ke daftar soal!`);
-    navigate('/guru/buat-kuis', { state: { addedQuestionNumber: 41 } });
+    const targetBankId = bankId;
+    const isEssay = jenisSoal === 'Esai';
+    const options = jenisSoal === 'Benar / Salah'
+      ? ['Benar', 'Salah'].map((option, index) => ({ option_label: String.fromCharCode(65 + index), option_text: option, is_correct: option === kunciBenarSalah }))
+      : isEssay ? [] : Object.entries(pilihanPG).map(([label, text]) => ({ option_label: label, option_text: text.trim(), is_correct: label === kunciJawabanPG }));
+    if (!targetBankId) return setFeedback({ type: 'error', message: 'Pilih bank soal terlebih dahulu.' });
+    if (!pertanyaan.trim()) return setFeedback({ type: 'error', message: 'Pertanyaan wajib diisi.' });
+    if (options.some((option) => !option.option_text)) return setFeedback({ type: 'error', message: 'Semua pilihan jawaban wajib diisi.' });
+    setSaving(true);
+    setFeedback(null);
+    try {
+      const created = await apiFetch(`/banks/${encodeURIComponent(targetBankId)}/questions/manual`, {
+        method: 'POST',
+        body: JSON.stringify({
+          question_text: pertanyaan.trim(),
+          question_type: isEssay ? 'ESSAY' : jenisSoal === 'Benar / Salah' ? 'BENAR_SALAH' : 'PILIHAN_GANDA',
+          default_points: Number(bobot),
+          reference_answer: isEssay ? jawabanAcuan : null,
+          options,
+        }),
+      });
+      if (fromSource === 'buat-kuis') {
+        const question = { ...created, id: created.id, points: Number(bobot) };
+        navigate('/b6/buat-kuis', { state: { selectedQuestions: [...selectedQuestions, question], formData, flashMessage: 'Soal berhasil ditambahkan dari Bank Soal.' } });
+      } else {
+        navigate('/b6/bank-soal', { state: { ...bankReturnState(targetBankId), flashMessage: 'Soal berhasil disimpan.' } });
+      }
+    } catch (error) {
+      setFeedback({ type: 'error', message: `Gagal menyimpan soal: ${error.message}` });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* 1. Breadcrumbs */}
       <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
-        <Link to="/guru/beranda" className="hover:text-slate-600 transition-colors">
+        <Link to="/b6/beranda" className="hover:text-slate-600 transition-colors">
           Beranda
         </Link>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-        <Link to="/guru/buat-kuis" className="hover:text-slate-600 transition-colors">
-          Buat Kuis
-        </Link>
+        {fromSource === 'bank-soal' ? (
+          <Link to="/b6/bank-soal" state={bankReturnState()} className="hover:text-slate-600 transition-colors">
+            Bank Soal
+          </Link>
+        ) : (
+          <Link to="/b6/buat-kuis" className="hover:text-slate-600 transition-colors">
+            Buat Kuis
+          </Link>
+        )}
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
         <span className="text-[#005b64] font-semibold">Tambah Soal</span>
       </nav>
@@ -79,14 +137,26 @@ export default function TambahSoalKuisPage() {
           Tambah Soal
         </h1>
         <p className="mt-1 text-xs sm:text-sm text-slate-400">
-          Ulangan Harian Matematika Kelas XI
+          {fromSource === 'bank-soal'
+            ? `Bank Soal Kelas ${customKelas || 'XI'} • ${customMapel || 'Matematika'}${customMateri ? ` • ${customMateri}` : ''}`
+            : 'Ulangan Harian Matematika Kelas XI'}
         </p>
       </div>
 
       {/* 3. Main Card: Detail Soal */}
       <form onSubmit={handleSimpanSoal} className="space-y-6">
+        {fromSource === 'buat-kuis' && (
+          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
+            <label className="block text-xs font-semibold text-slate-700" htmlFor="question-bank">Simpan soal ke Bank Soal</label>
+            <select id="question-bank" value={bankId} onChange={(event) => setBankId(event.target.value)} disabled={!banks.length} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800">
+              {!banks.length && <option value="">Belum ada bank soal</option>}
+              {banks.map((bank) => <option key={bank.id} value={bank.id}>{bank.name}</option>)}
+            </select>
+          </div>
+        )}
+        {feedback && <div role={feedback.type === 'error' ? 'alert' : 'status'} className={`rounded-xl p-3 text-sm ${feedback.type === 'error' ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>{feedback.message}</div>}
         <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xs space-y-6">
-          {/* Card Title & Soal 41 Badge */}
+          {/* Card Title & New Question Badge */}
           <div className="flex items-center justify-between border-b border-slate-50 pb-4">
             <div>
               <h2 className="text-base font-bold text-slate-800">Detail Soal</h2>
@@ -97,7 +167,7 @@ export default function TambahSoalKuisPage() {
               </p>
             </div>
             <span className="rounded-md bg-[#e0f7fa] px-3 py-1 text-xs font-semibold text-[#006064]">
-              Soal 41
+              Soal Baru
             </span>
           </div>
 
@@ -189,13 +259,7 @@ export default function TambahSoalKuisPage() {
               <p className="text-[11px] text-slate-400 mt-0.5">
                 Format PNG atau JPG, ukuran maksimal 5 MB
               </p>
-              <button
-                type="button"
-                onClick={() => alert('Pilih gambar dari file picker')}
-                className="mt-3 rounded-xl bg-[#004d57] px-4 py-2 text-xs font-semibold text-white hover:bg-[#003c44] transition-colors"
-              >
-                Pilih Gambar
-              </button>
+              <p className="mt-3 text-[11px] text-slate-500">Lampiran gambar belum didukung oleh endpoint penyimpanan soal saat ini.</p>
             </div>
           </div>
 
@@ -327,9 +391,7 @@ export default function TambahSoalKuisPage() {
                   Jawaban Acuan
                 </label>
                 <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
-                  <div className="text-xs sm:text-sm text-slate-800 font-mono whitespace-pre-line leading-relaxed">
-                    {jawabanAcuan}
-                  </div>
+                  <textarea rows={4} value={jawabanAcuan} onChange={(event) => setJawabanAcuan(event.target.value)} className="w-full rounded-lg border border-slate-200 p-3 text-xs sm:text-sm text-slate-800 focus:border-[#004d57] focus:outline-none" placeholder="Tuliskan jawaban acuan (opsional)." />
                   <div className="pt-2 text-xs text-slate-400 border-t border-slate-50">
                     Acuan untuk guru; langkah setara yang benar tetap diterima.
                   </div>
@@ -391,7 +453,13 @@ export default function TambahSoalKuisPage() {
           <div className="flex items-center justify-between pt-4 border-t border-slate-100">
             <button
               type="button"
-              onClick={() => navigate('/guru/buat-kuis')}
+              onClick={() => {
+                if (fromSource === 'bank-soal') {
+                  navigate('/b6/bank-soal', { state: bankReturnState() });
+                } else {
+                  navigate('/b6/buat-kuis');
+                }
+              }}
               className="rounded-xl bg-[#e6f7f8] px-5 py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors"
             >
               Kembali
@@ -399,9 +467,10 @@ export default function TambahSoalKuisPage() {
 
             <button
               type="submit"
-              className="rounded-xl bg-[#004d57] px-6 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] shadow-xs transition-colors"
+              disabled={saving}
+              className="rounded-xl bg-[#004d57] px-6 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] shadow-xs transition-colors disabled:opacity-60"
             >
-              Simpan Soal
+              {saving ? 'Menyimpan...' : 'Simpan Soal'}
             </button>
           </div>
         </div>

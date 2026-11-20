@@ -5,27 +5,27 @@ import {
   FileText,
   Calendar,
   MessageSquare,
-  LogOut,
   X,
 } from 'lucide-react';
 import logosmanti from '../../assets/logo smanti.png';
+import SidebarFooter from './SidebarFooter';
 
 const menuItems = [
-  { name: 'Beranda', path: '/guru/beranda', icon: Home },
+  { name: 'Beranda', path: '/b6/beranda', icon: Home },
   {
     name: 'Bank Soal',
-    path: '/guru/buat-kuis',
+    path: '/b6/bank-soal',
     icon: BookOpen,
-    relatedPaths: ['/guru/bank-soal', '/guru/buat-kuis'],
+    relatedPaths: ['/b6/bank-soal', '/b6/buat-kuis'],
   },
   {
     name: 'Rekap Nilai',
-    path: '/guru/rekap-nilai',
+    path: '/b6/rekap-nilai',
     icon: FileText,
-    relatedPaths: ['/guru/rekap-nilai', '/guru/asesmen/rekap-hasil'],
+    relatedPaths: ['/b6/rekap-nilai', '/b6/asesmen/rekap-hasil'],
   },
-  { name: 'Presensi', path: '/guru/presensi', icon: Calendar },
-  { name: 'Pesan', path: '/guru/pesan', icon: MessageSquare },
+  { name: 'Presensi', path: '/b6/presensi', icon: Calendar },
+  { name: 'Pesan', path: '/b6/pesan', icon: MessageSquare },
 ];
 
 export default function GuruSidebar({ isOpen, onClose }) {
@@ -98,23 +98,7 @@ export default function GuruSidebar({ isOpen, onClose }) {
           </nav>
         </div>
 
-        {/* Bottom Switch to Admin & Keluar Button */}
-        <div className="p-4 border-t border-slate-100 space-y-2">
-          <NavLink
-            to="/admin/dashboard"
-            className="flex items-center justify-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors"
-          >
-            <span>Beralih ke Portal Admin</span>
-          </NavLink>
-
-          <NavLink
-            to="/login"
-            className="flex items-center justify-between rounded-xl bg-[#fee2e2]/50 px-4 py-2.5 text-sm font-semibold text-[#ef4444] hover:bg-[#fee2e2] transition-colors"
-          >
-            <span>Keluar</span>
-            <LogOut className="h-4 w-4 text-[#ef4444]" />
-          </NavLink>
-        </div>
+        <SidebarFooter onClose={onClose} />
       </aside>
     </>
   );

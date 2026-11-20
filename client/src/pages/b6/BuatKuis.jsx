@@ -1,32 +1,102 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Upload,
   Clock,
   FileText,
   CheckCircle2,
-  Info,
+  AlertCircle,
 } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 
 export default function BuatKuisPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
 
-  // Check if routed with added questions
-  const hasAddedFromLocation = Boolean(location.state?.addedFromBank || location.state?.importedCount);
-  const [hasAddedFromBank, setHasAddedFromBank] = useState(hasAddedFromLocation);
+  const [selectedQuestions, setSelectedQuestions] = useState(location.state?.selectedQuestions || []);
+  const [submitting, setSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState(location.state?.flashMessage ? { type: 'success', message: location.state.flashMessage } : null);
 
   // Form details
   const [formData, setFormData] = useState({
     judul: '',
     kkm: 75,
-    jumlahSoal: hasAddedFromBank ? 42 : 40,
+    jumlahSoal: location.state?.formData?.jumlahSoal || 0,
     durasi: '75 menit',
-    deskripsi: '',
+    deskripsi: location.state?.formData?.deskripsi || '',
   });
 
-  const totalQuestions = hasAddedFromBank ? 42 : 40;
+  useEffect(() => {
+    if (location.state?.selectedQuestions) {
+      setSelectedQuestions([...new Map(location.state.selectedQuestions.map((question) => [String(question.id), question])).values()]);
+      setFormData((current) => ({ ...current, judul: location.state.formData?.judul || current.judul, kkm: location.state.formData?.kkm ?? current.kkm, durasi: location.state.formData?.durasi || current.durasi, deskripsi: location.state.formData?.deskripsi || current.deskripsi }));
+    }
+  }, [location.state]);
+
+  const hasAddedFromBank = selectedQuestions.length > 0;
+  const totalQuestions = selectedQuestions.length;
   const numbersList = Array.from({ length: totalQuestions }, (_, i) => i + 1);
+  const moveQuestion = (index, offset) => {
+    const nextIndex = index + offset;
+    if (nextIndex < 0 || nextIndex >= selectedQuestions.length) return;
+    setSelectedQuestions((current) => {
+      const reordered = [...current];
+      [reordered[index], reordered[nextIndex]] = [reordered[nextIndex], reordered[index]];
+      return reordered;
+    });
+  };
+
+  const handleSaveQuiz = async () => {
+    if (!formData.judul.trim()) return setFeedback({ type: 'error', message: 'Judul kuis wajib diisi.' });
+    if (!selectedQuestions.length) return setFeedback({ type: 'error', message: 'Pilih minimal satu soal dari Bank Soal sebelum menyimpan.' });
+    if (selectedQuestions.some((question) => !Number.isFinite(Number(question.points ?? question.default_points ?? 1)) || Number(question.points ?? question.default_points ?? 1) <= 0)) return setFeedback({ type: 'error', message: 'Bobot setiap soal harus lebih dari 0.' });
+    const duration = Number.parseInt(formData.durasi, 10);
+    if (!Number.isFinite(duration) || duration <= 0) return setFeedback({ type: 'error', message: 'Durasi harus berupa jumlah menit yang valid.' });
+
+    setSubmitting(true);
+    setFeedback(null);
+    let createdQuiz;
+    try {
+      createdQuiz = await apiFetch('/quizzes', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: formData.judul.trim(),
+          description: formData.deskripsi.trim() || null,
+          duration_minutes: duration,
+          passing_grade: Number(formData.kkm),
+          status: 'DRAFT',
+          ...((user?.id || user?.user_id) ? { teacher_id: user.id || user.user_id } : {}),
+        }),
+      });
+      const attached = await apiFetch(`/quizzes/${encodeURIComponent(createdQuiz.id)}/questions`, {
+        method: 'POST',
+        body: JSON.stringify({ questions: selectedQuestions.map((question, index) => ({
+          question_id: question.id,
+          question_order: index + 1,
+          points: Number(question.points ?? question.default_points ?? 1),
+        })) }),
+      });
+      if (!Array.isArray(attached) || attached.length !== selectedQuestions.length) {
+        throw new Error('Backend belum mengonfirmasi seluruh relasi quiz_questions.');
+      }
+      navigate('/b6/buat-kuis', { replace: true, state: { savedQuizId: createdQuiz.id, flashMessage: 'Kuis berhasil disimpan sebagai draft.' } });
+    } catch (error) {
+      let detail = error.message;
+      if (createdQuiz?.id) {
+        try {
+          await apiFetch(`/quizzes/${encodeURIComponent(createdQuiz.id)}`, { method: 'DELETE' });
+          detail = `Draft kuis yang belum lengkap sudah dibatalkan. ${error.message}`;
+        } catch (cleanupError) {
+          detail = `Draft kuis dibuat tetapi soal gagal ditambahkan; penghapusan draft juga gagal. ${error.message} ${cleanupError.message}`;
+        }
+      }
+      setFeedback({ type: 'error', message: `Gagal menyimpan kuis: ${detail}` });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -44,27 +114,18 @@ export default function BuatKuisPage() {
             </span>
           )}
 
-          {/* Toggle demo switch untuk beralih antara Gambar 1 & Gambar 4 */}
-          <button
-            onClick={() => {
-              const next = !hasAddedFromBank;
-              setHasAddedFromBank(next);
-              setFormData((prev) => ({ ...prev, jumlahSoal: next ? 42 : 40 }));
-            }}
-            className="text-[11px] text-slate-400 hover:text-slate-600 underline"
-          >
-            [Demo: {hasAddedFromBank ? 'Lihat Tampilan Gambar 1 (40 Soal)' : 'Lihat Tampilan Gambar 4 (+2 Soal)'}]
-          </button>
         </div>
       </div>
 
       {/* 2. Success Alert Banner (Hanya muncul jika soal ditambahkan - Gambar 4) */}
-      {hasAddedFromBank && (
+      {(hasAddedFromBank || location.state?.flashMessage) && (
         <div className="flex items-center gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-xs sm:text-sm font-semibold text-emerald-800">
           <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />
-          <span>2 soal dari Bank Soal berhasil ditambahkan</span>
+          <span>{location.state?.flashMessage || `${selectedQuestions.length} soal dari Bank Soal siap ditambahkan`}</span>
         </div>
       )}
+
+      {feedback && <div role={feedback.type === 'error' ? 'alert' : 'status'} className={`flex items-center gap-2 rounded-xl p-3 text-sm ${feedback.type === 'error' ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>{feedback.type === 'error' ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}{feedback.message}</div>}
 
       {/* 3. Card 1: Detail Kuis */}
       <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xs space-y-5">
@@ -77,10 +138,12 @@ export default function BuatKuisPage() {
           </div>
           <div>
             <button
-              onClick={() => alert('Draft kuis berhasil disimpan!')}
+              type="button"
+              onClick={handleSaveQuiz}
+              disabled={submitting}
               className="rounded-xl bg-[#004d57] px-6 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] transition-colors"
             >
-              Simpan Draft
+              {submitting ? 'Menyimpan...' : 'Simpan Draft'}
             </button>
           </div>
         </div>
@@ -120,7 +183,7 @@ export default function BuatKuisPage() {
               </label>
               <input
                 type="number"
-                value={hasAddedFromBank ? 42 : 40}
+                value={totalQuestions}
                 readOnly
                 className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none"
               />
@@ -171,7 +234,7 @@ export default function BuatKuisPage() {
           {/* 3 Tombol Aksi: Impor, Ambil dari Bank Soal, Tambah Soal */}
           <div className="flex flex-wrap items-center gap-2.5">
             <button
-              onClick={() => navigate('/guru/buat-kuis/import')}
+              onClick={() => navigate('/b6/buat-kuis/import', { state: { selectedQuestions, formData } })}
               className="flex items-center gap-2 rounded-xl bg-[#e6f7f8] px-4 py-2 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors"
             >
               <Upload className="h-4 w-4 stroke-[2.2]" />
@@ -179,14 +242,14 @@ export default function BuatKuisPage() {
             </button>
 
             <button
-              onClick={() => navigate('/guru/buat-kuis/ambil-bank-soal')}
+              onClick={() => navigate('/b6/buat-kuis/ambil-bank-soal', { state: { selectedQuestions, formData } })}
               className="rounded-xl bg-[#004d57] px-4 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] transition-colors"
             >
               Ambil dari Bank Soal
             </button>
 
             <button
-              onClick={() => navigate('/guru/buat-kuis/tambah-soal')}
+              onClick={() => navigate('/b6/buat-kuis/tambah-soal', { state: { from: 'buat-kuis', selectedQuestions, formData } })}
               className="rounded-xl bg-[#004d57] px-4 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] transition-colors"
             >
               Tambah Soal
@@ -225,97 +288,30 @@ export default function BuatKuisPage() {
 
           {hasAddedFromBank && (
             <span className="rounded-full bg-[#e0f7fa] px-2.5 py-0.5 text-xs font-semibold text-[#006064]">
-              41–42 baru
+              {selectedQuestions.length} soal dipilih
             </span>
           )}
         </div>
 
-        {/* =====================================================================
-            BAGIAN GAMBAR 4: "Soal yang baru ditambahkan"
-           ===================================================================== */}
-        {hasAddedFromBank && (
-          <div className="space-y-4 pt-4 border-t border-slate-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-slate-800">
-                  Soal yang baru ditambahkan
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  40 soal lama + 2 soal dari Bank Soal = 42 soal
-                </p>
+        {selectedQuestions.length > 0 && (
+          <div className="space-y-3 border-t border-slate-100 pt-4">
+            {selectedQuestions.map((question, index) => (
+              <div key={question.id} className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-white p-4">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#004d57] text-xs font-bold text-white">{index + 1}</span>
+                <div className="min-w-0 flex-1">
+                  <span className="rounded-md bg-[#e0f7fa] px-2 py-0.5 text-[11px] font-semibold text-[#006064]">{question.question_type || 'Soal'}</span>
+                  <p className="mt-1.5 text-xs font-semibold text-slate-800 sm:text-sm">{question.question_text}</p>
+                  <p className="mt-1 text-[11px] text-slate-400">Dari Bank Soal · {question.points ?? question.default_points ?? 1} poin</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <label className="sr-only" htmlFor={`question-points-${question.id}`}>Bobot soal {index + 1}</label>
+                  <input id={`question-points-${question.id}`} type="number" min="0.1" step="0.1" value={question.points ?? question.default_points ?? 1} onChange={(event) => setSelectedQuestions((current) => current.map((item) => String(item.id) === String(question.id) ? { ...item, points: Number(event.target.value) } : item))} className="w-16 rounded-lg border border-slate-200 px-2 py-1 text-xs" aria-label={`Bobot soal ${index + 1}`} />
+                  <button type="button" disabled={index === 0} onClick={() => moveQuestion(index, -1)} className="rounded-md px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-30" aria-label={`Naikkan soal ${index + 1}`}>↑</button>
+                  <button type="button" disabled={index === selectedQuestions.length - 1} onClick={() => moveQuestion(index, 1)} className="rounded-md px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-30" aria-label={`Turunkan soal ${index + 1}`}>↓</button>
+                </div>
+                <button type="button" onClick={() => setSelectedQuestions((current) => current.filter((item) => String(item.id) !== String(question.id)))} className="rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50">Hapus</button>
               </div>
-              <span className="rounded-full bg-[#e6f7f8] px-3 py-1 text-xs font-semibold text-[#005b64]">
-                2 soal dari Bank Soal
-              </span>
-            </div>
-
-            {/* Card Soal 41 */}
-            <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-2xs space-y-2">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#004d57] text-xs font-bold text-white">
-                    41
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="rounded-md bg-[#e0f7fa] px-2 py-0.5 text-[11px] font-semibold text-[#006064]">
-                        Pilihan Ganda
-                      </span>
-                      <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-                        Dari Bank Soal
-                      </span>
-                    </div>
-                    <p className="text-xs sm:text-sm font-semibold text-slate-800">
-                      Diketahui f(x) = 2x + 1 dan g(x) = x². Nilai (f · g)(3) adalah ...
-                    </p>
-                    <p className="text-[11px] text-slate-400 mt-1">
-                      Sumber: XI • Matematika • Komposisi & invers
-                    </p>
-                  </div>
-                </div>
-                <div className="text-xs font-semibold text-slate-700 whitespace-nowrap pl-2">
-                  Kunci jawaban: <span className="text-[#005b64]">19</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Card Soal 42 */}
-            <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-2xs space-y-2">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#004d57] text-xs font-bold text-white">
-                    42
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="rounded-md bg-[#e0f7fa] px-2 py-0.5 text-[11px] font-semibold text-[#006064]">
-                        Benar / Salah
-                      </span>
-                      <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-                        Dari Bank Soal
-                      </span>
-                    </div>
-                    <p className="text-xs sm:text-sm font-semibold text-slate-800">
-                      Invers dari fungsi f(x) = 2x + 3 adalah f⁻¹(x) = (x - 3) / 2.
-                    </p>
-                    <p className="text-[11px] text-slate-400 mt-1">
-                      Sumber: XI • Matematika • Komposisi & invers
-                    </p>
-                  </div>
-                </div>
-                <div className="text-xs font-semibold text-slate-700 whitespace-nowrap pl-2">
-                  Kunci jawaban: <span className="text-[#005b64]">Benar</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Note bawah */}
-            <div className="flex items-center gap-2 text-xs text-slate-400 pt-1">
-              <Info className="h-4 w-4 text-slate-400 flex-shrink-0" />
-              <span>
-                Salinan soal dapat diedit di kuis ini tanpa mengubah soal pada Bank Soal sumber.
-              </span>
-            </div>
+            ))}
           </div>
         )}
       </div>

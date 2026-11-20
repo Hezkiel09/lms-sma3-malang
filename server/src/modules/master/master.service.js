@@ -11,7 +11,7 @@ export const getAllClassesService = async () => {
       level,
       major,
       teachers!classes_homeroom_teacher_id_fkey(id, name, nip),
-      students(count)
+      students:students!fk_students_class(count)
     `)
     .order('name', { ascending: true });
 
@@ -180,7 +180,7 @@ const scheduleSelect = `
   day,
   start_time,
   end_time,
-  classes:classes!schedules_class_id_fkey(id, name, level, major),
+  classes:classes!fk_schedules_class(id, name, level, major),
   subjects:subjects!schedules_subject_id_fkey(id, name),
   teachers:teachers!schedules_teacher_id_fkey(id, name, nip)
 `;
@@ -398,8 +398,8 @@ export const createTeacherService = async ({ email, password, name, nip, phone }
       .insert([
         { 
           id: userId, 
-          email: cleanEmail, 
-          name: cleanName, 
+          email: cleanEmail,
+          name: cleanName,
           role: 'teacher' 
         }
       ]);
