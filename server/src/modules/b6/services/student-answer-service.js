@@ -1,4 +1,5 @@
 import { supabase } from '../../../config/supabase.js';
+import { AttemptError } from './quiz-attempt-service.js';
 
 export const saveStudentAnswer = async ({
   student_id,
@@ -11,14 +12,16 @@ export const saveStudentAnswer = async ({
   const { data: attempt, error: attemptError } = await supabase
     .schema('b6')
     .from('quiz_attempts')
-    .select('student_id')
+    .select('student_id, status')
     .eq('id', attempt_id)
     .single();
 
+  if (attemptError?.code === 'PGRST116') throw new AttemptError(404, 'Attempt tidak ditemukan.');
   if (attemptError) throw attemptError;
   if (attempt.student_id !== student_id) {
-    throw new Error('student_id tidak sesuai dengan pemilik attempt');
+    throw new AttemptError(403, 'Attempt bukan milik siswa yang sedang login.');
   }
+  if (attempt.status !== 'SEDANG_MENGERJAKAN') throw new AttemptError(409, 'Jawaban hanya dapat disimpan saat attempt sedang dikerjakan.');
 
   const { data: answer, error } = await supabase
     .schema('b6')
@@ -61,7 +64,12 @@ export const saveStudentAnswer = async ({
   };
 };
 
-export const getAnswersByAttemptId = async (attemptId) => {
+export const getAnswersByAttemptId = async (attemptId, studentId) => {
+  const { data: attempt, error: attemptError } = await supabase.schema('b6')
+    .from('quiz_attempts').select('student_id').eq('id', attemptId).maybeSingle();
+  if (attemptError) throw attemptError;
+  if (!attempt) throw new AttemptError(404, 'Attempt tidak ditemukan.');
+  if (String(attempt.student_id) !== String(studentId)) throw new AttemptError(403, 'Attempt bukan milik siswa yang sedang login.');
   const { data, error } = await supabase
     .schema('b6')
     .from('student_answers')
