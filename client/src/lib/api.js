@@ -1,7 +1,7 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
 
 export async function apiFetch(path, options = {}) {
-  const token = localStorage.getItem('admin_token');
+  const token = localStorage.getItem('token') || localStorage.getItem('admin_token') || sessionStorage.getItem('b8-token');
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,

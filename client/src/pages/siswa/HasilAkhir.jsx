@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Clock } from 'lucide-react';
+import { Clock, Loader2 } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
 
 // ── Helper: format detik → teks "X jam Y menit" ────────────────────────────
 function formatDuration(totalSeconds) {
@@ -54,26 +56,92 @@ function ScoreDonut({ percentage }) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-//  KOMPONEN UTAMA: HasilAkhir
+//  KOMPONEN UTAMA: HasilAkhir (Terintegrasi API B6)
 // ═════════════════════════════════════════════════════════════════════════════
 export default function HasilAkhir() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Data yang dikirim dari halaman MengerjakanKuis (atau fallback mock)
   const {
+    attemptId = null,
+    quizTitle = 'Matematika',
     answers = {},
     totalQuestions = 40,
-    durationUsed = 4800,            // default: 1 jam 20 menit
+    durationUsed = 4800,
   } = location.state || {};
 
-  // ── Hitung skor (mock: anggap semua jawaban benar kecuali tertentu) ────
-  const totalAnswered = Object.keys(answers).length;
-  const benar = Math.min(totalAnswered, 30);       // mock: 30 benar
-  const salah = Math.max(0, totalAnswered - benar); // mock: sisanya salah
-  const tidakDijawab = totalQuestions - totalAnswered;
-  const poin = benar;
-  const percentage = Math.round((poin / totalQuestions) * 100);
+  const [loading, setLoading] = useState(Boolean(attemptId));
+  const [stats, setStats] = useState(() => {
+    // Perhitungan awal / fallback
+    const totalAnswered = Object.keys(answers).length;
+    const benar = Math.min(totalAnswered, 30);
+    const salah = Math.max(0, totalAnswered - benar);
+    const tidakDijawab = Math.max(0, totalQuestions - totalAnswered);
+    const poin = benar;
+    const percentage = totalQuestions > 0 ? Math.round((poin / totalQuestions) * 100) : 0;
+
+    return {
+      poin,
+      totalSoal: totalQuestions,
+      durasi: durationUsed,
+      benar,
+      salah,
+      tidakDijawab,
+      percentage,
+      mapel: quizTitle,
+    };
+  });
+
+  // ── Ambil Data Attempt Resmi dari Server ──────────────────────────────────
+  useEffect(() => {
+    let active = true;
+
+    async function fetchAttemptDetails() {
+      if (!attemptId) return;
+
+      try {
+        const attempt = await apiFetch(`/attempts/${attemptId}`);
+        if (active && attempt) {
+          const totalQ = totalQuestions;
+          let calculatedDuration = durationUsed;
+
+          if (attempt.started_at && attempt.submitted_at) {
+            const start = new Date(attempt.started_at).getTime();
+            const end = new Date(attempt.submitted_at).getTime();
+            calculatedDuration = Math.max(0, Math.round((end - start) / 1000));
+          }
+
+          const benar = attempt.correct_count ?? stats.benar;
+          const salah = attempt.incorrect_count ?? stats.salah;
+          const poin = attempt.total_score ?? benar;
+          const totalAnswered = benar + salah;
+          const tidakDijawab = Math.max(0, totalQ - totalAnswered);
+          const percentage = totalQ > 0 ? Math.round((poin / totalQ) * 100) : 0;
+
+          setStats({
+            poin,
+            totalSoal: totalQ,
+            durasi: calculatedDuration,
+            benar,
+            salah,
+            tidakDijawab,
+            percentage,
+            mapel: quizTitle,
+          });
+        }
+      } catch (err) {
+        console.warn('Gagal memuat detail attempt dari server, menggunakan hasil lokal:', err.message);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    fetchAttemptDetails();
+
+    return () => {
+      active = false;
+    };
+  }, [attemptId, durationUsed, quizTitle, totalQuestions]);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -84,11 +152,11 @@ export default function HasilAkhir() {
             Hasil Akhir
           </h1>
           <p className="mt-1 text-sm text-slate-400">
-            Lihat ringkasan hasil asesmen Matematika dan tinjau kembali jawabanmu.
+            Lihat ringkasan hasil asesmen {stats.mapel} dan tinjau kembali jawabanmu.
           </p>
         </div>
         <span className="inline-flex items-center self-start rounded-full border border-[#008994]/20 bg-[#e6f7f8] px-4 py-1.5 text-xs font-semibold text-[#005b64]">
-          Matematika
+          {stats.mapel}
         </span>
       </div>
 
@@ -97,11 +165,11 @@ export default function HasilAkhir() {
         {/* Title Row + Percentage Badge */}
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-xl font-bold text-slate-800">Matematika</h2>
+            <h2 className="text-xl font-bold text-slate-800">{stats.mapel}</h2>
             <p className="text-sm text-slate-400 mt-0.5">Hasil akhir asesmen</p>
           </div>
           <span className="rounded-full bg-[#e6f7f8] px-3 py-1 text-xs font-bold text-[#008994]">
-            {percentage}%
+            {stats.percentage}%
           </span>
         </div>
 
@@ -113,7 +181,7 @@ export default function HasilAkhir() {
             <div className="rounded-xl border border-[#008994]/15 bg-[#f0fafb] p-5">
               <span className="text-xs font-semibold text-[#008994]">Poin</span>
               <p className="mt-1 text-2xl font-bold text-[#008994]">
-                {poin} / {totalQuestions}
+                {loading ? '...' : `${stats.poin} / ${stats.totalSoal}`}
               </p>
             </div>
 
@@ -124,14 +192,18 @@ export default function HasilAkhir() {
                 Durasi
               </div>
               <p className="mt-1 text-2xl font-bold text-slate-800">
-                {formatDuration(durationUsed)}
+                {loading ? '...' : formatDuration(stats.durasi)}
               </p>
             </div>
           </div>
 
           {/* Donut Chart */}
           <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white p-5">
-            <ScoreDonut percentage={percentage} />
+            {loading ? (
+              <Loader2 className="h-8 w-8 animate-spin text-[#008994]" />
+            ) : (
+              <ScoreDonut percentage={stats.percentage} />
+            )}
           </div>
         </div>
 
@@ -141,15 +213,21 @@ export default function HasilAkhir() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="rounded-xl border border-slate-200 bg-white p-5">
               <span className="text-xs font-semibold text-slate-500">Benar</span>
-              <p className="mt-1 text-2xl font-bold text-slate-800">{benar}</p>
+              <p className="mt-1 text-2xl font-bold text-slate-800">
+                {loading ? '...' : stats.benar}
+              </p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-5">
               <span className="text-xs font-semibold text-slate-500">Salah</span>
-              <p className="mt-1 text-2xl font-bold text-slate-800">{salah}</p>
+              <p className="mt-1 text-2xl font-bold text-slate-800">
+                {loading ? '...' : stats.salah}
+              </p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-5">
               <span className="text-xs font-semibold text-slate-500">Tidak dijawab</span>
-              <p className="mt-1 text-2xl font-bold text-slate-800">{tidakDijawab}</p>
+              <p className="mt-1 text-2xl font-bold text-slate-800">
+                {loading ? '...' : stats.tidakDijawab}
+              </p>
             </div>
           </div>
         </div>

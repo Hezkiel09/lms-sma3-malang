@@ -60,6 +60,27 @@ export const authenticateUser = async (req, res, next) => {
 };
 
 /**
+ * Middleware autentikasi opsional - menyematkan req.user jika token valid,
+ * tetap melanjutkan request jika token tidak disertakan.
+ */
+export const optionalAuthenticateUser = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return next();
+    }
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (!error && user) {
+      req.user = user;
+    }
+    next();
+  } catch {
+    next();
+  }
+};
+
+/**
  * Middleware proteksi khusus role Admin
  */
 export const requireAdmin = async (req, res, next) => {
