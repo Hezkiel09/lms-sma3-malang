@@ -162,7 +162,7 @@ export default function AkademikPage() {
   const handleDeleteSubject = async (mapel) => {
     if (!mapel) return;
     const confirmDelete = window.confirm(
-      `Apakah Anda yakin ingin menghapus mata pelajaran "${mapel.name}"?\nJadwal pelajaran yang menggunakan mapel ini mungkin terpengaruh.`
+      `Apakah Anda yakin ingin menghapus mata pelajaran "${mapel.name}"?\nMata pelajaran yang masih digunakan oleh jadwal atau course tidak dapat dihapus.`
     );
     if (!confirmDelete) return;
 

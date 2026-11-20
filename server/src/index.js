@@ -16,9 +16,9 @@ app.use(express.json());
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
   try {
-    const { data, error } = await supabase.schema('master').from('users').select('*');
+    const { error } = await supabase.schema('master').from('users').select('id').limit(1);
     if (error) throw error;
-    res.status(200).json({ message: 'Server is healthy', data });
+    res.status(200).json({ message: 'Server is healthy' });
   } catch (error) {
     res.status(500).json({ message: 'Server is unhealthy', error: error.message });
   }

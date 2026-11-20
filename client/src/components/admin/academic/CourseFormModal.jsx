@@ -125,6 +125,7 @@ export default function CourseFormModal({
           <input
             type="text"
             required
+            maxLength={20}
             value={form.academic_year}
             onChange={(e) =>
               setForm((prev) => ({ ...prev, academic_year: e.target.value }))

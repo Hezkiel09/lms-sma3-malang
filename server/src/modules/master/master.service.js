@@ -145,6 +145,19 @@ export const updateSubjectService = async (id, payload) => {
 };
 
 export const deleteSubjectService = async (id) => {
+  const [{ count: scheduleCount, error: scheduleError }, { count: courseCount, error: courseError }] = await Promise.all([
+    supabase.schema('master').from('schedules').select('id', { count: 'exact', head: true }).eq('subject_id', id),
+    supabase.schema('master').from('courses').select('id', { count: 'exact', head: true }).eq('subject_id', id),
+  ]);
+
+  if (scheduleError) throw scheduleError;
+  if (courseError) throw courseError;
+  if ((scheduleCount || 0) > 0 || (courseCount || 0) > 0) {
+    const error = new Error('Mata pelajaran tidak dapat dihapus karena masih digunakan oleh Jadwal Pelajaran atau Course.');
+    error.status = 409;
+    throw error;
+  }
+
   const { data, error } = await supabase
     .schema('master')
     .from('subjects')

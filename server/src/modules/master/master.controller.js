@@ -172,11 +172,12 @@ export const deleteSubject = async (req, res) => {
 
 const handleAcademicError = (res, error, action) => {
   const notFound = error.message.includes('tidak ditemukan');
-  return res.status(notFound ? 404 : 500).json({
+  const status = error.status || (notFound ? 404 : 500);
+  return res.status(status).json({
     success: false,
-    message: notFound ? error.message : `Gagal ${action}`,
+    message: status === 500 ? `Gagal ${action}` : error.message,
     data: null,
-    ...(notFound ? {} : { error: error.message }),
+    ...(status === 500 ? { error: error.message } : {}),
   });
 };
 
@@ -420,6 +421,10 @@ const handleCourseError = (res, error, defaultMessage = 'Terjadi kesalahan') => 
   });
 };
 
+const isValidAcademicYear = (value) => value === undefined || (
+  typeof value === 'string' && value.trim().length > 0 && value.trim().length <= 20
+);
+
 export const getAllCourses = async (req, res) => {
   try {
     const { search, class_id, semester, academic_year } = req.query;
@@ -451,6 +456,14 @@ export const createCourse = async (req, res) => {
       });
     }
 
+    if (!isValidAcademicYear(academic_year)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tahun ajaran wajib berupa teks maksimal 20 karakter.',
+        data: null,
+      });
+    }
+
     const newCourse = await masterService.createCourseService({
       class_id,
       subject_id,
@@ -472,6 +485,15 @@ export const createCourse = async (req, res) => {
 export const updateCourse = async (req, res) => {
   try {
     const { class_id, subject_id, teacher_id, academic_year, semester } = req.body;
+
+    if (!isValidAcademicYear(academic_year)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tahun ajaran wajib berupa teks maksimal 20 karakter.',
+        data: null,
+      });
+    }
+
     const updatedCourse = await masterService.updateCourseService(req.params.id, {
       class_id,
       subject_id,
