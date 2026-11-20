@@ -8,7 +8,6 @@ import {
   FileText,
   User,
   X,
-  BookOpen,
 } from 'lucide-react';
 import logosmanti from '../../assets/logo smanti.png';
 import SidebarFooter from './SidebarFooter';
@@ -101,10 +100,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
           </nav>
         </div>
 
-        <SidebarFooter
-          onClose={onClose}
-          actions={[{ to: '/b6/buat-kuis', label: 'Beralih ke Portal Guru', icon: BookOpen, variant: 'portal' }]}
-        />
+        <SidebarFooter onClose={onClose} />
       </aside>
     </>
   );

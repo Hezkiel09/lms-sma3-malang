@@ -60,7 +60,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
 
         {/* Guru Portal (Default: Buat Kuis & Bank Soal Sesuai Desain Foto) */}
-        <Route path="/b6" element={<ProtectedRoute allowedRoles={['teacher', 'admin']}><GuruLayout /></ProtectedRoute>}>
+        <Route path="/b6" element={<ProtectedRoute allowedRoles={['teacher']}><GuruLayout /></ProtectedRoute>}>
           <Route index element={<Navigate to="/b6/buat-kuis" replace />} />
           <Route path="beranda" element={<GuruPlaceholder title="Beranda Guru" />} />
           <Route path="bank-soal" element={<BankSoalPage />} />
