@@ -5,43 +5,31 @@ import {
   Upload,
   CheckCircle2,
   FileText,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { b6ApiFetch } from './b6-api';
 
-const rubricList = [
-  { text: 'Menentukan a = 5 dan b = 3 dengan benar.', points: 2 },
-  { text: 'Menggunakan rumus U₁₀ dan memperoleh U₁₀ = 32.', points: 3 },
-  { text: 'Menuliskan rumus S₁₀ = n/2 × (2a + (n - 1)b).', points: 2 },
-  { text: 'Menghitung S₁₀ = 185 dengan langkah yang benar.', points: 3 },
-];
-
-const normalize = (value) => String(value || '').trim().toLowerCase();
-
 function resolveQuestionBank(banks, quiz) {
-  const title = normalize(quiz.title);
-  const subjectBanks = quiz.subject_id
-    ? banks.filter((bank) => String(bank.subject_id) === String(quiz.subject_id))
-    : [];
-  if (subjectBanks.length === 1) return subjectBanks[0];
+  if (quiz.class_id || quiz.subject_id) {
+    const courseMatches = banks.filter((bank) => (
+      (!quiz.subject_id || String(bank.subject_id) === String(quiz.subject_id))
+        && (bank.courses || []).some((course) => (
+          (!quiz.class_id || String(course.class_id) === String(quiz.class_id))
+            && (!quiz.subject_id || String(course.subject_id) === String(quiz.subject_id))
+        ))
+    ));
+    return courseMatches.length === 1 ? courseMatches[0] : null;
+  }
 
-  const matchedByMetadata = subjectBanks.filter((bank) => {
-    const bankLevel = normalize(bank.class_level).replace(/^kelas\s+/, '');
-    return Boolean(bankLevel) && title.includes(bankLevel);
-  });
-
-  if (matchedByMetadata.length === 1) return matchedByMetadata[0];
-  if (banks.length === 1) return banks[0];
-
-  const titleMatches = banks.filter((bank) => {
-    const subjectName = bank.subject_name || bank.name;
-    const bankLevel = normalize(bank.class_level).replace(/^kelas\s+/, '');
-    return normalize(subjectName)
-      && title.includes(normalize(subjectName))
-      && bankLevel
-      && title.includes(bankLevel);
-  });
-
-  return titleMatches.length === 1 ? titleMatches[0] : null;
+  const attachedBankIds = new Set(
+    (quiz.quiz_questions || [])
+      .map((item) => item.questions?.question_bank_id)
+      .filter(Boolean)
+      .map(String),
+  );
+  const attachedBanks = banks.filter((bank) => attachedBankIds.has(String(bank.id)));
+  return attachedBanks.length === 1 ? attachedBanks[0] : null;
 }
 
 export default function TambahSoalKuisPage() {
@@ -82,8 +70,8 @@ export default function TambahSoalKuisPage() {
     D: '',
   });
 
-  // Esai reference & rubric
-  const jawabanAcuan = `Diketahui a = 5 dan b = 8 – 5 = 3.\nU₁₀ = a + (10 – 1)b = 5 + 9 × 3 = 32.\nS₁₀ = 10/2 × (2 × 5 + 9 × 3) = 5 × 37 = 185.`;
+  const [jawabanAcuan, setJawabanAcuan] = useState('');
+  const [rubric, setRubric] = useState([]);
 
   const navigateToBankStep = (step) => {
     navigate('/b6/bank-soal', {
@@ -95,6 +83,7 @@ export default function TambahSoalKuisPage() {
             hasReachedStepFour: true,
           }
         : undefined,
+      replace: true,
     });
   };
 
@@ -149,7 +138,13 @@ export default function TambahSoalKuisPage() {
           Array.isArray(banksData) ? banksData : [],
           quizData,
         );
-        if (bank) setQuestionBankId(bank.id);
+        if (bank) {
+          setQuestionBankId(bank.id);
+        } else {
+          setLoadError(
+            'Bank soal tidak dapat ditentukan. Pastikan kuis memiliki kelas dan mata pelajaran yang terhubung, atau buka formulir tambah soal dari Bank Soal yang sesuai.',
+          );
+        }
         sessionStorage.setItem('b6.currentQuizId', quizData.id);
       } catch (error) {
         if (active) setLoadError(error.message);
@@ -196,6 +191,12 @@ export default function TambahSoalKuisPage() {
       window.alert('Bobot nilai harus lebih dari 0.');
       return;
     }
+    if (jenisSoal === 'Esai' && rubric.some((item) => (
+      !item.text.trim() || !Number.isFinite(Number(item.points)) || Number(item.points) < 0
+    ))) {
+      window.alert('Lengkapi kriteria penilaian esai dengan teks dan poin yang valid.');
+      return;
+    }
 
     const options = jenisSoal === 'Pilihan Ganda'
       ? ['A', 'B', 'C', 'D'].map((optionLabel) => ({
@@ -229,8 +230,10 @@ export default function TambahSoalKuisPage() {
               ? 'PILIHAN_GANDA'
               : jenisSoal === 'Benar / Salah' ? 'BENAR_SALAH' : 'ESAI',
             default_points: bobot,
-            reference_answer: jenisSoal === 'Esai' ? jawabanAcuan : null,
-            grading_rubric: jenisSoal === 'Esai' ? rubricList : null,
+            reference_answer: jenisSoal === 'Esai' ? jawabanAcuan.trim() || null : null,
+            grading_rubric: jenisSoal === 'Esai'
+              ? rubric.map((item) => ({ ...item, text: item.text.trim(), points: Number(item.points) }))
+              : null,
             ...(options ? { options } : {}),
           }),
         },
@@ -579,9 +582,13 @@ export default function TambahSoalKuisPage() {
                   Jawaban Acuan
                 </label>
                 <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
-                  <div className="text-xs sm:text-sm text-slate-800 font-mono whitespace-pre-line leading-relaxed">
-                    {jawabanAcuan}
-                  </div>
+                  <textarea
+                    value={jawabanAcuan}
+                    onChange={(event) => setJawabanAcuan(event.target.value)}
+                    rows={4}
+                    className="w-full resize-y bg-transparent text-xs sm:text-sm text-slate-800 font-mono leading-relaxed focus:outline-none"
+                    placeholder="Tuliskan jawaban acuan untuk soal ini..."
+                  />
                   <div className="pt-2 text-xs text-slate-400 border-t border-slate-50">
                     Acuan untuk guru; langkah setara yang benar tetap diterima.
                   </div>
@@ -595,22 +602,56 @@ export default function TambahSoalKuisPage() {
                     Pedoman Penilaian
                   </label>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Berikan poin sesuai langkah yang benar. Total maksimal 10 poin.
+                    Berikan poin untuk setiap kriteria. Poin maksimal soal saat ini {bobot}.
                   </p>
                 </div>
 
                 <div className="rounded-xl border border-slate-100 bg-white divide-y divide-slate-100 shadow-2xs">
-                  {rubricList.map((rubric, idx) => (
+                  {rubric.map((item, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center justify-between px-4 py-3 text-xs sm:text-sm"
+                      className="flex items-center gap-3 px-4 py-3"
                     >
-                      <span className="text-slate-700">{rubric.text}</span>
-                      <span className="font-bold text-[#005b64] pl-3 whitespace-nowrap">
-                        {rubric.points} poin
-                      </span>
+                      <input
+                        type="text"
+                        value={item.text}
+                        onChange={(event) => setRubric((current) => current.map((entry, entryIndex) => (
+                          entryIndex === idx ? { ...entry, text: event.target.value } : entry
+                        )))}
+                        className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-xs sm:text-sm text-slate-700 focus:border-[#004d57] focus:outline-none"
+                        aria-label={`Kriteria penilaian ${idx + 1}`}
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        value={item.points}
+                        onChange={(event) => setRubric((current) => current.map((entry, entryIndex) => (
+                          entryIndex === idx ? { ...entry, points: event.target.value } : entry
+                        )))}
+                        className="w-16 rounded-lg border border-slate-200 px-2 py-2 text-xs font-bold text-[#005b64] focus:border-[#004d57] focus:outline-none"
+                        aria-label={`Poin kriteria ${idx + 1}`}
+                      />
+                      <span className="text-xs font-semibold text-[#005b64]">poin</span>
+                      <button
+                        type="button"
+                        onClick={() => setRubric((current) => current.filter((_, entryIndex) => entryIndex !== idx))}
+                        className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                        aria-label={`Hapus kriteria ${idx + 1}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   ))}
+                  <div className="p-3">
+                    <button
+                      type="button"
+                      onClick={() => setRubric((current) => [...current, { text: '', points: 0 }])}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#e6f7f8] px-3 py-2 text-xs font-semibold text-[#005b64] hover:bg-[#d5f0f2]"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Tambah kriteria
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

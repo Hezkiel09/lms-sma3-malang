@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 
 const roleHome = (role) => {
   if (role === 'admin') return '/admin/dashboard';
-  if (role === 'teacher') return '/b6/buat-kuis';
+  if (role === 'teacher') return '/b6/bank-soal';
   if (role === 'student') return '/siswa';
   if (role === 'parent') return '/ortu';
   return '/login';

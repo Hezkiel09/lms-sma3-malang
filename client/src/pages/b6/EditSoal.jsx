@@ -17,7 +17,7 @@ const EMPTY_FORM = {
   bobot: 1,
 };
 
-function toEditForm(question, bank = {}) {
+function toEditForm(question, bank = {}, classId) {
   const options = question.question_options || question.options || question.pilihan || [];
   const correctIndex = options.findIndex((option) => (
     option.is_correct
@@ -27,14 +27,16 @@ function toEditForm(question, bank = {}) {
   const jenis = question.tipe || question.jenis || getQuestionTypeLabel(question.question_type);
   const pilihan = jenis === "Esai"
     ? []
-    : options.length
+    : jenis === "Benar / Salah"
+      ? ["Benar", "Salah"]
+      : options.length
       ? options.map((option) => option.option_text || option.teks || option.jawaban || "")
-      : jenis === "Benar / Salah"
-        ? ["Benar", "Salah"]
-        : ["", "", "", ""];
+      : ["", "", "", ""];
 
   return {
-    kelas: bank.class_level || question.kelas || "",
+    kelas: (bank.courses || []).find(
+      (course) => String(course.class_id) === String(classId),
+    )?.classes?.name || bank.class_level || question.kelas || "",
     mapel: bank.subject_name || bank.name || question.mapel || "",
     materi: bank.topic_name || question.materi || "",
     jenis,
@@ -54,7 +56,7 @@ export default function EditSoal() {
   const questionId = location.state?.questionId || search.get("questionId");
   const [form, setForm] = useState(
     location.state?.question
-      ? toEditForm(location.state.question, location.state.bank)
+      ? toEditForm(location.state.question, location.state.bank, location.state.classId)
       : EMPTY_FORM,
   );
   const [questionRecord, setQuestionRecord] = useState(location.state?.question || null);
@@ -89,7 +91,7 @@ export default function EditSoal() {
 
         setQuestionRecord(question);
         setBankRecord(bank || {});
-        setForm(toEditForm(question, bank || {}));
+        setForm(toEditForm(question, bank || {}, location.state?.classId));
         setPreviewGambar(question.image_url || null);
         setLoadError("");
       })
@@ -103,7 +105,7 @@ export default function EditSoal() {
     return () => {
       active = false;
     };
-  }, [bankId, questionId]);
+  }, [bankId, questionId, location.state?.classId]);
 
   // Mengubah data form
   const handleChange = (field, value) => {
@@ -115,6 +117,8 @@ export default function EditSoal() {
 
   // Mengubah pilihan jawaban
   const handlePilihanChange = (index, value) => {
+    if (form.jenis !== "Pilihan Ganda") return;
+
     const pilihanBaru = [...form.pilihan];
     pilihanBaru[index] = value;
 
@@ -215,7 +219,8 @@ export default function EditSoal() {
         : "PILIHAN_GANDA";
     const options = form.jenis === "Esai"
       ? []
-      : form.pilihan.map((optionText, index) => ({
+      : (form.jenis === "Benar / Salah" ? ["Benar", "Salah"] : form.pilihan)
+        .map((optionText, index) => ({
           option_label: form.jenis === "Benar / Salah"
             ? (index === 0 ? "B" : "S")
             : String.fromCharCode(65 + index),
@@ -250,6 +255,7 @@ export default function EditSoal() {
             question: savedQuestion,
             bank: bankRecord,
             className: location.state?.className,
+            classId: location.state?.classId,
             returnKelas: location.state?.returnKelas,
             returnMapel: location.state?.returnMapel,
             hasReachedStepFour: location.state?.hasReachedStepFour,
@@ -561,15 +567,21 @@ export default function EditSoal() {
                         : `${String.fromCharCode(65 + index)}.`}
                     </strong>
 
-                    <input
-                      type="text"
-                      value={jawaban}
-                      onChange={(e) =>
-                        handlePilihanChange(index, e.target.value)
-                      }
-                      aria-label={`Pilihan jawaban ${index + 1}`}
-                      required
-                    />
+                    {form.jenis === "Benar / Salah" ? (
+                      <span className="flex-1 text-sm text-slate-700">
+                        {index === 0 ? "Benar" : "Salah"}
+                      </span>
+                    ) : (
+                      <input
+                        type="text"
+                        value={jawaban}
+                        onChange={(e) =>
+                          handlePilihanChange(index, e.target.value)
+                        }
+                        aria-label={`Pilihan jawaban ${index + 1}`}
+                        required
+                      />
+                    )}
 
                     {form.kunci === index && (
                       <span className="answer-key-label">

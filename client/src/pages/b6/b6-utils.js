@@ -10,9 +10,15 @@ export function getQuestionTypeLabel(type) {
 export function toQuestionViewModel(question, bank = {}) {
   const options = question.question_options || question.options || [];
   const correctOption = options.find((option) => option.is_correct);
-  const date = question.created_at
-    ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(question.created_at))
+  const createdAt = question.created_at ? new Date(question.created_at) : null;
+  const date = createdAt && !Number.isNaN(createdAt.getTime())
+    ? new Intl.DateTimeFormat('id-ID', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(createdAt)
     : '—';
+  const isEssay = getQuestionTypeLabel(question.question_type) === 'Esai';
+  const referenceAnswer = question.reference_answer || '';
 
   return {
     ...question,
@@ -25,7 +31,10 @@ export function toQuestionViewModel(question, bank = {}) {
       key: option.option_label,
       teks: option.option_text,
     })),
-    kunciJawaban: correctOption?.option_label || correctOption?.option_text || '',
+    kunciJawaban: correctOption?.option_label || correctOption?.option_text || referenceAnswer,
+    jawabanAcuan: referenceAnswer,
+    pedomanPenilaian: question.grading_rubric || [],
+    labelJawaban: isEssay ? 'Jawaban acuan' : 'Kunci jawaban',
     pembahasan: question.explanation || '',
   };
 }

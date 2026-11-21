@@ -46,6 +46,13 @@ function toQuestionDetails(question, bank = {}, className) {
   };
 }
 
+function getBankClassName(bank, classId, fallback) {
+  const course = (bank.courses || []).find(
+    (item) => String(item.class_id) === String(classId),
+  );
+  return course?.classes?.name || fallback || bank.class_level || "—";
+}
+
 export default function LihatSoal() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -81,7 +88,7 @@ export default function LihatSoal() {
         setSoal(toQuestionDetails(
           question,
           bank,
-          location.state?.className || bank.class_level,
+          getBankClassName(bank, location.state?.classId, location.state?.className),
         ));
         setLoadError("");
       })
@@ -95,7 +102,7 @@ export default function LihatSoal() {
     return () => {
       active = false;
     };
-  }, [bankId, questionId, location.state?.className]);
+  }, [bankId, questionId, location.state?.className, location.state?.classId]);
 
   const handleDelete = () => {
     setShowDelete(false);
@@ -111,6 +118,7 @@ export default function LihatSoal() {
         bankId,
         bank: location.state?.bank,
         className: location.state?.className,
+        classId: location.state?.classId,
         returnKelas: location.state?.returnKelas,
         returnMapel: location.state?.returnMapel,
         hasReachedStepFour: location.state?.hasReachedStepFour,
@@ -129,6 +137,7 @@ export default function LihatSoal() {
             hasReachedStepFour: location.state?.hasReachedStepFour,
           }
         : undefined,
+      replace: true,
     });
   };
 

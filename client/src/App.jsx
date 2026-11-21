@@ -46,7 +46,7 @@ function RootRedirect() {
   if (loading) return <div className="flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-3 border-[#008994] border-t-transparent" /></div>;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (user?.role === 'admin') return <Navigate to="/admin/dashboard" replace />;
-  if (user?.role === 'teacher') return <Navigate to="/b6/buat-kuis" replace />;
+  if (user?.role === 'teacher') return <Navigate to="/b6/bank-soal" replace />;
   if (user?.role === 'student') return <Navigate to="/siswa" replace />;
   if (user?.role === 'parent') return <Navigate to="/ortu" replace />;
   return <Navigate to="/login" replace />;
@@ -74,7 +74,7 @@ export default function App() {
             <Route path="asesmen/rekap-hasil" element={<RekapHasilPage />} />
             <Route path="presensi" element={<GuruPlaceholder title="Presensi Guru" />} />
             <Route path="pesan" element={<GuruPlaceholder title="Pesan" />} />
-            <Route path="*" element={<Navigate to="/b6/buat-kuis" replace />} />
+            <Route path="*" element={<Navigate to="/b6/bank-soal" replace />} />
           </Route>
 
           <Route path="/siswa" element={<ProtectedRoute allowedRoles={['student', 'admin']}><SiswaDashboard /></ProtectedRoute>} />
@@ -99,7 +99,7 @@ export default function App() {
           <Route path="/buat-soal" element={<Navigate to="/b6/buat-soal" replace />} />
           <Route path="/rekap-nilai" element={<Navigate to="/b6/rekap-nilai" replace />} />
           <Route path="/rekap-hasil" element={<Navigate to="/b6/rekap-nilai" replace />} />
-          <Route path="/guru/*" element={<Navigate to="/b6/buat-kuis" replace />} />
+          <Route path="/guru/*" element={<Navigate to="/b6/bank-soal" replace />} />
           <Route path="/" element={<RootRedirect />} />
           <Route path="*" element={<RootRedirect />} />
         </Routes>

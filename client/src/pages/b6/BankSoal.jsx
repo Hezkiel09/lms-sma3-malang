@@ -26,29 +26,76 @@ export default function BankSoalPage() {
 
   // Navigation State:
   // step 1 = Pilih Kelas | step 2 = Pilih Mapel | step 3 = Lihat Soal | step 4 = Tambah/Impor Soal
+  const savedNavigation = location.state?.bankSoalNavigation;
   const hasRestoredContext = Boolean(location.state?.restoreKelas);
   const [currentStep, setCurrentStep] = useState(
-    hasRestoredContext
+    savedNavigation?.step
+      || (hasRestoredContext
       ? Math.min(
           location.state?.restoreStep || (location.state?.restoreMapel ? 3 : 2),
           location.state?.hasReachedStepFour ? 4 : (location.state?.restoreMapel ? 3 : 2),
         )
-      : 1,
+      : 1),
   );
   const [maxUnlockedStep, setMaxUnlockedStep] = useState(() => (
-    location.state?.hasReachedStepFour
+    savedNavigation?.maxUnlockedStep
+      ?? (location.state?.hasReachedStepFour
       ? 4
       : location.state?.restoreMapel
         ? 3
         : location.state?.restoreKelas
           ? 2
-          : 1
+          : 1)
   ));
-  const [selectedKelas, setSelectedKelas] = useState(location.state?.restoreKelas || null);
-  const [selectedMapel, setSelectedMapel] = useState(location.state?.restoreMapel || null);
+  const [selectedKelas, setSelectedKelas] = useState(
+    savedNavigation?.selectedKelas ?? location.state?.restoreKelas ?? null,
+  );
+  const [selectedMapel, setSelectedMapel] = useState(
+    savedNavigation?.selectedMapel ?? location.state?.restoreMapel ?? null,
+  );
+
+  useEffect(() => {
+    const restoreFromHistory = () => {
+      const historyState = window.history.state?.usr || {};
+      const navigation = historyState.bankSoalNavigation;
+      if (navigation) {
+        setCurrentStep(navigation.step);
+        setSelectedKelas(navigation.selectedKelas || null);
+        setSelectedMapel(navigation.selectedMapel || null);
+        setMaxUnlockedStep(navigation.maxUnlockedStep);
+        return;
+      }
+
+      const restoredKelas = historyState.restoreKelas || null;
+      const restoredMapel = historyState.restoreMapel || null;
+      setCurrentStep(
+        restoredKelas
+          ? Math.min(
+              historyState.restoreStep || (restoredMapel ? 3 : 2),
+              historyState.hasReachedStepFour ? 4 : (restoredMapel ? 3 : 2),
+            )
+          : 1,
+      );
+      setSelectedKelas(restoredKelas);
+      setSelectedMapel(restoredMapel);
+      setMaxUnlockedStep(
+        historyState.hasReachedStepFour
+          ? 4
+          : restoredMapel
+            ? 3
+            : restoredKelas
+              ? 2
+              : 1,
+      );
+    };
+
+    window.addEventListener('popstate', restoreFromHistory);
+    return () => window.removeEventListener('popstate', restoreFromHistory);
+  }, []);
 
   // Data states
   const [banks, setBanks] = useState([]);
+  const [masterClasses, setMasterClasses] = useState([]);
   const [questionsByBank, setQuestionsByBank] = useState({});
   const [importedQuestionCount, setImportedQuestionCount] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -85,10 +132,11 @@ export default function BankSoalPage() {
 
     const loadBanks = async () => {
       try {
-        const [bankResult, importResult, subjectResult] = await Promise.allSettled([
+        const [bankResult, importResult, subjectResult, classResult] = await Promise.allSettled([
           b6ApiFetch('/banks'),
           b6ApiFetch('/imports'),
           b6ApiFetch('/master/academic/subjects'),
+          b6ApiFetch('/master/classes'),
         ]);
         if (!active) return;
         if (bankResult.status === 'rejected') throw bankResult.reason;
@@ -102,15 +150,24 @@ export default function BankSoalPage() {
         const bankList = (Array.isArray(bankResult.value) ? bankResult.value : []).map((bank) => ({
           ...bank,
           subject_name: subjectById.get(String(bank.subject_id))
-            || bank.subject_name
-            || bank.name
-            || 'Mata pelajaran',
+            || (bank.subject_id
+              ? 'Mapel tidak ditemukan di data master'
+              : 'Mapel belum terhubung ke data master'),
         }));
         setBanks(bankList);
+        if (classResult.status === 'fulfilled') {
+          setMasterClasses(Array.isArray(classResult.value) ? classResult.value : []);
+        } else {
+          setMasterClasses([]);
+          showToast(
+            `Data kelas master gagal dimuat. ${classResult.reason.message}`,
+            'error',
+          );
+        }
 
         if (subjectResult.status === 'rejected') {
           showToast(
-            `Data mata pelajaran master gagal dimuat; nama dari bank soal sementara digunakan. ${subjectResult.reason.message}`,
+            `Data mata pelajaran master gagal dimuat. ${subjectResult.reason.message}`,
             'error',
           );
         }
@@ -157,38 +214,53 @@ export default function BankSoalPage() {
 
   const kelasList = useMemo(() => {
     const grouped = new Map();
-    banks.forEach((bank) => {
-      const classLevel = getClassLevel(bank.class_level);
-      const mapel = {
-        id: bank.id,
-        bankId: bank.id,
-        nama: bank.subject_name || bank.name || 'Mata pelajaran',
-        materi: bank.topic_name || bank.name || 'Materi belum ditentukan',
-        tipeSoal: 'Lihat jenis soal yang tersedia',
-        totalSoal: questionsByBank[bank.id]?.length || 0,
-      };
-      const kelas = grouped.get(classLevel) || {
-        id: classLevel,
-        romawi: classLevel,
-        nama: getClassLabel(bank.class_level),
+    masterClasses.forEach((masterClass) => {
+      const classValue = masterClass.level || masterClass.name;
+      if (!masterClass.id) return;
+
+      const kelas = {
+        id: masterClass.id,
+        classId: masterClass.id,
+        romawi: getClassLevel(classValue),
+        nama: getClassLabel(masterClass.name),
         jumlahMapel: 0,
         materiPreview: '',
         totalSoal: 0,
         mapelList: [],
       };
-      kelas.mapelList.push(mapel);
-      kelas.totalSoal += mapel.totalSoal;
-      grouped.set(classLevel, kelas);
+      const linkedBankIds = new Set();
+      banks.forEach((bank) => {
+        const isLinkedToClass = (bank.courses || []).some(
+          (course) => String(course.class_id) === String(masterClass.id)
+            && String(course.subject_id) === String(bank.subject_id),
+        );
+        if (isLinkedToClass && !linkedBankIds.has(String(bank.id))) {
+          linkedBankIds.add(String(bank.id));
+          const mapel = {
+            id: bank.id,
+            bankId: bank.id,
+            subjectId: bank.subject_id,
+            nama: bank.subject_name,
+            materi: bank.topic_name || bank.name || 'Materi belum ditentukan',
+            tipeSoal: 'Lihat jenis soal yang tersedia',
+            totalSoal: questionsByBank[bank.id]?.length || 0,
+          };
+          kelas.mapelList.push(mapel);
+          kelas.totalSoal += mapel.totalSoal;
+        }
+      });
+
+      kelas.jumlahMapel = new Set(
+        kelas.mapelList.map((mapel) => mapel.subjectId || mapel.bankId),
+      ).size;
+      kelas.materiPreview = kelas.mapelList.length
+        ? kelas.mapelList.map((mapel) => `${mapel.nama} • ${mapel.materi}`).join(', ')
+        : 'Belum ada bank soal';
+      grouped.set(String(masterClass.id), kelas);
     });
 
-    return Array.from(grouped.values()).map((kelas) => ({
-      ...kelas,
-      jumlahMapel: kelas.mapelList.length,
-      materiPreview: kelas.mapelList
-        .map((mapel) => `${mapel.nama} • ${mapel.materi}`)
-        .join(', '),
-    }));
-  }, [banks, questionsByBank]);
+    return Array.from(grouped.values());
+  }, [banks, masterClasses, questionsByBank]);
 
   const questions = selectedMapel
     ? questionsByBank[selectedMapel.bankId] || []
@@ -198,22 +270,40 @@ export default function BankSoalPage() {
     .reduce((total, bankQuestions) => total + bankQuestions.length, 0);
 
   // Handlers Navigation
-  const handlePilihKelas = (kelas) => {
+  const navigateToStep = (
+    step,
+    kelas = selectedKelas,
+    mapel = selectedMapel,
+    unlockedStep = Math.max(maxUnlockedStep, step),
+  ) => {
     setSelectedKelas(kelas);
-    setSelectedMapel(null);
-    setCurrentStep(2);
-    setMaxUnlockedStep(2);
+    setSelectedMapel(mapel);
+    setCurrentStep(step);
+    setMaxUnlockedStep(unlockedStep);
+    navigate(location.pathname, {
+      state: {
+        ...location.state,
+        bankSoalNavigation: {
+          step,
+          selectedKelas: kelas,
+          selectedMapel: mapel,
+          maxUnlockedStep: unlockedStep,
+        },
+      },
+      preventScrollReset: true,
+    });
+  };
+
+  const handlePilihKelas = (kelas) => {
+    navigateToStep(2, kelas, null, 2);
   };
 
   const handlePilihMapel = (mapel) => {
-    setSelectedMapel(mapel);
-    setCurrentStep(3);
-    setMaxUnlockedStep((step) => Math.max(step, 3));
+    navigateToStep(3, selectedKelas, mapel);
   };
 
   const handleOpenStepFour = () => {
-    setMaxUnlockedStep((step) => Math.max(step, 4));
-    setCurrentStep(4);
+    navigateToStep(4);
   };
 
   const handleOpenQuestionForm = (initialType) => {
@@ -325,10 +415,43 @@ export default function BankSoalPage() {
   };
 
   // Filtered questions
+  const normalizedSearch = searchQuery.trim().toLocaleLowerCase('id-ID').replace(/\s+/g, ' ');
   const filteredQuestions = questions.filter((q) => {
-    const matchSearch = q.pertanyaan.toLowerCase().includes(searchQuery.toLowerCase());
+    const searchableText = [
+      q.pertanyaan,
+      q.jawabanAcuan,
+      q.kunciJawaban,
+      q.pembahasan,
+      q.tag,
+      q.tipe,
+      ...(q.pilihan || []).flatMap((option) => [option.key, option.teks]),
+      ...(Array.isArray(q.pedomanPenilaian)
+        ? q.pedomanPenilaian.map((item) => item?.text)
+        : []),
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLocaleLowerCase('id-ID')
+      .replace(/\s+/g, ' ');
+    const matchSearch = !normalizedSearch || searchableText.includes(normalizedSearch);
     const matchJenis = selectedJenisSoal === 'Semua jenis' || q.tipe === selectedJenisSoal;
-    return matchSearch && matchJenis;
+    const createdAt = q.created_at ? new Date(q.created_at) : null;
+    let matchWaktu = selectedWaktu === 'Semua waktu';
+
+    if (createdAt && !Number.isNaN(createdAt.getTime())) {
+      const now = new Date();
+      if (selectedWaktu === 'Hari ini') {
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        matchWaktu = createdAt >= startOfToday && createdAt <= now;
+      } else if (selectedWaktu === 'Minggu ini') {
+        const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const daysSinceMonday = (startOfWeek.getDay() + 6) % 7;
+        startOfWeek.setDate(startOfWeek.getDate() - daysSinceMonday);
+        matchWaktu = createdAt >= startOfWeek && createdAt <= now;
+      }
+    }
+
+    return matchSearch && matchJenis && matchWaktu;
   });
 
   return (
@@ -438,9 +561,9 @@ export default function BankSoalPage() {
       {currentStep === 2 && selectedKelas && (
         <>
           <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
-            <button onClick={() => setCurrentStep(1)} className="hover:text-slate-600 transition-colors">Beranda</button>
+            <button onClick={() => navigateToStep(1)} className="hover:text-slate-600 transition-colors">Beranda</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-            <button onClick={() => setCurrentStep(1)} className="hover:text-slate-600 transition-colors">Bank Soal</button>
+            <button onClick={() => navigateToStep(1)} className="hover:text-slate-600 transition-colors">Bank Soal</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
             <span>Kelas {selectedKelas.romawi}</span>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
@@ -456,7 +579,7 @@ export default function BankSoalPage() {
             </div>
             <div>
               <button
-                onClick={() => setCurrentStep(1)}
+                onClick={() => navigateToStep(1)}
                 className="rounded-xl bg-[#e6f7f8] px-4 py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors"
               >
                 Kembali ke Pilih Kelas
@@ -470,11 +593,11 @@ export default function BankSoalPage() {
       {currentStep === 3 && selectedKelas && selectedMapel && (
         <>
           <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
-            <button onClick={() => setCurrentStep(1)} className="hover:text-slate-600 transition-colors">Beranda</button>
+            <button onClick={() => navigateToStep(1)} className="hover:text-slate-600 transition-colors">Beranda</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-            <button onClick={() => setCurrentStep(1)} className="hover:text-slate-600 transition-colors">Bank Soal</button>
+            <button onClick={() => navigateToStep(1)} className="hover:text-slate-600 transition-colors">Bank Soal</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-            <button onClick={() => setCurrentStep(2)} className="hover:text-slate-600 transition-colors">Kelas {selectedKelas.romawi}</button>
+            <button onClick={() => navigateToStep(2)} className="hover:text-slate-600 transition-colors">Kelas {selectedKelas.romawi}</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
             <span className="text-[#005b64] font-semibold">{selectedMapel.nama}</span>
           </nav>
@@ -490,7 +613,7 @@ export default function BankSoalPage() {
             </div>
             <div>
               <button
-                onClick={() => setCurrentStep(2)}
+                onClick={() => navigateToStep(2)}
                 className="rounded-xl bg-[#e6f7f8] px-4 py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors"
               >
                 Kembali ke Mapel
@@ -504,13 +627,13 @@ export default function BankSoalPage() {
       {currentStep === 4 && selectedKelas && selectedMapel && (
         <>
           <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
-            <button onClick={() => setCurrentStep(1)} className="hover:text-slate-600 transition-colors">Beranda</button>
+            <button onClick={() => navigateToStep(1)} className="hover:text-slate-600 transition-colors">Beranda</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-            <button onClick={() => setCurrentStep(1)} className="hover:text-slate-600 transition-colors">Bank Soal</button>
+            <button onClick={() => navigateToStep(1)} className="hover:text-slate-600 transition-colors">Bank Soal</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-            <button onClick={() => setCurrentStep(2)} className="hover:text-slate-600 transition-colors">Kelas {selectedKelas.romawi}</button>
+            <button onClick={() => navigateToStep(2)} className="hover:text-slate-600 transition-colors">Kelas {selectedKelas.romawi}</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-            <button onClick={() => setCurrentStep(3)} className="hover:text-slate-600 transition-colors">{selectedMapel.nama}</button>
+            <button onClick={() => navigateToStep(3)} className="hover:text-slate-600 transition-colors">{selectedMapel.nama}</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
             <span className="text-[#005b64] font-semibold">Buat Soal</span>
           </nav>
@@ -524,7 +647,7 @@ export default function BankSoalPage() {
             </div>
             <div>
               <button
-                onClick={() => setCurrentStep(3)}
+                onClick={() => navigateToStep(3)}
                 className="rounded-xl bg-[#e0f7fa] px-4 py-2.5 text-xs sm:text-sm font-semibold text-[#006064] hover:bg-[#b2ebf2] transition-colors"
               >
                 Kembali ke Kelas Mapel
@@ -567,7 +690,7 @@ export default function BankSoalPage() {
         {/* Stepper Pills Navigation */}
         <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={() => setCurrentStep(1)}
+            onClick={() => navigateToStep(1)}
             className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-all ${
               currentStep === 1 ? 'bg-[#004d57] text-white shadow-xs' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
             }`}
@@ -576,7 +699,7 @@ export default function BankSoalPage() {
           </button>
           <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
           <button
-            onClick={() => setCurrentStep(2)}
+            onClick={() => navigateToStep(2)}
             disabled={maxUnlockedStep < 2 || !selectedKelas}
             className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-all ${
               currentStep === 2 ? 'bg-[#004d57] text-white shadow-xs' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 disabled:opacity-60'
@@ -586,7 +709,7 @@ export default function BankSoalPage() {
           </button>
           <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
           <button
-            onClick={() => setCurrentStep(3)}
+            onClick={() => navigateToStep(3)}
             disabled={maxUnlockedStep < 3 || !selectedMapel}
             className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-all ${
               currentStep === 3 ? 'bg-[#004d57] text-white shadow-xs' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 disabled:opacity-60'
@@ -596,7 +719,7 @@ export default function BankSoalPage() {
           </button>
           <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
           <button
-            onClick={() => setCurrentStep(4)}
+            onClick={() => navigateToStep(4)}
             disabled={maxUnlockedStep < 4 || !selectedMapel}
             className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-all ${
               currentStep === 4 ? 'bg-[#004d57] text-white shadow-xs' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 disabled:opacity-60'
@@ -615,7 +738,7 @@ export default function BankSoalPage() {
               </div>
             ) : kelasList.length === 0 ? (
               <div className="col-span-full rounded-xl border border-amber-300 bg-amber-50/50 p-6 text-center text-xs font-medium text-amber-800">
-                Belum ada bank soal di database.
+                Belum ada data kelas pada tabel master.
               </div>
             ) : (
               kelasList.map((kelas) => (
@@ -625,7 +748,7 @@ export default function BankSoalPage() {
                 >
                   <div>
                     <div className="flex items-center justify-between">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e0f7fa] font-bold text-[#006064] text-sm">
+                      <div className="inline-flex h-10 w-fit min-w-10 shrink-0 items-center justify-center whitespace-nowrap rounded-xl bg-[#e0f7fa] px-2.5 font-bold leading-none text-[#006064] text-sm">
                         {kelas.romawi}
                       </div>
                       <span className="rounded-md bg-[#e0f7fa] px-2.5 py-1 text-xs font-semibold text-[#006064]">
@@ -833,8 +956,12 @@ export default function BankSoalPage() {
                     )}
 
                     <div className="flex items-center justify-between pt-2 border-t border-slate-50">
-                      <span className="text-[11px] text-slate-400">
-                        Kunci Jawaban: <strong className="text-slate-700">{q.kunciJawaban || '-'}</strong>
+                      <span
+                        className="line-clamp-2 max-w-[70%] whitespace-pre-line break-words text-[11px] text-slate-400"
+                        title={q.kunciJawaban || ''}
+                      >
+                        {q.labelJawaban || 'Kunci jawaban'}:{' '}
+                        <strong className="text-slate-700">{q.kunciJawaban || '-'}</strong>
                       </span>
                       <div className="flex items-center gap-2">
                         <button
@@ -853,6 +980,7 @@ export default function BankSoalPage() {
                                 question: q,
                                 bank,
                                 className: selectedKelas?.romawi,
+                                classId: selectedKelas?.classId,
                                 returnKelas: selectedKelas,
                                 returnMapel: selectedMapel,
                               },
@@ -878,6 +1006,7 @@ export default function BankSoalPage() {
                                 question: q,
                                 bank,
                                 className: selectedKelas?.romawi,
+                                classId: selectedKelas?.classId,
                                 returnKelas: selectedKelas,
                                 returnMapel: selectedMapel,
                                 hasReachedStepFour: maxUnlockedStep >= 4,

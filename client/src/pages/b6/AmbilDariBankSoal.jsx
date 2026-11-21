@@ -18,8 +18,8 @@ export default function AmbilDariBankSoalPage() {
   // Dropdowns source selection
   const [selectedKelas, setSelectedKelas] = useState('');
   const [selectedMapel, setSelectedMapel] = useState('');
-  const [selectedMateri, setSelectedMateri] = useState('');
   const [banks, setBanks] = useState([]);
+  const [quizContext, setQuizContext] = useState(null);
   const [selectedBankId, setSelectedBankId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -34,17 +34,31 @@ export default function AmbilDariBankSoalPage() {
 
   useEffect(() => {
     let active = true;
-    b6ApiFetch('/banks')
-      .then((data) => {
+    Promise.all([
+      b6ApiFetch('/banks'),
+      quizId ? b6ApiFetch(`/quizzes/${encodeURIComponent(quizId)}`) : Promise.resolve(null),
+    ])
+      .then(([data, quizData]) => {
         if (!active) return;
         const bankList = Array.isArray(data) ? data : [];
+        setQuizContext(quizData);
         setBanks(bankList);
-        const firstBank = bankList[0];
+        const firstBank = bankList.find((bank) => (bank.courses || []).some(
+          (course) => course.class_id
+            && course.subject_id
+            && String(course.subject_id) === String(bank.subject_id)
+            && course.classes?.id
+            && (!quizData?.class_id || String(course.class_id) === String(quizData.class_id))
+            && (!quizData?.subject_id || String(bank.subject_id) === String(quizData.subject_id)),
+        ));
         if (firstBank) {
+          const firstCourse = firstBank.courses.find(
+            (course) => String(course.subject_id) === String(firstBank.subject_id)
+              && course.classes?.id,
+          );
           setSelectedBankId(firstBank.id);
-          setSelectedKelas(getClassLabel(firstBank.class_level));
-          setSelectedMapel(firstBank.subject_name || firstBank.name || '');
-          setSelectedMateri(firstBank.topic_name || firstBank.name || '');
+          setSelectedKelas(firstCourse.class_id);
+          setSelectedMapel(firstCourse.subject_id);
         }
       })
       .catch((error) => window.alert(error.message))
@@ -55,7 +69,7 @@ export default function AmbilDariBankSoalPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [quizId]);
 
   useEffect(() => {
     if (!selectedBankId) {
@@ -83,23 +97,60 @@ export default function AmbilDariBankSoalPage() {
     };
   }, [banks, selectedBankId]);
 
-  const kelasOptions = useMemo(
-    () => [...new Set(banks.map((bank) => getClassLabel(bank.class_level)))],
-    [banks],
+  const bankCourseLinks = useMemo(
+    () => banks.flatMap((bank) => (bank.courses || [])
+      .filter((course) => course.class_id
+        && course.subject_id
+        && String(course.subject_id) === String(bank.subject_id)
+        && course.classes?.id
+        && course.subjects?.id
+        && (!quizContext?.class_id || String(course.class_id) === String(quizContext.class_id))
+        && (!quizContext?.subject_id || String(bank.subject_id) === String(quizContext.subject_id)))
+      .map((course) => ({ bank, course }))),
+    [banks, quizContext],
   );
-  const mapelOptions = useMemo(
-    () => [...new Set(banks
-      .filter((bank) => getClassLabel(bank.class_level) === selectedKelas)
-      .map((bank) => bank.subject_name || bank.name || 'Mata pelajaran'))],
-    [banks, selectedKelas],
-  );
+  const kelasOptions = useMemo(() => {
+    const classesById = new Map();
+    bankCourseLinks.forEach(({ course }) => {
+      classesById.set(String(course.class_id), {
+        id: course.class_id,
+        name: getClassLabel(course.classes.name),
+      });
+    });
+    return [...classesById.values()];
+  }, [bankCourseLinks]);
+  const mapelOptions = useMemo(() => {
+    const subjectsById = new Map();
+    bankCourseLinks
+      .filter(({ course }) => String(course.class_id) === String(selectedKelas))
+      .forEach(({ course }) => {
+        subjectsById.set(String(course.subject_id), {
+          id: course.subject_id,
+          name: course.subjects.name,
+        });
+      });
+    return [...subjectsById.values()];
+  }, [bankCourseLinks, selectedKelas]);
   const materiOptions = useMemo(
-    () => [...new Set(banks
-      .filter((bank) => getClassLabel(bank.class_level) === selectedKelas
-        && (bank.subject_name || bank.name || 'Mata pelajaran') === selectedMapel)
-      .map((bank) => bank.topic_name || bank.name || 'Materi belum ditentukan'))],
-    [banks, selectedKelas, selectedMapel],
+    () => bankCourseLinks
+      .filter(({ course }) => String(course.class_id) === String(selectedKelas)
+        && String(course.subject_id) === String(selectedMapel))
+      .reduce((uniqueBanks, { bank }) => {
+        if (!uniqueBanks.some((item) => String(item.id) === String(bank.id))) {
+          uniqueBanks.push(bank);
+        }
+        return uniqueBanks;
+      }, []),
+    [bankCourseLinks, selectedKelas, selectedMapel],
   );
+  const selectedMapelName = mapelOptions.find(
+    (subject) => String(subject.id) === String(selectedMapel),
+  )?.name || '';
+  const selectedBank = banks.find((bank) => String(bank.id) === String(selectedBankId));
+  const selectedMateriName = selectedBank?.topic_name || selectedBank?.name || '';
+  const selectedKelasName = kelasOptions.find(
+    (kelas) => String(kelas.id) === String(selectedKelas),
+  )?.name || '';
 
   const activeItems = loadedBankId === selectedBankId ? items : [];
   const filteredItems = activeItems.filter((item) => {
@@ -138,6 +189,17 @@ export default function AmbilDariBankSoalPage() {
     try {
       const selectedItems = activeItems.filter((item) => item.selected);
       const quiz = await b6ApiFetch(`/quizzes/${encodeURIComponent(quizId)}`);
+      const bankMatchesQuiz = selectedBank
+        && (!quiz.subject_id || String(selectedBank.subject_id) === String(quiz.subject_id))
+        && (!quiz.class_id || (selectedBank.courses || []).some((course) => (
+          String(course.class_id) === String(quiz.class_id)
+            && (!quiz.subject_id || String(course.subject_id) === String(quiz.subject_id))
+        )));
+      if (!bankMatchesQuiz) {
+        window.alert('Bank soal yang dipilih tidak sesuai dengan kelas atau mata pelajaran kuis.');
+        return;
+      }
+
       const existingQuestions = quiz.quiz_questions || [];
       const existingQuestionIds = new Set(
         existingQuestions.map((item) => String(item.questions?.id || item.question_id)),
@@ -230,16 +292,17 @@ export default function AmbilDariBankSoalPage() {
               <select
                 value={selectedKelas}
                 onChange={(e) => {
-                  const className = e.target.value;
-                  const firstBank = banks.find((bank) => getClassLabel(bank.class_level) === className);
-                  setSelectedKelas(className);
-                  setSelectedMapel(firstBank?.subject_name || firstBank?.name || '');
-                  setSelectedMateri(firstBank?.topic_name || firstBank?.name || '');
-                  setSelectedBankId(firstBank?.id || '');
+                  const classId = e.target.value;
+                  const firstLink = bankCourseLinks.find(
+                    ({ course }) => String(course.class_id) === String(classId),
+                  );
+                  setSelectedKelas(classId);
+                  setSelectedMapel(firstLink?.course.subject_id || '');
+                  setSelectedBankId(firstLink?.bank.id || '');
                 }}
                 className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-9 text-xs sm:text-sm font-medium text-slate-800 focus:border-[#004d57] focus:outline-none"
               >
-                {kelasOptions.map((kelas) => <option key={kelas} value={kelas}>{kelas}</option>)}
+                {kelasOptions.map((kelas) => <option key={kelas.id} value={kelas.id}>{kelas.name}</option>)}
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             </div>
@@ -254,16 +317,17 @@ export default function AmbilDariBankSoalPage() {
               <select
                 value={selectedMapel}
                 onChange={(e) => {
-                  const subject = e.target.value;
-                  const firstBank = banks.find((bank) => getClassLabel(bank.class_level) === selectedKelas
-                    && (bank.subject_name || bank.name || 'Mata pelajaran') === subject);
-                  setSelectedMapel(subject);
-                  setSelectedMateri(firstBank?.topic_name || firstBank?.name || '');
-                  setSelectedBankId(firstBank?.id || '');
+                  const subjectId = e.target.value;
+                  const firstLink = bankCourseLinks.find(({ course }) => (
+                    String(course.class_id) === String(selectedKelas)
+                      && String(course.subject_id) === String(subjectId)
+                  ));
+                  setSelectedMapel(subjectId);
+                  setSelectedBankId(firstLink?.bank.id || '');
                 }}
                 className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-9 text-xs sm:text-sm font-medium text-slate-800 focus:border-[#004d57] focus:outline-none"
               >
-                {mapelOptions.map((mapel) => <option key={mapel} value={mapel}>{mapel}</option>)}
+                {mapelOptions.map((mapel) => <option key={mapel.id} value={mapel.id}>{mapel.name}</option>)}
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             </div>
@@ -276,18 +340,17 @@ export default function AmbilDariBankSoalPage() {
             </label>
             <div className="relative">
               <select
-                value={selectedMateri}
+                value={selectedBankId}
                 onChange={(e) => {
-                  const topic = e.target.value;
-                  const bank = banks.find((item) => getClassLabel(item.class_level) === selectedKelas
-                    && (item.subject_name || item.name || 'Mata pelajaran') === selectedMapel
-                    && (item.topic_name || item.name || 'Materi belum ditentukan') === topic);
-                  setSelectedMateri(topic);
-                  setSelectedBankId(bank?.id || '');
+                  setSelectedBankId(e.target.value);
                 }}
                 className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-9 text-xs sm:text-sm font-medium text-slate-800 focus:border-[#004d57] focus:outline-none"
               >
-                {materiOptions.map((materi) => <option key={materi} value={materi}>{materi}</option>)}
+                {materiOptions.map((bank) => (
+                  <option key={bank.id} value={bank.id}>
+                    {bank.topic_name || bank.name || 'Materi belum ditentukan'}
+                  </option>
+                ))}
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             </div>
@@ -295,7 +358,7 @@ export default function AmbilDariBankSoalPage() {
         </div>
 
         <p className="text-xs text-slate-400 pt-1">
-          Daftar hanya menampilkan soal dari {selectedKelas} sesuai mata pelajaran dan materi yang dipilih.
+          Daftar hanya menampilkan soal dari {selectedKelasName} sesuai mata pelajaran dan materi yang dipilih.
         </p>
       </div>
 
@@ -304,14 +367,14 @@ export default function AmbilDariBankSoalPage() {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-base font-bold text-slate-800">
-              Soal {selectedMateri}
+              Soal {selectedMateriName}
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
               {isLoading ? 'Memuat soal...' : `${activeItems.length} soal tersedia untuk ditambahkan ke kuis.`}
             </p>
           </div>
           <span className="rounded-full bg-[#e6f7f8] px-3.5 py-1 text-xs font-semibold text-[#005b64]">
-            {selectedKelas} • {selectedMapel}
+            {selectedKelasName} • {selectedMapelName}
           </span>
         </div>
 
