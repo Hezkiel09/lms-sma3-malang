@@ -87,6 +87,12 @@ export default function TambahSoalKuisPage() {
     });
   };
 
+  const navigateToQuiz = () => {
+    navigate('/b6/buat-kuis', {
+      state: { quizId, formData: location.state?.formData },
+    });
+  };
+
   useEffect(() => {
     if (fromSource === 'bank-soal') {
       if (!sourceBankId) {
@@ -312,13 +318,35 @@ export default function TambahSoalKuisPage() {
         </Link>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
         {fromSource === 'bank-soal' ? (
-          <Link to="/b6/bank-soal" className="hover:text-slate-600 transition-colors">
-            Bank Soal
-          </Link>
+          <>
+            <button type="button" onClick={() => navigateToBankStep(1)} className="hover:text-slate-600 transition-colors">
+              Bank Soal
+            </button>
+            {returnKelas && (
+              <>
+                <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+                <button type="button" onClick={() => navigateToBankStep(2)} className="hover:text-slate-600 transition-colors">
+                  Kelas {returnKelas.romawi}
+                </button>
+              </>
+            )}
+            {returnMapel && (
+              <>
+                <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+                <button type="button" onClick={() => navigateToBankStep(2)} className="hover:text-slate-600 transition-colors">
+                  Mapel
+                </button>
+                <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+                <button type="button" onClick={() => navigateToBankStep(3)} className="hover:text-slate-600 transition-colors">
+                  {returnMapel.nama}
+                </button>
+              </>
+            )}
+          </>
         ) : (
-          <Link to="/b6/buat-kuis" className="hover:text-slate-600 transition-colors">
+          <button type="button" onClick={navigateToQuiz} className="hover:text-slate-600 transition-colors">
             Buat Kuis
-          </Link>
+          </button>
         )}
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
         <span className="text-[#005b64] font-semibold">Tambah Soal</span>
@@ -688,7 +716,7 @@ export default function TambahSoalKuisPage() {
                 if (fromSource === 'bank-soal') {
                   navigateToBankStep(4);
                 } else {
-                  navigate('/b6/buat-kuis');
+                  navigateToQuiz();
                 }
               }}
               className="rounded-xl bg-[#e6f7f8] px-5 py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors"

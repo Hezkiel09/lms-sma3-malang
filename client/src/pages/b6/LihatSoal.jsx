@@ -58,6 +58,8 @@ export default function LihatSoal() {
   const location = useLocation();
   const bankId = location.state?.bankId || new URLSearchParams(location.search).get("bankId");
   const questionId = location.state?.questionId || new URLSearchParams(location.search).get("questionId");
+  const returnKelas = location.state?.returnKelas;
+  const returnMapel = location.state?.returnMapel;
   const initialQuestion = location.state?.question || location.state?.soal;
   const [soal, setSoal] = useState(
     initialQuestion
@@ -67,6 +69,20 @@ export default function LihatSoal() {
   const [loadError, setLoadError] = useState("");
   const [isLoading, setIsLoading] = useState(Boolean(bankId && questionId && !initialQuestion));
   const [showDelete, setShowDelete] = useState(false);
+
+  const navigateToBankStep = (step, replace = false) => {
+    navigate("/b6/bank-soal", {
+      state: returnKelas && returnMapel
+        ? {
+            restoreStep: step,
+            restoreKelas: returnKelas,
+            restoreMapel: returnMapel,
+            hasReachedStepFour: location.state?.hasReachedStepFour,
+          }
+        : undefined,
+      replace,
+    });
+  };
 
   useEffect(() => {
     if (!bankId || !questionId) return undefined;
@@ -127,18 +143,7 @@ export default function LihatSoal() {
   };
 
   const handleBack = () => {
-    const { returnKelas, returnMapel } = location.state || {};
-    navigate("/b6/bank-soal", {
-      state: returnKelas && returnMapel
-        ? {
-            restoreStep: 3,
-            restoreKelas: returnKelas,
-            restoreMapel: returnMapel,
-            hasReachedStepFour: location.state?.hasReachedStepFour,
-          }
-        : undefined,
-      replace: true,
-    });
+    navigateToBankStep(3, true);
   };
 
   return (
@@ -150,9 +155,29 @@ export default function LihatSoal() {
         <header className="lihatsoal-header">
 
           <div className="lihatsoal-breadcrumb">
-            <span>Beranda</span>
+            <button type="button" onClick={() => navigate("/b6/beranda")}>Beranda</button>
             <b>›</b>
-            <span>Bank Soal</span>
+            <button type="button" onClick={() => navigateToBankStep(1)}>Bank Soal</button>
+            {returnKelas && (
+              <>
+                <b>›</b>
+                <button type="button" onClick={() => navigateToBankStep(2)}>
+                  Kelas {returnKelas.romawi}
+                </button>
+              </>
+            )}
+            {returnMapel && (
+              <>
+                <b>›</b>
+                <button type="button" onClick={() => navigateToBankStep(2)}>
+                  Mapel
+                </button>
+                <b>›</b>
+                <button type="button" onClick={() => navigateToBankStep(3)}>
+                  {returnMapel.nama}
+                </button>
+              </>
+            )}
             <b>›</b>
             <strong>Lihat Soal</strong>
           </div>

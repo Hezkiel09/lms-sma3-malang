@@ -40,6 +40,19 @@
   color: #858585;
 }
 
+.lihatsoal-breadcrumb button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.lihatsoal-breadcrumb button:hover {
+  color: #4b5563;
+}
+
 .lihatsoal-breadcrumb b {
   color: #00647a;
   font-size: 20px;

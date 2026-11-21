@@ -38,6 +38,19 @@
   color: #858585;
 }
 
+.editsoal-breadcrumb button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.editsoal-breadcrumb button:hover {
+  color: #4b5563;
+}
+
 .editsoal-breadcrumb b {
   font-size: 19px;
   font-weight: 500;
@@ -552,4 +565,3 @@
     gap: 10px;
   }
 }
-

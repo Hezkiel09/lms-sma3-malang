@@ -475,7 +475,13 @@ export default function BankSoalPage() {
       {currentStep === 1 && (
         <>
           <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
-            <span>Beranda</span>
+            <button
+              type="button"
+              onClick={() => navigate('/b6/beranda')}
+              className="hover:text-slate-600 transition-colors"
+            >
+              Beranda
+            </button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
             <span className="text-[#005b64] font-semibold">Bank Soal</span>
           </nav>
@@ -538,13 +544,15 @@ export default function BankSoalPage() {
       {currentStep === 2 && selectedKelas && (
         <>
           <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
-            <button onClick={() => navigateToStep(1)} className="hover:text-slate-600 transition-colors">Beranda</button>
+            <button onClick={() => navigate('/b6/beranda')} className="hover:text-slate-600 transition-colors">Beranda</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
             <button onClick={() => navigateToStep(1)} className="hover:text-slate-600 transition-colors">Bank Soal</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-            <span>Kelas {selectedKelas.romawi}</span>
+            <button onClick={() => navigateToStep(1)} className="hover:text-slate-600 transition-colors">
+              Kelas {selectedKelas.romawi}
+            </button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-            <span className="text-[#005b64] font-semibold">Mapel</span>
+            <span className="text-[#005b64] font-semibold" aria-current="page">Mapel</span>
           </nav>
 
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -570,11 +578,13 @@ export default function BankSoalPage() {
       {currentStep === 3 && selectedKelas && selectedMapel && (
         <>
           <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
-            <button onClick={() => navigateToStep(1)} className="hover:text-slate-600 transition-colors">Beranda</button>
+            <button onClick={() => navigate('/b6/beranda')} className="hover:text-slate-600 transition-colors">Beranda</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
             <button onClick={() => navigateToStep(1)} className="hover:text-slate-600 transition-colors">Bank Soal</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
             <button onClick={() => navigateToStep(2)} className="hover:text-slate-600 transition-colors">Kelas {selectedKelas.romawi}</button>
+            <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+            <button onClick={() => navigateToStep(2)} className="hover:text-slate-600 transition-colors">Mapel</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
             <span className="text-[#005b64] font-semibold">{selectedMapel.nama}</span>
           </nav>
@@ -604,11 +614,13 @@ export default function BankSoalPage() {
       {currentStep === 4 && selectedKelas && selectedMapel && (
         <>
           <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
-            <button onClick={() => navigateToStep(1)} className="hover:text-slate-600 transition-colors">Beranda</button>
+            <button onClick={() => navigate('/b6/beranda')} className="hover:text-slate-600 transition-colors">Beranda</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
             <button onClick={() => navigateToStep(1)} className="hover:text-slate-600 transition-colors">Bank Soal</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
             <button onClick={() => navigateToStep(2)} className="hover:text-slate-600 transition-colors">Kelas {selectedKelas.romawi}</button>
+            <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+            <button onClick={() => navigateToStep(2)} className="hover:text-slate-600 transition-colors">Mapel</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
             <button onClick={() => navigateToStep(3)} className="hover:text-slate-600 transition-colors">{selectedMapel.nama}</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
@@ -1276,6 +1288,9 @@ export default function BankSoalPage() {
                         kelas: selectedKelas?.romawi,
                         mapel: selectedMapel.nama,
                         materi: selectedMapel.materi,
+                        returnKelas: selectedKelas,
+                        returnMapel: selectedMapel,
+                        hasReachedStepFour: maxUnlockedStep >= 4,
                       },
                     });
                   }}

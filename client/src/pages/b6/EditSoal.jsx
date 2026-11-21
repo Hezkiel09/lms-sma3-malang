@@ -54,6 +54,8 @@ export default function EditSoal() {
   const search = new URLSearchParams(location.search);
   const bankId = location.state?.bankId || search.get("bankId");
   const questionId = location.state?.questionId || search.get("questionId");
+  const returnKelas = location.state?.returnKelas;
+  const returnMapel = location.state?.returnMapel;
   const [form, setForm] = useState(
     location.state?.question
       ? toEditForm(location.state.question, location.state.bank, location.state.classId)
@@ -70,6 +72,19 @@ export default function EditSoal() {
   );
   const [pesan, setPesan] = useState("");
   const [saveError, setSaveError] = useState("");
+
+  const navigateToBankStep = (step) => {
+    navigate("/b6/bank-soal", {
+      state: returnKelas && returnMapel
+        ? {
+            restoreStep: step,
+            restoreKelas: returnKelas,
+            restoreMapel: returnMapel,
+            hasReachedStepFour: location.state?.hasReachedStepFour,
+          }
+        : undefined,
+    });
+  };
 
   useEffect(() => {
     if (!bankId || !questionId) return undefined;
@@ -286,9 +301,29 @@ export default function EditSoal() {
         <header className="editsoal-header">
 
           <div className="editsoal-breadcrumb">
-            <span>Beranda</span>
+            <button type="button" onClick={() => navigate("/b6/beranda")}>Beranda</button>
             <b>›</b>
-            <span>Bank Soal</span>
+            <button type="button" onClick={() => navigateToBankStep(1)}>Bank Soal</button>
+            {returnKelas && (
+              <>
+                <b>›</b>
+                <button type="button" onClick={() => navigateToBankStep(2)}>
+                  Kelas {returnKelas.romawi}
+                </button>
+              </>
+            )}
+            {returnMapel && (
+              <>
+                <b>›</b>
+                <button type="button" onClick={() => navigateToBankStep(2)}>
+                  Mapel
+                </button>
+                <b>›</b>
+                <button type="button" onClick={() => navigateToBankStep(3)}>
+                  {returnMapel.nama}
+                </button>
+              </>
+            )}
             <b>›</b>
             <strong>Edit Soal</strong>
           </div>

@@ -14,12 +14,27 @@ export default function ImportSoalExcelPage() {
   const fromSource = location.state?.from || 'buat-kuis';
   const customKelas = location.state?.kelas;
   const customMapel = location.state?.mapel;
+  const returnKelas = location.state?.returnKelas;
+  const returnMapel = location.state?.returnMapel;
 
   const [isImporting, setIsImporting] = useState(false);
   const [file, setFile] = useState(null);
   const [bankId, setBankId] = useState(location.state?.bankId || '');
   const [banks, setBanks] = useState([]);
   const [feedback, setFeedback] = useState(null);
+
+  const navigateToBankStep = (step) => {
+    navigate('/b6/bank-soal', {
+      state: returnKelas && returnMapel
+        ? {
+            restoreStep: step,
+            restoreKelas: returnKelas,
+            restoreMapel: returnMapel,
+            hasReachedStepFour: location.state?.hasReachedStepFour,
+          }
+        : { refreshBankId: bankId, returnToStep: step },
+    });
+  };
 
   useEffect(() => {
     if (fromSource !== 'buat-kuis') return undefined;
@@ -85,13 +100,31 @@ export default function ImportSoalExcelPage() {
         </Link>
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
         {fromSource === 'bank-soal' ? (
-          <Link to="/b6/bank-soal" state={{ refreshBankId: bankId, returnToStep: 4 }} className="hover:text-slate-600 transition-colors">
-            Bank Soal
-          </Link>
+          <>
+            <button type="button" onClick={() => navigateToBankStep(1)} className="hover:text-slate-600 transition-colors">
+              Bank Soal
+            </button>
+            {returnKelas && (
+              <>
+                <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+                <button type="button" onClick={() => navigateToBankStep(2)} className="hover:text-slate-600 transition-colors">
+                  Kelas {returnKelas.romawi}
+                </button>
+              </>
+            )}
+            {returnMapel && (
+              <>
+                <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+                <button type="button" onClick={() => navigateToBankStep(3)} className="hover:text-slate-600 transition-colors">
+                  {returnMapel.nama}
+                </button>
+              </>
+            )}
+          </>
         ) : (
-          <Link to="/b6/buat-kuis" className="hover:text-slate-600 transition-colors">
+          <button type="button" onClick={() => navigate('/b6/buat-kuis', { state: { quizId: location.state?.quizId } })} className="hover:text-slate-600 transition-colors">
             Buat Kuis
-          </Link>
+          </button>
         )}
         <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
         <span className="text-[#005b64] font-semibold">Import Soal dari Excel</span>
@@ -280,7 +313,7 @@ export default function ImportSoalExcelPage() {
         <button
           onClick={() => {
             if (fromSource === 'bank-soal') {
-              navigate('/b6/bank-soal', { state: { refreshBankId: bankId, returnToStep: 4 } });
+              navigateToBankStep(4);
             } else {
               navigate('/b6/buat-kuis', { state: { selectedQuestions: location.state?.selectedQuestions, formData: location.state?.formData } });
             }
