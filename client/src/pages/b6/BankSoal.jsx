@@ -4,7 +4,6 @@ import {
   BarChart2,
   Edit3,
   FileUp,
-  Upload,
   Book,
   FileText,
   Calculator,
@@ -481,34 +480,12 @@ export default function BankSoalPage() {
             <span className="text-[#005b64] font-semibold">Bank Soal</span>
           </nav>
 
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">Bank Soal</h1>
               <p className="mt-1 text-xs sm:text-sm text-slate-400">
                 Kelola dan gunakan kembali soal sesuai kelas dan materi.
               </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setShowImportModal(true)}
-                className="flex items-center gap-2 rounded-xl bg-[#e6f7f8] px-4 py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors"
-              >
-                <Upload className="h-4 w-4 stroke-[2.2]" />
-                <span>Impor Soal</span>
-              </button>
-              <button
-                onClick={() => {
-                  if (!selectedMapel?.bankId) {
-                    showToast('Pilih kelas dan materi terlebih dahulu sebelum menambahkan soal.', 'error');
-                    return;
-                  }
-                  setShowAddModal(true);
-                }}
-                className="rounded-xl bg-[#004d57] px-5 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] shadow-xs transition-colors"
-              >
-                Tambah Soal
-              </button>
             </div>
           </div>
 
