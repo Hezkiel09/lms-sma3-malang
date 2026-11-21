@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart2,
   Edit3,
@@ -22,19 +22,33 @@ import { getClassLabel, getClassLevel, toQuestionViewModel } from './b6-utils';
 
 export default function BankSoalPage() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Navigation State:
-  // step 1 = Pilih Kelas
-  // step 2 = Pilih Mata Pelajaran
-  // step 3 = Lihat Soal
-  // step 4 = Buat Soal / Tambah & Impor Soal
-  const [currentStep, setCurrentStep] = useState(1);
-  const [selectedKelas, setSelectedKelas] = useState(null);
-  const [selectedMapel, setSelectedMapel] = useState(null);
+  // step 1 = Pilih Kelas | step 2 = Pilih Mapel | step 3 = Lihat Soal | step 4 = Tambah/Impor Soal
+  const hasRestoredContext = Boolean(location.state?.restoreKelas);
+  const [currentStep, setCurrentStep] = useState(
+    hasRestoredContext
+      ? Math.min(
+          location.state?.restoreStep || (location.state?.restoreMapel ? 3 : 2),
+          location.state?.hasReachedStepFour ? 4 : (location.state?.restoreMapel ? 3 : 2),
+        )
+      : 1,
+  );
+  const [maxUnlockedStep, setMaxUnlockedStep] = useState(() => (
+    location.state?.hasReachedStepFour
+      ? 4
+      : location.state?.restoreMapel
+        ? 3
+        : location.state?.restoreKelas
+          ? 2
+          : 1
+  ));
+  const [selectedKelas, setSelectedKelas] = useState(location.state?.restoreKelas || null);
+  const [selectedMapel, setSelectedMapel] = useState(location.state?.restoreMapel || null);
 
   // Data states
   const [banks, setBanks] = useState([]);
-  const [subjects, setSubjects] = useState([]);
   const [questionsByBank, setQuestionsByBank] = useState({});
   const [importedQuestionCount, setImportedQuestionCount] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,15 +59,6 @@ export default function BankSoalPage() {
   const [selectedWaktu, setSelectedWaktu] = useState('Semua waktu');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [showCreateBankModal, setShowCreateBankModal] = useState(false);
-  const [isSavingBank, setIsSavingBank] = useState(false);
-  const [newBank, setNewBank] = useState({
-    name: '',
-    description: '',
-    class_level: 'XI',
-    subject_name: '',
-    topic_name: '',
-  });
   const [newQuestion, setNewQuestion] = useState({
     pertanyaan: '',
     tipe: 'Pilihan Ganda',
@@ -68,8 +73,6 @@ export default function BankSoalPage() {
   const [showEmptyMapel, setShowEmptyMapel] = useState(false);
 
   // Modal detail view
-  const [viewQuestion, setViewQuestion] = useState(null);
-
   // Notification toast
   const [toast, setToast] = useState(null);
   const showToast = (message, type = 'success') => {
@@ -89,8 +92,8 @@ export default function BankSoalPage() {
         ]);
         if (!active) return;
         if (bankResult.status === 'rejected') throw bankResult.reason;
-        const subjectList = subjectResult.status === 'fulfilled'
-          && Array.isArray(subjectResult.value)
+
+        const subjectList = subjectResult.status === 'fulfilled' && Array.isArray(subjectResult.value)
           ? subjectResult.value
           : [];
         const subjectById = new Map(
@@ -104,7 +107,7 @@ export default function BankSoalPage() {
             || 'Mata pelajaran',
         }));
         setBanks(bankList);
-        setSubjects(subjectList);
+
         if (subjectResult.status === 'rejected') {
           showToast(
             `Data mata pelajaran master gagal dimuat; nama dari bank soal sementara digunakan. ${subjectResult.reason.message}`,
@@ -114,8 +117,8 @@ export default function BankSoalPage() {
         if (importResult.status === 'fulfilled') {
           setImportedQuestionCount(
             (Array.isArray(importResult.value) ? importResult.value : []).reduce(
-            (total, entry) => total + Number(entry.total_valid || 0),
-            0,
+              (total, entry) => total + Number(entry.total_valid || 0),
+              0,
             ),
           );
         } else {
@@ -151,53 +154,6 @@ export default function BankSoalPage() {
       active = false;
     };
   }, []);
-
-  const handleCreateBank = async (event) => {
-    event.preventDefault();
-    const subjectName = newBank.subject_name.trim();
-    const subject = subjects.find(
-      (item) => String(item.name || '').trim().toLowerCase() === subjectName.toLowerCase(),
-    );
-    if (!newBank.name.trim()) {
-      showToast('Nama bank soal wajib diisi.', 'error');
-      return;
-    }
-    if (!subject) {
-      showToast('Pilih mata pelajaran yang tersedia di data master.', 'error');
-      return;
-    }
-
-    setIsSavingBank(true);
-    try {
-      const createdBank = await b6ApiFetch('/banks', {
-        method: 'POST',
-        body: JSON.stringify({
-          ...newBank,
-          name: newBank.name.trim(),
-          subject_id: subject.id,
-          subject_name: subject.name,
-        }),
-      });
-      setBanks((current) => [{
-        ...createdBank,
-        subject_name: subject.name,
-      }, ...current]);
-      setQuestionsByBank((current) => ({ ...current, [createdBank.id]: [] }));
-      setNewBank({
-        name: '',
-        description: '',
-        class_level: 'XI',
-        subject_name: '',
-        topic_name: '',
-      });
-      setShowCreateBankModal(false);
-      showToast('Bank soal berhasil dibuat.');
-    } catch (error) {
-      showToast(error.message, 'error');
-    } finally {
-      setIsSavingBank(false);
-    }
-  };
 
   const kelasList = useMemo(() => {
     const grouped = new Map();
@@ -237,22 +193,50 @@ export default function BankSoalPage() {
   const questions = selectedMapel
     ? questionsByBank[selectedMapel.bankId] || []
     : [];
+
   const totalQuestions = Object.values(questionsByBank)
     .reduce((total, bankQuestions) => total + bankQuestions.length, 0);
 
-  // Handlers for navigation
+  // Handlers Navigation
   const handlePilihKelas = (kelas) => {
     setSelectedKelas(kelas);
     setSelectedMapel(null);
     setCurrentStep(2);
+    setMaxUnlockedStep(2);
   };
 
   const handlePilihMapel = (mapel) => {
     setSelectedMapel(mapel);
     setCurrentStep(3);
+    setMaxUnlockedStep((step) => Math.max(step, 3));
   };
 
-  // Handler for deleting question
+  const handleOpenStepFour = () => {
+    setMaxUnlockedStep((step) => Math.max(step, 4));
+    setCurrentStep(4);
+  };
+
+  const handleOpenQuestionForm = (initialType) => {
+    if (!selectedKelas || !selectedMapel?.bankId) {
+      showToast('Pilih kelas dan mata pelajaran terlebih dahulu.', 'error');
+      return;
+    }
+
+    navigate('/b6/buat-kuis/tambah-soal', {
+      state: {
+        initialType,
+        from: 'bank-soal',
+        bankId: selectedMapel.bankId,
+        kelas: selectedKelas.romawi,
+        mapel: selectedMapel.nama,
+        materi: selectedMapel.materi,
+        returnKelas: selectedKelas,
+        returnMapel: selectedMapel,
+      },
+    });
+  };
+
+  // Handler Hapus Soal
   const handleDeleteQuestion = async (id) => {
     if (window.confirm('Apakah Anda yakin ingin menghapus soal ini?')) {
       try {
@@ -270,7 +254,7 @@ export default function BankSoalPage() {
     }
   };
 
-  // Handler for creating question
+  // Handler Submit Tambah/Edit Soal
   const handleCreateQuestionSubmit = async (e) => {
     e.preventDefault();
     if (!newQuestion.pertanyaan.trim()) {
@@ -332,7 +316,7 @@ export default function BankSoalPage() {
         pilihanD: '',
         kunci: 'A',
       });
-      showToast(editingQuestionId ? 'Soal berhasil diperbarui.' : 'Soal baru berhasil ditambahkan ke bank soal!');
+      showToast(editingQuestionId ? 'Soal berhasil diperbarui.' : 'Soal baru berhasil ditambahkan!');
     } catch (error) {
       showToast(error.message, 'error');
     } finally {
@@ -343,8 +327,7 @@ export default function BankSoalPage() {
   // Filtered questions
   const filteredQuestions = questions.filter((q) => {
     const matchSearch = q.pertanyaan.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchJenis =
-      selectedJenisSoal === 'Semua jenis' || q.tipe === selectedJenisSoal;
+    const matchJenis = selectedJenisSoal === 'Semua jenis' || q.tipe === selectedJenisSoal;
     return matchSearch && matchJenis;
   });
 
@@ -354,9 +337,7 @@ export default function BankSoalPage() {
       {toast && (
         <div
           className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl px-5 py-3.5 shadow-lg text-sm font-semibold transition-all ${
-            toast.type === 'success'
-              ? 'bg-[#004d57] text-white'
-              : 'bg-red-600 text-white'
+            toast.type === 'success' ? 'bg-[#004d57] text-white' : 'bg-red-600 text-white'
           }`}
         >
           {toast.type === 'success' ? (
@@ -368,134 +349,23 @@ export default function BankSoalPage() {
         </div>
       )}
 
-      {/* Modal: Buat Bank Soal */}
-      {showCreateBankModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs">
-          <form
-            onSubmit={handleCreateBank}
-            className="w-full max-w-lg space-y-4 rounded-2xl border border-slate-100 bg-white p-6 shadow-xl"
-          >
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h2 className="text-base font-bold text-slate-800">Buat Bank Soal</h2>
-              <button
-                type="button"
-                onClick={() => setShowCreateBankModal(false)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
-                aria-label="Tutup"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <label className="block space-y-1 text-xs font-semibold text-slate-700">
-              Nama bank soal
-              <input
-                required
-                value={newBank.name}
-                onChange={(event) =>
-                  setNewBank({ ...newBank, name: event.target.value })
-                }
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal"
-                placeholder="Contoh: Bank Soal Matematika XI"
-              />
-            </label>
-            <label className="block space-y-1 text-xs font-semibold text-slate-700">
-              Deskripsi
-              <textarea
-                rows={2}
-                value={newBank.description}
-                onChange={(event) =>
-                  setNewBank({ ...newBank, description: event.target.value })
-                }
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal"
-              />
-            </label>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <label className="block space-y-1 text-xs font-semibold text-slate-700">
-                Kelas
-                <input
-                  value={newBank.class_level}
-                  onChange={(event) =>
-                    setNewBank({ ...newBank, class_level: event.target.value })
-                  }
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal"
-                />
-              </label>
-              <label className="block space-y-1 text-xs font-semibold text-slate-700">
-                Mapel
-                <select
-                  value={newBank.subject_name}
-                  onChange={(event) =>
-                    setNewBank({ ...newBank, subject_name: event.target.value })
-                  }
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal"
-                >
-                  <option value="">Pilih mata pelajaran</option>
-                  {subjects.map((subject) => (
-                    <option key={subject.id} value={subject.name}>{subject.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="block space-y-1 text-xs font-semibold text-slate-700">
-                Materi
-                <input
-                  value={newBank.topic_name}
-                  onChange={(event) =>
-                    setNewBank({ ...newBank, topic_name: event.target.value })
-                  }
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-normal"
-                />
-              </label>
-            </div>
-            <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
-              <button
-                type="button"
-                onClick={() => setShowCreateBankModal(false)}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
-              >
-                Batal
-              </button>
-              <button
-                type="submit"
-                disabled={isSavingBank}
-                className="rounded-xl bg-[#004d57] px-5 py-2 text-xs font-semibold text-white disabled:opacity-60"
-              >
-                {isSavingBank ? 'Menyimpan...' : 'Simpan Bank'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* =========================================================================
-          STEP 1: BREADCRUMBS & HEADER (BERANDA > BANK SOAL)
-         ========================================================================= */}
+      {/* BREADCRUMBS & HEADER STEP 1 */}
       {currentStep === 1 && (
         <>
-          {/* Breadcrumb */}
           <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
             <span>Beranda</span>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
             <span className="text-[#005b64] font-semibold">Bank Soal</span>
           </nav>
 
-          {/* Header Title & Actions */}
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">
-                Bank Soal
-              </h1>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">Bank Soal</h1>
               <p className="mt-1 text-xs sm:text-sm text-slate-400">
                 Kelola dan gunakan kembali soal sesuai kelas dan materi.
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setShowCreateBankModal(true)}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
-              >
-                Buat Bank
-              </button>
               <button
                 type="button"
                 onClick={() => setShowImportModal(true)}
@@ -507,7 +377,7 @@ export default function BankSoalPage() {
               <button
                 onClick={() => {
                   if (!selectedMapel?.bankId) {
-                    showToast('Pilih kelas dan materi sebelum menambahkan soal.', 'error');
+                    showToast('Pilih kelas dan materi terlebih dahulu sebelum menambahkan soal.', 'error');
                     return;
                   }
                   setShowAddModal(true);
@@ -519,18 +389,14 @@ export default function BankSoalPage() {
             </div>
           </div>
 
-          {/* 3 Summary Stat Cards */}
           <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-            {/* Card 1 */}
             <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
               <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[#e0f7fa] text-[#00838f]">
                 <BarChart2 className="h-5 w-5" />
               </div>
               <div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-slate-800">
-                    {totalQuestions}
-                  </span>
+                  <span className="text-2xl font-bold text-slate-800">{totalQuestions}</span>
                   <span className="text-xs font-semibold text-slate-700">total soal</span>
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">
@@ -539,77 +405,51 @@ export default function BankSoalPage() {
               </div>
             </div>
 
-            {/* Card 2 */}
             <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
               <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[#e0f7fa] text-[#00838f]">
                 <Edit3 className="h-5 w-5" />
               </div>
               <div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-slate-800">
-                    {banks.length}
-                  </span>
+                  <span className="text-2xl font-bold text-slate-800">{banks.length}</span>
                   <span className="text-xs font-semibold text-slate-700">bank soal</span>
                 </div>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Tersedia di database
-                </p>
+                <p className="text-xs text-slate-400 mt-0.5">Tersedia di database</p>
               </div>
             </div>
 
-            {/* Card 3 */}
             <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
               <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[#e0f7fa] text-[#00838f]">
                 <FileUp className="h-5 w-5" />
               </div>
               <div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-slate-800">
-                    {importedQuestionCount ?? '—'}
-                  </span>
+                  <span className="text-2xl font-bold text-slate-800">{importedQuestionCount ?? '—'}</span>
                   <span className="text-xs font-semibold text-slate-700">soal valid diimpor</span>
                 </div>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Ditambahkan dari Excel
-                </p>
+                <p className="text-xs text-slate-400 mt-0.5">Ditambahkan dari Excel</p>
               </div>
             </div>
           </div>
         </>
       )}
 
-      {/* =========================================================================
-          STEP 2: BREADCRUMBS & HEADER (BERANDA > BANK SOAL > KELAS XI > MAPEL)
-         ========================================================================= */}
-      {currentStep === 2 && (
+      {/* BREADCRUMBS & HEADER STEP 2 */}
+      {currentStep === 2 && selectedKelas && (
         <>
-          {/* Breadcrumb */}
           <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
-            <button
-              onClick={() => setCurrentStep(1)}
-              className="hover:text-slate-600 transition-colors"
-            >
-              Beranda
-            </button>
+            <button onClick={() => setCurrentStep(1)} className="hover:text-slate-600 transition-colors">Beranda</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-            <button
-              onClick={() => setCurrentStep(1)}
-              className="hover:text-slate-600 transition-colors"
-            >
-              Bank Soal
-            </button>
+            <button onClick={() => setCurrentStep(1)} className="hover:text-slate-600 transition-colors">Bank Soal</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
             <span>Kelas {selectedKelas.romawi}</span>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
             <span className="text-[#005b64] font-semibold">Mapel</span>
           </nav>
 
-          {/* Header Title & Actions */}
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">
-                Mapel
-              </h1>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">Mapel</h1>
               <p className="mt-1 text-xs sm:text-sm text-slate-400">
                 Pilih mata pelajaran untuk melihat soal di Kelas {selectedKelas.romawi}.
               </p>
@@ -623,75 +463,29 @@ export default function BankSoalPage() {
               </button>
             </div>
           </div>
-
-          {/* Info Summary Box */}
-          <div className="grid grid-cols-1 gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-xs sm:grid-cols-3">
-            <div>
-              <span className="text-xs text-slate-400 font-medium">Kelas terpilih</span>
-              <div className="text-sm font-bold text-slate-800 mt-1">
-                {selectedKelas.romawi}
-              </div>
-            </div>
-            <div>
-              <span className="text-xs text-slate-400 font-medium">
-                Mata pelajaran tersedia
-              </span>
-              <div className="text-sm font-bold text-slate-800 mt-1">
-                {showEmptyMapel ? '-' : `${selectedKelas.mapelList.length} bank soal`}
-              </div>
-            </div>
-            <div>
-              <span className="text-xs text-slate-400 font-medium">Soal tersedia</span>
-              <div className="text-sm font-bold text-slate-800 mt-1">
-                {showEmptyMapel ? '0 soal' : `${selectedKelas.totalSoal} soal`}
-              </div>
-            </div>
-          </div>
         </>
       )}
 
-      {/* =========================================================================
-          STEP 3: BREADCRUMBS & HEADER (KELAS MAPEL XI / MATEMATIKA)
-         ========================================================================= */}
-      {currentStep === 3 && (
+      {/* BREADCRUMBS & HEADER STEP 3 */}
+      {currentStep === 3 && selectedKelas && selectedMapel && (
         <>
-          {/* Breadcrumb */}
           <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
-            <button
-              onClick={() => setCurrentStep(1)}
-              className="hover:text-slate-600 transition-colors"
-            >
-              Beranda
-            </button>
+            <button onClick={() => setCurrentStep(1)} className="hover:text-slate-600 transition-colors">Beranda</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-            <button
-              onClick={() => setCurrentStep(1)}
-              className="hover:text-slate-600 transition-colors"
-            >
-              Bank Soal
-            </button>
+            <button onClick={() => setCurrentStep(1)} className="hover:text-slate-600 transition-colors">Bank Soal</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-            <button
-              onClick={() => setCurrentStep(2)}
-              className="hover:text-slate-600 transition-colors"
-            >
-              Kelas {selectedKelas.romawi}
-            </button>
+            <button onClick={() => setCurrentStep(2)} className="hover:text-slate-600 transition-colors">Kelas {selectedKelas.romawi}</button>
             <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-            <span className="text-[#005b64] font-semibold">
-              {selectedMapel?.nama || 'Mata pelajaran'}
-            </span>
+            <span className="text-[#005b64] font-semibold">{selectedMapel.nama}</span>
           </nav>
 
-          {/* Header Title & Actions */}
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">
-                Kelas Mapel {selectedKelas.romawi} / {selectedMapel?.nama || 'Matematika'}
+                Kelas Mapel {selectedKelas.romawi} / {selectedMapel.nama}
               </h1>
               <p className="mt-1 text-xs sm:text-sm text-slate-400">
-                Kelola soal {selectedMapel?.nama || 'Matematika'} Kelas {selectedKelas.romawi}{' '}
-                pada materi {selectedMapel?.materi || 'Komposisi & invers'}.
+                Kelola soal {selectedMapel.nama} Kelas {selectedKelas.romawi} pada materi {selectedMapel.materi}.
               </p>
             </div>
             <div>
@@ -703,62 +497,65 @@ export default function BankSoalPage() {
               </button>
             </div>
           </div>
+        </>
+      )}
 
-          {/* Info Summary Box */}
-          <div className="grid grid-cols-1 gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-xs sm:grid-cols-3">
+      {/* BREADCRUMBS & HEADER STEP 4 */}
+      {currentStep === 4 && selectedKelas && selectedMapel && (
+        <>
+          <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
+            <button onClick={() => setCurrentStep(1)} className="hover:text-slate-600 transition-colors">Beranda</button>
+            <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+            <button onClick={() => setCurrentStep(1)} className="hover:text-slate-600 transition-colors">Bank Soal</button>
+            <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+            <button onClick={() => setCurrentStep(2)} className="hover:text-slate-600 transition-colors">Kelas {selectedKelas.romawi}</button>
+            <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+            <button onClick={() => setCurrentStep(3)} className="hover:text-slate-600 transition-colors">{selectedMapel.nama}</button>
+            <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+            <span className="text-[#005b64] font-semibold">Buat Soal</span>
+          </nav>
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <span className="text-xs text-slate-400 font-medium">Kelas</span>
-              <div className="text-sm font-bold text-slate-800 mt-1">
-                {selectedKelas.romawi}
-              </div>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">Buat Soal</h1>
+              <p className="mt-1 text-xs sm:text-sm text-slate-400">
+                Pilih cara menambahkan soal ke Bank Soal {selectedKelas.romawi} / {selectedMapel.nama}.
+              </p>
             </div>
             <div>
-              <span className="text-xs text-slate-400 font-medium">Mata pelajaran</span>
-              <div className="text-sm font-bold text-slate-800 mt-1">
-                {selectedMapel?.nama || 'Mata pelajaran'}
-              </div>
-            </div>
-            <div>
-              <span className="text-xs text-slate-400 font-medium">Materi</span>
-              <div className="text-sm font-bold text-slate-800 mt-1">
-                {selectedMapel?.materi || 'Materi belum ditentukan'}
-              </div>
+              <button
+                onClick={() => setCurrentStep(3)}
+                className="rounded-xl bg-[#e0f7fa] px-4 py-2.5 text-xs sm:text-sm font-semibold text-[#006064] hover:bg-[#b2ebf2] transition-colors"
+              >
+                Kembali ke Kelas Mapel
+              </button>
             </div>
           </div>
         </>
       )}
 
-      {/* =========================================================================
-          MAIN CONTAINER CARD (PANEL DENGAN STEPPER DI DALAMNYA)
-         ========================================================================= */}
+      {/* MAIN CONTAINER CARD */}
       <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xs space-y-6">
-        {/* Header di dalam Panel */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-base font-bold text-slate-800">
               {currentStep === 1 && 'Pilih Kelas'}
               {currentStep === 2 && 'Pilih Mata Pelajaran'}
-              {currentStep === 3 &&
-                `Soal ${selectedMapel?.materi || 'Komposisi & invers'}`}
+              {currentStep === 3 && `Soal ${selectedMapel?.materi || ''}`}
               {currentStep === 4 && 'Pilih Cara Membuat Soal'}
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              {currentStep === 1 &&
-                'Pilih kelas untuk melihat mata pelajaran dan soal yang tersedia.'}
-              {currentStep === 2 &&
-                `Mata pelajaran yang tersedia pada bank soal Kelas ${selectedKelas.romawi}.`}
-              {currentStep === 3 &&
-                'Soal yang sudah dibuat atau diimpor untuk kelas dan mata pelajaran ini.'}
-              {currentStep === 4 &&
-                'Input satu per satu atau impor soal yang sudah disiapkan dalam Excel.'}
+              {currentStep === 1 && 'Pilih kelas untuk melihat mata pelajaran dan soal yang tersedia.'}
+              {currentStep === 2 && `Mata pelajaran yang tersedia pada bank soal Kelas ${selectedKelas?.romawi || ''}.`}
+              {currentStep === 3 && 'Soal yang sudah dibuat atau diimpor untuk kelas dan mata pelajaran ini.'}
+              {currentStep === 4 && 'Input satu per satu atau impor soal dari file Excel.'}
             </p>
           </div>
 
-          {/* Tombol Buat Soal di Step 3 */}
           {currentStep === 3 && (
             <div>
               <button
-                onClick={() => setCurrentStep(4)}
+                onClick={handleOpenStepFour}
                 className="rounded-xl bg-[#004d57] px-5 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] transition-colors"
               >
                 Buat Soal
@@ -769,67 +566,47 @@ export default function BankSoalPage() {
 
         {/* Stepper Pills Navigation */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Step 1 Pill */}
           <button
             onClick={() => setCurrentStep(1)}
             className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-all ${
-              currentStep === 1
-                ? 'bg-[#004d57] text-white shadow-xs'
-                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+              currentStep === 1 ? 'bg-[#004d57] text-white shadow-xs' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
             }`}
           >
             1. Pilih Kelas
           </button>
-
           <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-
-          {/* Step 2 Pill */}
           <button
-            onClick={() => currentStep > 1 && setCurrentStep(2)}
-            disabled={currentStep < 2}
+            onClick={() => setCurrentStep(2)}
+            disabled={maxUnlockedStep < 2 || !selectedKelas}
             className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-all ${
-              currentStep === 2
-                ? 'bg-[#004d57] text-white shadow-xs'
-                : 'bg-slate-100 text-slate-500 hover:bg-slate-200 disabled:opacity-60'
+              currentStep === 2 ? 'bg-[#004d57] text-white shadow-xs' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 disabled:opacity-60'
             }`}
           >
             2. Pilih Mata Pelajaran
           </button>
-
           <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-
-          {/* Step 3 Pill */}
           <button
-            onClick={() => currentStep > 2 && setCurrentStep(3)}
-            disabled={currentStep < 3}
+            onClick={() => setCurrentStep(3)}
+            disabled={maxUnlockedStep < 3 || !selectedMapel}
             className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-all ${
-              currentStep === 3
-                ? 'bg-[#004d57] text-white shadow-xs'
-                : 'bg-slate-100 text-slate-500 hover:bg-slate-200 disabled:opacity-60'
+              currentStep === 3 ? 'bg-[#004d57] text-white shadow-xs' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 disabled:opacity-60'
             }`}
           >
             3. Lihat Soal
           </button>
-
           <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-
-          {/* Step 4 Pill */}
           <button
-            onClick={() => selectedMapel?.bankId && setCurrentStep(4)}
-            disabled={!selectedMapel?.bankId}
+            onClick={() => setCurrentStep(4)}
+            disabled={maxUnlockedStep < 4 || !selectedMapel}
             className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-all ${
-              currentStep === 4
-                ? 'bg-[#004d57] text-white shadow-xs'
-                : 'bg-slate-100 text-slate-500 hover:bg-slate-200 disabled:opacity-60'
+              currentStep === 4 ? 'bg-[#004d57] text-white shadow-xs' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 disabled:opacity-60'
             }`}
           >
             4. Tambah / Impor Soal
           </button>
         </div>
 
-        {/* =====================================================================
-            KONTEN STEP 1: PILIH KELAS (3 KARTU KELAS X, XI, XII)
-           ===================================================================== */}
+        {/* STEP 1 CONTENT */}
         {currentStep === 1 && (
           <div className="grid grid-cols-1 gap-5 md:grid-cols-3 pt-2">
             {isLoading ? (
@@ -840,60 +617,53 @@ export default function BankSoalPage() {
               <div className="col-span-full rounded-xl border border-amber-300 bg-amber-50/50 p-6 text-center text-xs font-medium text-amber-800">
                 Belum ada bank soal di database.
               </div>
-            ) : kelasList.map((kelas) => (
-              <div
-                key={kelas.id}
-                className="flex flex-col justify-between rounded-2xl border border-cyan-100/80 bg-white p-5 shadow-2xs hover:shadow-md transition-shadow"
-              >
-                <div>
-                  {/* Top Badge: X, XI, XII & Total Soal */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e0f7fa] font-bold text-[#006064] text-sm">
-                      {kelas.romawi}
+            ) : (
+              kelasList.map((kelas) => (
+                <div
+                  key={kelas.id}
+                  className="flex flex-col justify-between rounded-2xl border border-cyan-100/80 bg-white p-5 shadow-2xs hover:shadow-md transition-shadow"
+                >
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e0f7fa] font-bold text-[#006064] text-sm">
+                        {kelas.romawi}
+                      </div>
+                      <span className="rounded-md bg-[#e0f7fa] px-2.5 py-1 text-xs font-semibold text-[#006064]">
+                        {kelas.totalSoal} soal
+                      </span>
                     </div>
-                    <span className="rounded-md bg-[#e0f7fa] px-2.5 py-1 text-xs font-semibold text-[#006064]">
-                      {kelas.totalSoal} soal
-                    </span>
-                  </div>
 
-                  {/* Title */}
-                  <h3 className="mt-4 text-base font-bold text-slate-800">
-                    {kelas.nama}
-                  </h3>
+                    <h3 className="mt-4 text-base font-bold text-slate-800">{kelas.nama}</h3>
 
-                  {/* Meta items */}
-                  <div className="mt-2 space-y-1.5 text-xs text-slate-500">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-3.5 w-3.5 text-slate-400" />
-                      <span>{kelas.jumlahMapel} mata pelajaran</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Book className="h-3.5 w-3.5 text-slate-400" />
-                      <span>{kelas.materiPreview}</span>
+                    <div className="mt-2 space-y-1.5 text-xs text-slate-500">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-3.5 w-3.5 text-slate-400" />
+                        <span>{kelas.jumlahMapel} mata pelajaran</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Book className="h-3.5 w-3.5 text-slate-400" />
+                        <span>{kelas.materiPreview}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Action Button */}
-                <div className="mt-6 pt-2">
-                  <button
-                    onClick={() => handlePilihKelas(kelas)}
-                    className="w-full rounded-xl bg-[#004d57] py-2.5 text-xs sm:text-sm font-semibold text-white shadow-xs hover:bg-[#003c44] transition-colors text-center"
-                  >
-                    Pilih Mata Pelajaran
-                  </button>
+                  <div className="mt-6 pt-2">
+                    <button
+                      onClick={() => handlePilihKelas(kelas)}
+                      className="w-full rounded-xl bg-[#004d57] py-2.5 text-xs sm:text-sm font-semibold text-white shadow-xs hover:bg-[#003c44] transition-colors text-center"
+                    >
+                      Pilih Mata Pelajaran
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         )}
 
-        {/* =====================================================================
-            KONTEN STEP 2: PILIH MATA PELAJARAN
-           ===================================================================== */}
-        {currentStep === 2 && (
+        {/* STEP 2 CONTENT */}
+        {currentStep === 2 && selectedKelas && (
           <div className="space-y-4 pt-2">
-            {/* Toggle demo empty state */}
             <div className="flex justify-end">
               <button
                 onClick={() => setShowEmptyMapel(!showEmptyMapel)}
@@ -904,74 +674,56 @@ export default function BankSoalPage() {
             </div>
 
             {showEmptyMapel || selectedKelas.mapelList.length === 0 ? (
-              /* Empty State (Sesuai Gambar 3) */
               <div className="rounded-xl border border-amber-300 bg-amber-50/50 p-4 text-center text-xs font-medium text-amber-800">
-                Belum ada mapel yang diinput silahkan hubungi admin.
+                Belum ada mapel yang diinput, silahkan hubungi admin.
               </div>
             ) : (
-              /* Subject Card (Sesuai Gambar 2) */
               <div className="space-y-4">
                 {selectedKelas.mapelList.map((mapel) => (
-                  <div key={mapel.bankId} className="rounded-2xl border border-cyan-100/80 bg-white p-5 shadow-2xs space-y-4">
-                {/* Header Card: Ikon Calculator & Badge 2 soal */}
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3.5">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#e0f7fa] text-[#006064]">
-                      <Calculator className="h-5 w-5" />
+                  <div key={mapel.bankId} className="rounded-2xl border border-cyan-100/90 bg-white p-5 shadow-2xs space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3.5">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#e0f7fa] text-[#006064]">
+                          <Calculator className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <h3 className="text-base font-bold text-slate-800">{mapel.nama}</h3>
+                          <p className="text-xs text-slate-400 mt-0.5">Kelas {selectedKelas.romawi}</p>
+                        </div>
+                      </div>
+                      <span className="rounded-full bg-[#e0f7fa] px-3 py-1 text-xs font-semibold text-[#006064]">
+                        {mapel.totalSoal} soal
+                      </span>
                     </div>
-                    <div>
-                      <h3 className="text-base font-bold text-slate-800">
-                        {mapel.nama}
-                      </h3>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        Kelas {selectedKelas.romawi}
-                      </p>
+
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 space-y-1">
+                      <span className="text-xs text-slate-400 font-medium">Materi tersedia</span>
+                      <div className="text-sm font-bold text-slate-800">{mapel.materi}</div>
+                      <div className="text-xs text-slate-500">{mapel.tipeSoal}</div>
+                    </div>
+
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-2">
+                      <span className="text-xs text-slate-500">
+                        Lihat dan kelola soal {mapel.nama} untuk Kelas {selectedKelas.romawi}.
+                      </span>
+                      <button
+                        onClick={() => handlePilihMapel(mapel)}
+                        className="rounded-xl bg-[#004d57] px-5 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] transition-colors"
+                      >
+                        Lihat Soal {mapel.nama}
+                      </button>
                     </div>
                   </div>
-                  <span className="rounded-full bg-[#e0f7fa] px-3 py-1 text-xs font-semibold text-[#006064]">
-                    {mapel.totalSoal} soal
-                  </span>
-                </div>
-
-                {/* Inset gray box Materi tersedia */}
-                <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 space-y-1">
-                  <span className="text-xs text-slate-400 font-medium">Materi tersedia</span>
-                  <div className="text-sm font-bold text-slate-800">
-                    {mapel.materi}
-                  </div>
-                  <div className="text-xs text-slate-500">
-                    {mapel.tipeSoal}
-                  </div>
-                </div>
-
-                {/* Bottom Row */}
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-2">
-                  <span className="text-xs text-slate-500">
-                    Lihat dan kelola soal {mapel.nama} untuk Kelas{' '}
-                    {selectedKelas.romawi}.
-                  </span>
-                  <button
-                    onClick={() => handlePilihMapel(mapel)}
-                    className="rounded-xl bg-[#004d57] px-5 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] transition-colors"
-                  >
-                    Lihat Soal {mapel.nama}
-                  </button>
-                </div>
-              </div>
                 ))}
               </div>
             )}
           </div>
         )}
 
-        {/* =====================================================================
-            KONTEN STEP 3: LIHAT DAFTAR SOAL (KELAS MAPEL)
-           ===================================================================== */}
+        {/* STEP 3 CONTENT */}
         {currentStep === 3 && (
           <div className="space-y-5 pt-2">
-            {/* Filter & Search Bar */}
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              {/* Search Input */}
               <div className="relative flex-1">
                 <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
@@ -983,9 +735,7 @@ export default function BankSoalPage() {
                 />
               </div>
 
-              {/* Dropdown Filters */}
               <div className="flex items-center gap-3">
-                {/* Filter Jenis Soal */}
                 <div className="relative">
                   <select
                     value={selectedJenisSoal}
@@ -1000,7 +750,6 @@ export default function BankSoalPage() {
                   <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                 </div>
 
-                {/* Filter Waktu */}
                 <div className="relative">
                   <select
                     value={selectedWaktu}
@@ -1016,22 +765,19 @@ export default function BankSoalPage() {
               </div>
             </div>
 
-            {/* List of Questions */}
+            {/* List Questions */}
             {filteredQuestions.length === 0 ? (
-              /* Empty State Soal */
               <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 py-16 px-4 text-center">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 mb-3">
                   <FileText className="h-6 w-6 stroke-[1.8]" />
                 </div>
-                <h3 className="text-sm font-bold text-slate-800">
-                  Belum ada soal pada materi ini
-                </h3>
+                <h3 className="text-sm font-bold text-slate-800">Belum ada soal pada materi ini</h3>
                 <p className="mt-1 text-xs text-slate-400 max-w-sm">
                   Mulai dengan membuat soal secara manual atau impor dari file Excel.
                 </p>
-                <div className="mt-4 flex items-center gap-3">
+                <div className="mt-4">
                   <button
-                    onClick={() => setCurrentStep(4)}
+                    onClick={handleOpenStepFour}
                     className="rounded-xl bg-[#004d57] px-4 py-2 text-xs font-semibold text-white hover:bg-[#003c44] transition-colors"
                   >
                     Tambah Soal Sekarang
@@ -1045,27 +791,26 @@ export default function BankSoalPage() {
                     key={q.id}
                     className="rounded-2xl border border-cyan-100/80 bg-white p-5 shadow-2xs space-y-4 hover:border-cyan-200 transition-colors"
                   >
-                    {/* Top Row: Tags & Metadata */}
                     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-50 pb-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="rounded-md bg-[#e0f7fa] px-2.5 py-1 text-xs font-semibold text-[#006064]">
                           {q.tipe}
                         </span>
-                        <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
-                          {q.tag}
-                        </span>
+                        {q.tag && (
+                          <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                            {q.tag}
+                          </span>
+                        )}
                       </div>
                       <span className="text-xs text-slate-400">
-                        {q.metode} • {q.tanggal}
+                        {q.metode || 'Tersimpan'} • {q.tanggal || 'Baru'}
                       </span>
                     </div>
 
-                    {/* Question Text */}
                     <p className="text-xs sm:text-sm font-semibold text-slate-800 leading-relaxed">
                       {q.pertanyaan}
                     </p>
 
-                    {/* Options Preview for Pilihan Ganda */}
                     {q.pilihan && q.pilihan.length > 0 && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs text-slate-600">
                         {q.pilihan.map((p) => (
@@ -1080,49 +825,69 @@ export default function BankSoalPage() {
                             <span className="font-bold">{p.key}.</span>
                             <span>{p.teks}</span>
                             {p.key === q.kunciJawaban && (
-                              <span className="ml-auto text-[10px] font-bold text-[#008994]">
-                                Kunci
-                              </span>
+                              <span className="ml-auto text-[10px] font-bold text-[#008994]">Kunci</span>
                             )}
                           </div>
                         ))}
                       </div>
                     )}
 
-                    {/* Action Buttons: Lihat, Hapus */}
                     <div className="flex items-center justify-between pt-2 border-t border-slate-50">
                       <span className="text-[11px] text-slate-400">
-                        Kunci Jawaban: <strong className="text-slate-700">{q.kunciJawaban}</strong>
+                        Kunci Jawaban: <strong className="text-slate-700">{q.kunciJawaban || '-'}</strong>
                       </span>
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => setViewQuestion(q)}
+                          onClick={() => {
+                            const bank = banks.find(
+                              (item) => String(item.id) === String(selectedMapel.bankId),
+                            );
+                            const query = new URLSearchParams({
+                              bankId: selectedMapel.bankId,
+                              questionId: q.id,
+                            });
+                            navigate(`/b6/bank-soal/lihat-soal?${query.toString()}`, {
+                              state: {
+                                bankId: selectedMapel.bankId,
+                                questionId: q.id,
+                                question: q,
+                                bank,
+                                className: selectedKelas?.romawi,
+                                returnKelas: selectedKelas,
+                                returnMapel: selectedMapel,
+                              },
+                            });
+                          }}
                           className="rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
                         >
                           Lihat
                         </button>
-
-                        {/* Tombol Edit */}
                         <button
                           onClick={() => {
-                            setEditingQuestionId(q.id);
-                            setNewQuestion({
-                              pertanyaan: q.pertanyaan,
-                              tipe: q.tipe,
-                              pilihanA: q.pilihan?.find((option) => option.key === 'A')?.teks || '',
-                              pilihanB: q.pilihan?.find((option) => option.key === 'B')?.teks || '',
-                              pilihanC: q.pilihan?.find((option) => option.key === 'C')?.teks || '',
-                              pilihanD: q.pilihan?.find((option) => option.key === 'D')?.teks || '',
-                              kunci: q.kunciJawaban || 'A',
+                            const bank = banks.find(
+                              (item) => String(item.id) === String(selectedMapel.bankId),
+                            );
+                            const query = new URLSearchParams({
+                              bankId: selectedMapel.bankId,
+                              questionId: q.id,
                             });
-                            setShowAddModal(true);
+                            navigate(`/b6/bank-soal/edit-soal?${query.toString()}`, {
+                              state: {
+                                bankId: selectedMapel.bankId,
+                                questionId: q.id,
+                                question: q,
+                                bank,
+                                className: selectedKelas?.romawi,
+                                returnKelas: selectedKelas,
+                                returnMapel: selectedMapel,
+                                hasReachedStepFour: maxUnlockedStep >= 4,
+                              },
+                            });
                           }}
                           className="rounded-xl bg-[#e6f7f8] px-3.5 py-1.5 text-xs font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors"
                         >
                           Edit
                         </button>
-
-                        {/* Tombol Hapus */}
                         <button
                           onClick={() => handleDeleteQuestion(q.id)}
                           className="rounded-xl border border-red-200 bg-red-50/50 px-3.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100/50 transition-colors"
@@ -1137,22 +902,100 @@ export default function BankSoalPage() {
             )}
           </div>
         )}
+
+        {/* STEP 4 CONTENT */}
+        {currentStep === 4 && selectedMapel && selectedKelas && (
+          <div className="space-y-6 pt-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Manual Input Card */}
+              <div className="rounded-2xl border border-cyan-100/90 bg-white p-6 space-y-5 flex flex-col justify-between shadow-2xs">
+                <div className="space-y-4">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-50 text-[#008994]">
+                    <Edit3 className="h-5 w-5 stroke-[2.2]" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-800">Input Manual</h3>
+                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                      Tulis pertanyaan, kunci jawaban, dan pembahasan langsung di aplikasi.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenQuestionForm('Pilihan Ganda')}
+                    className="w-full rounded-xl bg-[#e6f7f8] py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors border border-cyan-100/60"
+                  >
+                    Tambah Pilihan Ganda
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenQuestionForm('Benar / Salah')}
+                    className="w-full rounded-xl bg-[#e6f7f8] py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors border border-cyan-100/60"
+                  >
+                    Tambah Benar / Salah
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenQuestionForm('Esai')}
+                    className="w-full rounded-xl bg-[#e6f7f8] py-2.5 text-xs sm:text-sm font-semibold text-[#005b64] hover:bg-[#d5f0f2] transition-colors border border-cyan-100/60"
+                  >
+                    Tambah Esai
+                  </button>
+                </div>
+              </div>
+
+              {/* Excel Import Card */}
+              <div className="rounded-2xl border border-cyan-100/90 bg-white p-6 space-y-5 flex flex-col justify-between shadow-2xs">
+                <div className="space-y-4">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-50 text-[#008994]">
+                    <FileSpreadsheet className="h-5 w-5 stroke-[2.2]" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-800">Impor dari Excel</h3>
+                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                      Tambahkan banyak soal sekaligus dari file Excel sesuai templat.
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-slate-50/80 p-4 space-y-2 text-xs text-slate-600">
+                    <p>• Unduh dan isi templat Excel.</p>
+                    <p>• Unggah file dan tinjau soal yang diimpor.</p>
+                    <p>• Simpan pada materi ini.</p>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowImportModal(true)}
+                    className="w-full rounded-xl bg-[#004d57] py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] shadow-xs transition-colors"
+                  >
+                    Buka Dialog Impor Excel
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-4 border-t border-slate-100 text-xs text-slate-500">
+              <Info className="h-4 w-4 text-[#008994] flex-shrink-0" />
+              <span>
+                Soal baru akan ditambahkan ke Kelas {selectedKelas.romawi} • {selectedMapel.nama} • {selectedMapel.materi}.
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* =========================================================================
-          BOTTOM CAPTION DENGAN IKON DOKUMEN (PERSIS SEPERTI GAMBAR)
-         ========================================================================= */}
+      {/* BOTTOM CAPTION */}
       <div className="flex items-start gap-2.5 text-xs text-slate-400 leading-relaxed">
         <FileText className="h-4 w-4 text-slate-400 flex-shrink-0 mt-0.5" />
         <span>
-          Bank soal tersinkronisasi otomatis dengan portal ujian dan presensi SMAN 3 Malang.
-          Gunakan kembali materi yang telah diuji untuk efisiensi pembuatan kuis.
+          Bank soal tersinkronisasi otomatis dengan portal ujian dan presensi SMAN 3 Malang. Gunakan kembali materi yang telah diuji untuk efisiensi pembuatan kuis.
         </span>
       </div>
 
-      {/* =========================================================================
-          MODAL 1: TAMBAH / EDIT SOAL
-         ========================================================================= */}
+      {/* MODAL 1: TAMBAH / EDIT SOAL */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto">
@@ -1173,9 +1016,7 @@ export default function BankSoalPage() {
 
             <form onSubmit={handleCreateQuestionSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Jenis Soal
-                </label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Jenis Soal</label>
                 <select
                   value={newQuestion.tipe}
                   onChange={(e) => setNewQuestion({
@@ -1191,15 +1032,11 @@ export default function BankSoalPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Pertanyaan
-                </label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Pertanyaan</label>
                 <textarea
                   rows={3}
                   value={newQuestion.pertanyaan}
-                  onChange={(event) =>
-                    setNewQuestion({ ...newQuestion, pertanyaan: event.target.value })
-                  }
+                  onChange={(e) => setNewQuestion({ ...newQuestion, pertanyaan: e.target.value })}
                   placeholder="Tuliskan pertanyaan soal di sini..."
                   className="w-full rounded-xl border border-slate-200 p-3 text-xs text-slate-800 focus:border-[#004d57] focus:outline-none"
                 />
@@ -1207,9 +1044,7 @@ export default function BankSoalPage() {
 
               {newQuestion.tipe === 'Pilihan Ganda' ? (
                 <div className="space-y-2">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Pilihan Jawaban
-                  </label>
+                  <label className="block text-xs font-semibold text-slate-700">Pilihan Jawaban</label>
                   {['A', 'B', 'C', 'D'].map((option) => (
                     <div key={option} className="flex items-center gap-2">
                       <span className="w-6 text-xs font-bold text-slate-500">{option}.</span>
@@ -1217,23 +1052,19 @@ export default function BankSoalPage() {
                         type="text"
                         placeholder={`Jawaban ${option}`}
                         value={newQuestion[`pilihan${option}`]}
-                        onChange={(event) => setNewQuestion({
+                        onChange={(e) => setNewQuestion({
                           ...newQuestion,
-                          [`pilihan${option}`]: event.target.value,
+                          [`pilihan${option}`]: e.target.value,
                         })}
                         className="flex-1 rounded-xl border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-[#004d57] focus:outline-none"
                       />
                     </div>
                   ))}
                   <div className="pt-2">
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Kunci Jawaban Benar
-                    </label>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Kunci Jawaban Benar</label>
                     <select
                       value={newQuestion.kunci}
-                      onChange={(event) =>
-                        setNewQuestion({ ...newQuestion, kunci: event.target.value })
-                      }
+                      onChange={(e) => setNewQuestion({ ...newQuestion, kunci: e.target.value })}
                       className="w-full rounded-xl border border-slate-200 p-2 text-xs font-semibold text-[#004d57]"
                     >
                       {['A', 'B', 'C', 'D'].map((option) => (
@@ -1244,14 +1075,10 @@ export default function BankSoalPage() {
                 </div>
               ) : (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Kunci Jawaban Benar
-                  </label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Kunci Jawaban Benar</label>
                   <select
                     value={newQuestion.kunci}
-                    onChange={(event) =>
-                      setNewQuestion({ ...newQuestion, kunci: event.target.value })
-                    }
+                    onChange={(e) => setNewQuestion({ ...newQuestion, kunci: e.target.value })}
                     className="w-full rounded-xl border border-slate-200 p-2 text-xs font-semibold text-[#004d57]"
                   >
                     <option value="B">Benar</option>
@@ -1284,16 +1111,12 @@ export default function BankSoalPage() {
         </div>
       )}
 
-      {/* =========================================================================
-          MODAL 2: IMPOR SOAL EXCEL
-         ========================================================================= */}
+      {/* MODAL 2: IMPOR SOAL EXCEL */}
       {showImportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-slate-100 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-800">
-                Impor Soal dari Excel
-              </h3>
+              <h3 className="text-base font-bold text-slate-800">Impor Soal dari Excel</h3>
               <button
                 onClick={() => setShowImportModal(false)}
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
@@ -1307,22 +1130,12 @@ export default function BankSoalPage() {
                 Unggah file template Excel (.xlsx atau .xls) yang berisi daftar soal beserta kunci jawabannya.
               </p>
 
-              {/* Drag and Drop Box */}
               <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-cyan-300 bg-cyan-50/40 p-6 text-center">
                 <FileSpreadsheet className="h-10 w-10 text-[#00838f] mb-2" />
-                <span className="text-xs font-semibold text-slate-700">
-                  Klik untuk pilih file atau seret file ke sini
-                </span>
-                <span className="text-[11px] text-slate-400 mt-1">
-                  Format yang didukung: .xlsx, .xls (Maks. 5MB)
-                </span>
+                <span className="text-xs font-semibold text-slate-700">Klik untuk pilih file atau seret file ke sini</span>
+                <span className="text-[11px] text-slate-400 mt-1">Format yang didukung: .xlsx, .xls (Maks. 5MB)</span>
               </div>
 
-              <div className="rounded-xl bg-slate-50/80 p-4 space-y-2 text-xs text-slate-600">
-                <p>• Unduh dan isi templat Excel.</p>
-                <p>• Unggah file dan tinjau soal yang diimpor.</p>
-                <p>• Simpan pada konteks kelas, mapel, dan materi ini.</p>
-              </div>
               <div className="flex items-center justify-between text-xs pt-1">
                 <span className="text-slate-400">Belum punya formatnya?</span>
                 <button
@@ -1333,6 +1146,7 @@ export default function BankSoalPage() {
                   Unduh Template Excel
                 </button>
               </div>
+
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
                   type="button"
@@ -1369,161 +1183,6 @@ export default function BankSoalPage() {
         </div>
       )}
 
-      {currentStep === 4 && selectedMapel?.bankId && (
-        <div className="space-y-6 rounded-2xl border border-slate-100 bg-white p-6 shadow-xs">
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            <section className="space-y-4">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-50 text-[#008994]">
-                <Edit3 className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-800">Input Manual</h3>
-                <p className="mt-1 text-xs text-slate-400">
-                  Pilih jenis soal untuk menambahkan soal ke bank ini.
-                </p>
-              </div>
-              {['Pilihan Ganda', 'Benar / Salah', 'Esai'].map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => navigate('/b6/buat-kuis/tambah-soal', {
-                    state: {
-                      initialType: type,
-                      from: 'bank-soal',
-                      bankId: selectedMapel.bankId,
-                      kelas: selectedKelas?.romawi,
-                      mapel: selectedMapel.nama,
-                      materi: selectedMapel.materi,
-                    },
-                  })}
-                  className="w-full rounded-xl bg-[#e6f7f8] py-2.5 text-xs font-semibold text-[#005b64] hover:bg-[#d5f0f2]"
-                >
-                  {type}
-                </button>
-              ))}
-            </section>
-            <section className="space-y-4">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-50 text-[#008994]">
-                <FileSpreadsheet className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-800">Impor dari Excel</h3>
-                <p className="mt-1 text-xs text-slate-400">
-                  Impor soal dengan memilih file Excel yang sesuai templat.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => navigate('/b6/buat-kuis/import', {
-                  state: {
-                    from: 'bank-soal',
-                    bankId: selectedMapel.bankId,
-                    kelas: selectedKelas?.romawi,
-                    mapel: selectedMapel.nama,
-                    materi: selectedMapel.materi,
-                  },
-                })}
-                className="w-full rounded-xl bg-[#004d57] py-2.5 text-xs font-semibold text-white hover:bg-[#003c44]"
-              >
-                Impor dari Excel
-              </button>
-            </section>
-          </div>
-          <div className="flex items-center gap-2 border-t border-slate-100 pt-4 text-xs text-slate-500">
-            <Info className="h-4 w-4 text-[#008994]" />
-            <span>
-              Kelas {selectedKelas?.romawi || '—'} • {selectedMapel.nama} • {selectedMapel.materi}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          BOTTOM CAPTION DENGAN IKON DOKUMEN (PERSIS SEPERTI GAMBAR)
-         ========================================================================= */}
-      <div className="flex items-start gap-2.5 text-xs text-slate-400 leading-relaxed">
-        <FileText className="h-4 w-4 text-slate-400 flex-shrink-0 mt-0.5" />
-        <span>
-          Lorem ipsum dolor sit amet consectetur. Risus aenean massa congue bibendum nibh consectetur.
-        </span>
-      </div>
-
-      {/* =========================================================================
-          MODAL: LIHAT DETAIL SOAL
-         ========================================================================= */}
-      {viewQuestion && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl border border-slate-100 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2.5">
-                <span className="rounded-lg bg-[#e0f7fa] px-2.5 py-1 text-xs font-semibold text-[#006064]">
-                  {viewQuestion.tipe}
-                </span>
-                <span className="text-xs text-slate-400">
-                  {viewQuestion.metode} • {viewQuestion.tanggal}
-                </span>
-              </div>
-              <button
-                onClick={() => setViewQuestion(null)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <h4 className="text-sm font-bold text-slate-800">Pertanyaan:</h4>
-              <p className="text-sm text-slate-700 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
-                {viewQuestion.pertanyaan}
-              </p>
-
-              {viewQuestion.pilihan && viewQuestion.pilihan.length > 0 && (
-                <div className="space-y-2 pt-2">
-                  <h4 className="text-xs font-bold text-slate-700">Pilihan Jawaban:</h4>
-                  <div className="space-y-1.5">
-                    {viewQuestion.pilihan.map((p) => (
-                      <div
-                        key={p.key}
-                        className={`flex items-center gap-2.5 p-2 rounded-xl text-xs font-medium ${
-                          p.key === viewQuestion.kunciJawaban
-                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold'
-                            : 'bg-white border border-slate-100 text-slate-600'
-                        }`}
-                      >
-                        <span className="font-bold">{p.key}.</span>
-                        <span>{p.teks}</span>
-                        {p.key === viewQuestion.kunciJawaban && (
-                          <span className="ml-auto text-[10px] font-bold text-emerald-600 uppercase">
-                            (Kunci Jawaban)
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {viewQuestion.pembahasan && (
-                <div className="pt-2">
-                  <h4 className="text-xs font-bold text-slate-700 mb-1">Pembahasan:</h4>
-                  <p className="text-xs text-slate-500 bg-cyan-50/50 p-3 rounded-xl border border-cyan-100/60 leading-relaxed">
-                    {viewQuestion.pembahasan}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end pt-3 border-t border-slate-100">
-              <button
-                onClick={() => setViewQuestion(null)}
-                className="rounded-xl bg-[#004d57] px-5 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44]"
-              >
-                Tutup
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -45,9 +45,9 @@ export default function App() {
         {/* Auth routes */}
         <Route path="/login" element={<LoginPage />} />
 
-        {/* Guru Portal (Default: Buat Kuis & Bank Soal Sesuai Desain Foto) */}
+        {/* Guru Portal (Default: Bank Soal) */}
         <Route path="/b6" element={<GuruLayout />}>
-          <Route index element={<Navigate to="/b6/buat-kuis" replace />} />
+          <Route index element={<Navigate to="/b6/bank-soal" replace />} />
           <Route path="beranda" element={<GuruPlaceholder title="Beranda Guru" />} />
           <Route path="bank-soal" element={<BankSoalPage />} />
           <Route path="bank-soal/edit-soal" element={<EditSoalPage />} />
@@ -84,8 +84,8 @@ export default function App() {
         <Route path="/rekap-nilai" element={<Navigate to="/b6/rekap-nilai" replace />} />
         <Route path="/rekap-hasil" element={<Navigate to="/b6/rekap-nilai" replace />} />
 
-        {/* Root redirect directly to Buat Kuis */}
-        <Route path="/" element={<Navigate to="/b6/buat-kuis" replace />} />
+        {/* Root redirect to Bank Soal */}
+        <Route path="/" element={<Navigate to="/b6/bank-soal" replace />} />
         {/* 404 fallback to Buat Kuis */}
         <Route path="*" element={<Navigate to="/b6/buat-kuis" replace />} />
       </Routes>

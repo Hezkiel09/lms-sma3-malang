@@ -53,6 +53,8 @@ export default function TambahSoalKuisPage() {
   const customMapel = location.state?.mapel;
   const customMateri = location.state?.materi;
   const sourceBankId = location.state?.bankId;
+  const returnKelas = location.state?.returnKelas;
+  const returnMapel = location.state?.returnMapel;
   const quizId = location.state?.quizId || sessionStorage.getItem('b6.currentQuizId');
   const [quiz, setQuiz] = useState(null);
   const [questionNumber, setQuestionNumber] = useState(1);
@@ -69,13 +71,7 @@ export default function TambahSoalKuisPage() {
 
   // State
   const [jenisSoal, setJenisSoal] = useState(initialType);
-  const [pertanyaan, setPertanyaan] = useState(() => {
-    if (initialType === 'Pilihan Ganda') return 'Hasil dari 12 × 8 adalah ...';
-    if (initialType === 'Esai') {
-      return 'Diketahui barisan aritmetika 5, 8, 11, .... Tentukan suku ke-10 dan jumlah 10 suku pertama. Tuliskan langkah penyelesaiannya.';
-    }
-    return 'Pada barisan aritmetika 5, 8, 11, ..., suku ke-10 adalah 32.';
-  });
+  const [pertanyaan, setPertanyaan] = useState('');
   const [kunciJawabanPG, setKunciJawabanPG] = useState('B');
   const [kunciBenarSalah, setKunciBenarSalah] = useState('Benar');
   const [bobot, setBobot] = useState(initialType === 'Esai' ? 10 : 5);
@@ -88,6 +84,20 @@ export default function TambahSoalKuisPage() {
 
   // Esai reference & rubric
   const jawabanAcuan = `Diketahui a = 5 dan b = 8 – 5 = 3.\nU₁₀ = a + (10 – 1)b = 5 + 9 × 3 = 32.\nS₁₀ = 10/2 × (2 × 5 + 9 × 3) = 5 × 37 = 185.`;
+
+  const navigateToBankStep = (step) => {
+    navigate('/b6/bank-soal', {
+      state: returnKelas && returnMapel
+        ? {
+            restoreStep: step,
+            restoreKelas: returnKelas,
+            restoreMapel: returnMapel,
+            hasReachedStepFour: true,
+          }
+        : undefined,
+    });
+  };
+
   useEffect(() => {
     if (fromSource === 'bank-soal') {
       if (!sourceBankId) {
@@ -156,6 +166,7 @@ export default function TambahSoalKuisPage() {
 
   const handleTabChange = (type) => {
     setJenisSoal(type);
+    setPertanyaan('');
     if (type === 'Benar / Salah') {
       setBobot(5);
     } else if (type === 'Esai') {
@@ -225,7 +236,7 @@ export default function TambahSoalKuisPage() {
       createdQuestionId = question.id;
 
       if (bankOnlyMode) {
-        navigate('/b6/bank-soal');
+        navigateToBankStep(3);
         return;
       }
 
@@ -329,8 +340,10 @@ export default function TambahSoalKuisPage() {
               <h2 className="text-base font-bold text-slate-800">Detail Soal</h2>
               <p className="text-xs text-slate-400 mt-0.5">
                 {jenisSoal === 'Esai'
-                  ? 'Susun pertanyaan, jawaban acuan, dan penilaian.'
-                  : 'Susun pernyataan dan tentukan jawaban yang benar.'}
+                  ? 'Susun pertanyaan esai, jawaban acuan, dan penilaian.'
+                  : jenisSoal === 'Pilihan Ganda'
+                    ? 'Susun pertanyaan, pilihan jawaban, dan tentukan kunci jawaban.'
+                    : 'Susun pernyataan dan tentukan jawaban yang benar atau salah.'}
               </p>
             </div>
             <span className="rounded-md bg-[#e0f7fa] px-3 py-1 text-xs font-semibold text-[#006064]">
@@ -630,7 +643,7 @@ export default function TambahSoalKuisPage() {
               type="button"
               onClick={() => {
                 if (fromSource === 'bank-soal') {
-                  navigate('/b6/bank-soal');
+                  navigateToBankStep(4);
                 } else {
                   navigate('/b6/buat-kuis');
                 }

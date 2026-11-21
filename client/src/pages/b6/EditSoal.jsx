@@ -1,28 +1,109 @@
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import "./EditSoal.css";
+import { b6ApiFetch } from "./b6-api";
+import { getQuestionTypeLabel } from "./b6-utils";
+
+const EMPTY_FORM = {
+  kelas: "",
+  mapel: "",
+  materi: "",
+  jenis: "Pilihan Ganda",
+  pertanyaan: "",
+  pilihan: ["", "", "", ""],
+  kunci: 0,
+  pembahasan: "",
+  bobot: 1,
+};
+
+function toEditForm(question, bank = {}) {
+  const options = question.question_options || question.options || question.pilihan || [];
+  const correctIndex = options.findIndex((option) => (
+    option.is_correct
+    || option.key === question.kunciJawaban
+    || option.key === question.kunci
+  ));
+  const jenis = question.tipe || question.jenis || getQuestionTypeLabel(question.question_type);
+  const pilihan = jenis === "Esai"
+    ? []
+    : options.length
+      ? options.map((option) => option.option_text || option.teks || option.jawaban || "")
+      : jenis === "Benar / Salah"
+        ? ["Benar", "Salah"]
+        : ["", "", "", ""];
+
+  return {
+    kelas: bank.class_level || question.kelas || "",
+    mapel: bank.subject_name || bank.name || question.mapel || "",
+    materi: bank.topic_name || question.materi || "",
+    jenis,
+    pertanyaan: question.question_text || question.pertanyaan || "",
+    pilihan,
+    kunci: Math.max(correctIndex, 0),
+    pembahasan: question.explanation || question.pembahasan || "",
+    bobot: question.default_points ?? question.points ?? question.bobot ?? 1,
+  };
+}
 
 export default function EditSoal() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const search = new URLSearchParams(location.search);
+  const bankId = location.state?.bankId || search.get("bankId");
+  const questionId = location.state?.questionId || search.get("questionId");
+  const [form, setForm] = useState(
+    location.state?.question
+      ? toEditForm(location.state.question, location.state.bank)
+      : EMPTY_FORM,
+  );
+  const [questionRecord, setQuestionRecord] = useState(location.state?.question || null);
+  const [bankRecord, setBankRecord] = useState(location.state?.bank || {});
+  const [isLoading, setIsLoading] = useState(Boolean(bankId && questionId));
+  const [isSaving, setIsSaving] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
-  // Data soal awal
-  const [form, setForm] = useState({
-    kelas: "XI",
-    mapel: "Matematika",
-    materi: "Komposisi & invers",
-    jenis: "Pilihan Ganda",
-    pertanyaan:
-      "Diketahui f(x) = 2x + 1 dan g(x) = x². Nilai (f ∘ g)(3) adalah ...",
-    pilihan: ["7", "10", "18", "19"],
-    kunci: 3,
-    pembahasan: "g(3)=9 sehingga f(9)=19.",
-    bobot: 5,
-  });
-
-  const [gambar, setGambar] = useState(null);
-  const [previewGambar, setPreviewGambar] = useState(null);
+  const [previewGambar, setPreviewGambar] = useState(
+    location.state?.question?.image_url || null,
+  );
   const [pesan, setPesan] = useState("");
+  const [saveError, setSaveError] = useState("");
+
+  useEffect(() => {
+    if (!bankId || !questionId) return undefined;
+
+    let active = true;
+    Promise.all([
+      b6ApiFetch(`/banks/${encodeURIComponent(bankId)}`),
+      b6ApiFetch(`/banks/${encodeURIComponent(bankId)}/questions`),
+    ])
+      .then(([bank, questions]) => {
+        if (!active) return;
+        const question = (Array.isArray(questions) ? questions : []).find(
+          (item) => String(item.id) === String(questionId),
+        );
+        if (!question) {
+          setLoadError("Soal yang dipilih tidak ditemukan pada bank soal ini.");
+          return;
+        }
+
+        setQuestionRecord(question);
+        setBankRecord(bank || {});
+        setForm(toEditForm(question, bank || {}));
+        setPreviewGambar(question.image_url || null);
+        setLoadError("");
+      })
+      .catch((error) => {
+        if (active) setLoadError(error.message);
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [bankId, questionId]);
 
   // Mengubah data form
   const handleChange = (field, value) => {
@@ -85,17 +166,15 @@ export default function EditSoal() {
       return;
     }
 
-    setGambar(file);
     setPreviewGambar(URL.createObjectURL(file));
   };
 
   // Hapus gambar
   const handleHapusGambar = () => {
-    if (previewGambar) {
+    if (previewGambar?.startsWith("blob:")) {
       URL.revokeObjectURL(previewGambar);
     }
 
-    setGambar(null);
     setPreviewGambar(null);
   };
 
@@ -124,23 +203,73 @@ export default function EditSoal() {
       return;
     }
 
-    // Simulasi penyimpanan data
-    const dataTersimpan = {
-      ...form,
-      gambar,
-    };
+    if (!bankId || !questionId || !questionRecord) {
+      setLoadError("Data soal belum berhasil dimuat. Perubahan belum dapat disimpan.");
+      return;
+    }
 
-    console.log("Data soal diperbarui:", dataTersimpan);
+    const type = form.jenis === "Esai"
+      ? "ESAI"
+      : form.jenis === "Benar / Salah"
+        ? "BENAR_SALAH"
+        : "PILIHAN_GANDA";
+    const options = form.jenis === "Esai"
+      ? []
+      : form.pilihan.map((optionText, index) => ({
+          option_label: form.jenis === "Benar / Salah"
+            ? (index === 0 ? "B" : "S")
+            : String.fromCharCode(65 + index),
+          option_text: optionText.trim(),
+          is_correct: index === form.kunci,
+        }));
 
-    setPesan("Perubahan soal berhasil disimpan!");
-
-    // Kembali ke halaman detail setelah menyimpan
-    setTimeout(() => {
-      navigate("/bank-soal/lihat-soal", {
-        state: { soal: dataTersimpan },
-      });
-    }, 700);
+    setSaveError("");
+    setIsSaving(true);
+    b6ApiFetch(`/banks/${encodeURIComponent(bankId)}/questions/${encodeURIComponent(questionId)}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        question_text: form.pertanyaan.trim(),
+        question_type: type,
+        default_points: Number(form.bobot),
+        explanation: form.pembahasan,
+        reference_answer: questionRecord.reference_answer,
+        grading_rubric: questionRecord.grading_rubric,
+        scoring_method: questionRecord.scoring_method,
+        image_url: questionRecord.image_url,
+        options,
+      }),
+    })
+      .then((savedQuestion) => {
+        setQuestionRecord(savedQuestion);
+        setPesan("Perubahan soal berhasil disimpan!");
+        const query = new URLSearchParams({ bankId, questionId });
+        navigate(`/b6/bank-soal/lihat-soal?${query.toString()}`, {
+          state: {
+            bankId,
+            questionId,
+            question: savedQuestion,
+            bank: bankRecord,
+            className: location.state?.className,
+            returnKelas: location.state?.returnKelas,
+            returnMapel: location.state?.returnMapel,
+            hasReachedStepFour: location.state?.hasReachedStepFour,
+          },
+        });
+      })
+        .catch((error) => setSaveError(error.message))
+      .finally(() => setIsSaving(false));
   };
+
+  const createdDate = questionRecord?.created_at
+      ? new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(
+          new Date(questionRecord.created_at),
+        )
+      : "Tanggal tidak tersedia";
+  const loadMessage = loadError || (
+      !bankId || !questionId
+        ? "ID bank atau soal tidak tersedia. Buka halaman edit dari soal yang dipilih."
+        : ""
+  );
 
   return (
     <div className="editsoal-layout">
@@ -161,7 +290,7 @@ export default function EditSoal() {
           <h1>Edit Soal</h1>
 
           <p>
-            Perbarui detail pertanyaan dan kunci jawaban di Bank Soal.
+            {loadMessage || "Perbarui detail pertanyaan dan kunci jawaban di Bank Soal."}
           </p>
 
         </header>
@@ -182,9 +311,15 @@ export default function EditSoal() {
               </p>
             </div>
 
-            <span>Dibuat • 13 Okt 2026</span>
+            <span>Dibuat • {createdDate}</span>
 
           </div>
+
+          {(isLoading || saveError) && (
+            <p className="field-hint" role={saveError ? "alert" : "status"}>
+              {isLoading ? "Memuat soal..." : saveError}
+            </p>
+          )}
 
           {/* KELAS MAPEL MATERI */}
           <div className="editsoal-grid">
@@ -198,6 +333,9 @@ export default function EditSoal() {
                   handleChange("kelas", e.target.value)
                 }
               >
+                {form.kelas && !["X", "XI", "XII"].includes(form.kelas) && (
+                  <option value={form.kelas}>{form.kelas}</option>
+                )}
                 <option value="X">X</option>
                 <option value="XI">XI</option>
                 <option value="XII">XII</option>
@@ -213,6 +351,14 @@ export default function EditSoal() {
                   handleChange("mapel", e.target.value)
                 }
               >
+                {form.mapel && ![
+                  "Matematika",
+                  "Bahasa Indonesia",
+                  "Bahasa Inggris",
+                  "Fisika",
+                  "Kimia",
+                  "Biologi",
+                ].includes(form.mapel) && <option>{form.mapel}</option>}
                 <option>Matematika</option>
                 <option>Bahasa Indonesia</option>
                 <option>Bahasa Inggris</option>
@@ -231,6 +377,13 @@ export default function EditSoal() {
                   handleChange("materi", e.target.value)
                 }
               >
+                {form.materi && ![
+                  "Komposisi & invers",
+                  "Fungsi",
+                  "Limit",
+                  "Turunan",
+                  "Integral",
+                ].includes(form.materi) && <option>{form.materi}</option>}
                 <option>Komposisi & invers</option>
                 <option>Fungsi</option>
                 <option>Limit</option>
@@ -518,8 +671,9 @@ export default function EditSoal() {
             <button
               type="submit"
               className="btn-edit-save"
+              disabled={isLoading || isSaving || !questionRecord}
             >
-              Simpan Perubahan
+              {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
             </button>
 
           </div>

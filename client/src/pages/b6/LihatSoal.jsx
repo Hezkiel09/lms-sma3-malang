@@ -1,34 +1,101 @@
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import "./LihatSoal.css";
 import { BookOpen, Eye } from "lucide-react";
+import { b6ApiFetch } from "./b6-api";
+import { getQuestionTypeLabel } from "./b6-utils";
+
+function toQuestionDetails(question, bank = {}, className) {
+  const options = question.pilihan || question.question_options || question.options || [];
+  const normalizedOptions = options.map((option) => {
+    const key = option.key || option.option_label || option.label || "";
+    return {
+      key: String(key).replace(/\.$/, ""),
+      label: `${String(key).replace(/\.$/, "")}.`,
+      jawaban: option.teks || option.option_text || option.jawaban || "",
+      isCorrect: Boolean(option.is_correct),
+    };
+  });
+  const correctOption = normalizedOptions.find((option) => option.isCorrect);
+  const correctKey = String(
+    question.kunciJawaban || question.kunci || correctOption?.key || "",
+  ).replace(/\.$/, "");
+  const date = question.created_at
+    ? new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(new Date(question.created_at))
+    : question.tanggal || "—";
+
+  return {
+    id: question.id,
+    bankId: bank.id || question.question_bank_id,
+    kelas: className || bank.class_level || "—",
+    mapel: bank.subject_name || bank.name || "—",
+    materi: bank.topic_name || "—",
+    jenis: question.tipe || question.jenis || getQuestionTypeLabel(question.question_type),
+    asal: `${question.metode || "Dibuat"} • ${date}`,
+    imageUrl: question.image_url || "",
+    pertanyaan: question.pertanyaan || question.question_text || "",
+    pilihan: normalizedOptions,
+    kunci: correctKey,
+    pembahasan: question.pembahasan || question.explanation || question.reference_answer || "Belum ada pembahasan.",
+    rumus: question.rumus
+      || (Array.isArray(question.grading_rubric)
+        ? question.grading_rubric.map((item) => item.text || item).join(" • ")
+        : ""),
+    bobot: question.default_points ?? question.points ?? question.bobot ?? 0,
+  };
+}
 
 export default function LihatSoal() {
   const navigate = useNavigate();
-
+  const location = useLocation();
+  const bankId = location.state?.bankId || new URLSearchParams(location.search).get("bankId");
+  const questionId = location.state?.questionId || new URLSearchParams(location.search).get("questionId");
+  const initialQuestion = location.state?.question || location.state?.soal;
+  const [soal, setSoal] = useState(
+    initialQuestion
+      ? toQuestionDetails(initialQuestion, location.state?.bank, location.state?.className)
+      : null,
+  );
+  const [loadError, setLoadError] = useState("");
+  const [isLoading, setIsLoading] = useState(Boolean(bankId && questionId && !initialQuestion));
   const [showDelete, setShowDelete] = useState(false);
 
-  // Contoh data soal
-  const [soal] = useState({
-    kelas: "XI",
-    mapel: "Matematika",
-    materi: "Komposisi & invers",
-    jenis: "Pilihan Ganda",
-    asal: "Dibuat • 13 Okt 2026",
-    pertanyaan:
-      "Diketahui f(x) = 2x + 1 dan g(x) = x². Nilai (f ∘ g)(3) adalah ...",
-    pilihan: [
-      { label: "A.", jawaban: "7" },
-      { label: "B.", jawaban: "10" },
-      { label: "C.", jawaban: "18" },
-      { label: "D.", jawaban: "19" },
-    ],
-    kunci: "D.",
-    pembahasan: "g(3)=9 sehingga f(9)=19.",
-    rumus: "g(3) = 3² = 9     →     (f ∘ g)(3) = f(9) = 2(9) + 1 = 19",
-    bobot: 5,
-  });
+  useEffect(() => {
+    if (!bankId || !questionId) return undefined;
+
+    let active = true;
+    Promise.all([
+      b6ApiFetch(`/banks/${encodeURIComponent(bankId)}`),
+      b6ApiFetch(`/banks/${encodeURIComponent(bankId)}/questions`),
+    ])
+      .then(([bank, questions]) => {
+        if (!active) return;
+        const question = (Array.isArray(questions) ? questions : []).find(
+          (item) => String(item.id) === String(questionId),
+        );
+        if (!question) {
+          setLoadError("Soal yang dipilih tidak ditemukan pada bank soal ini.");
+          return;
+        }
+        setSoal(toQuestionDetails(
+          question,
+          bank,
+          location.state?.className || bank.class_level,
+        ));
+        setLoadError("");
+      })
+      .catch((error) => {
+        if (active) setLoadError(error.message);
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [bankId, questionId, location.state?.className]);
 
   const handleDelete = () => {
     setShowDelete(false);
@@ -36,7 +103,33 @@ export default function LihatSoal() {
   };
 
   const handleEdit = () => {
-    navigate("/bank-soal/edit-soal");
+    const query = new URLSearchParams({ bankId, questionId });
+    navigate(`/b6/bank-soal/edit-soal?${query.toString()}`, {
+      state: {
+        question: location.state?.question || location.state?.soal || soal,
+        questionId,
+        bankId,
+        bank: location.state?.bank,
+        className: location.state?.className,
+        returnKelas: location.state?.returnKelas,
+        returnMapel: location.state?.returnMapel,
+        hasReachedStepFour: location.state?.hasReachedStepFour,
+      },
+    });
+  };
+
+  const handleBack = () => {
+    const { returnKelas, returnMapel } = location.state || {};
+    navigate("/b6/bank-soal", {
+      state: returnKelas && returnMapel
+        ? {
+            restoreStep: 3,
+            restoreKelas: returnKelas,
+            restoreMapel: returnMapel,
+            hasReachedStepFour: location.state?.hasReachedStepFour,
+          }
+        : undefined,
+    });
   };
 
   return (
@@ -58,7 +151,7 @@ export default function LihatSoal() {
           <h1>Lihat Soal</h1>
 
           <p>
-            Tinjau pertanyaan, kunci jawaban, dan pembahasan soal.
+            {loadError || "Tinjau pertanyaan, kunci jawaban, dan pembahasan soal."}
           </p>
 
         </header>
@@ -83,7 +176,7 @@ export default function LihatSoal() {
             </div>
 
             <span className="detail-type-badge">
-              {soal.jenis}
+              {soal?.jenis || "—"}
             </span>
 
           </div>
@@ -95,17 +188,17 @@ export default function LihatSoal() {
 
               <div className="information-item">
                 <span>Kelas</span>
-                <strong>{soal.kelas}</strong>
+                <strong>{soal?.kelas || "—"}</strong>
               </div>
 
               <div className="information-item">
                 <span>Mata pelajaran</span>
-                <strong>{soal.mapel}</strong>
+                <strong>{soal?.mapel || "—"}</strong>
               </div>
 
               <div className="information-item">
                 <span>Materi</span>
-                <strong>{soal.materi}</strong>
+                <strong>{soal?.materi || "—"}</strong>
               </div>
 
             </div>
@@ -114,17 +207,17 @@ export default function LihatSoal() {
 
               <div className="information-item">
                 <span>Jenis soal</span>
-                <strong>{soal.jenis}</strong>
+                <strong>{soal?.jenis || "—"}</strong>
               </div>
 
               <div className="information-item">
                 <span>Asal soal</span>
-                <strong>{soal.asal}</strong>
+                <strong>{soal?.asal || "—"}</strong>
               </div>
 
               <div className="information-item">
                 <span>Gambar soal</span>
-                <strong>Belum ada gambar</strong>
+                <strong>{soal?.imageUrl ? "Tersedia" : "Belum ada gambar"}</strong>
               </div>
 
             </div>
@@ -136,12 +229,12 @@ export default function LihatSoal() {
 
             <h3>Pertanyaan</h3>
 
-            <p>{soal.pertanyaan}</p>
+            <p>{isLoading ? "Memuat soal..." : soal?.pertanyaan || "Soal tidak tersedia."}</p>
 
           </div>
 
           {/* PILIHAN JAWABAN */}
-          <div className="detail-answers">
+          {soal?.pilihan.length > 0 && <div className="detail-answers">
 
             <h3>Pilihan Jawaban</h3>
 
@@ -152,7 +245,7 @@ export default function LihatSoal() {
             <div className="answer-list">
 
               {soal.pilihan.map((item) => {
-                const isCorrect = item.label === soal.kunci;
+                const isCorrect = item.key === soal.kunci;
 
                 return (
                   <div
@@ -178,7 +271,7 @@ export default function LihatSoal() {
 
             </div>
 
-          </div>
+          </div>}
 
           {/* PEMBAHASAN */}
           <div className="detail-discussion">
@@ -188,17 +281,17 @@ export default function LihatSoal() {
               Pembahasan
             </h3>
 
-            <p>{soal.pembahasan}</p>
+            <p>{soal?.pembahasan || "Belum ada pembahasan."}</p>
 
-            <div className="discussion-formula">
-              {soal.rumus}
-            </div>
+            {soal?.rumus && <div className="discussion-formula">{soal.rumus}</div>}
 
-            <strong>
-              Kunci jawaban: {soal.kunci} {soal.pilihan.find(
-                (item) => item.label === soal.kunci
-              )?.jawaban}
-            </strong>
+            {soal?.kunci && (
+              <strong>
+                Kunci jawaban: {soal.kunci} {soal.pilihan.find(
+                  (item) => item.key === soal.kunci
+                )?.jawaban}
+              </strong>
+            )}
 
           </div>
 
@@ -207,12 +300,13 @@ export default function LihatSoal() {
 
             <div className="score-title">
               <h3>Bobot Nilai</h3>
-              <strong>{soal.bobot} poin</strong>
+              <strong>{soal?.bobot ?? 0} poin</strong>
             </div>
 
             <p>
-              Siswa mendapat {soal.bobot} poin jika menjawab benar.
-              Jawaban salah atau kosong bernilai 0.
+              {soal?.jenis === "Esai"
+                ? "Nilai diberikan berdasarkan jawaban dan rubrik yang tersedia."
+                : `Siswa mendapat ${soal?.bobot ?? 0} poin jika menjawab benar. Jawaban salah atau kosong bernilai 0.`}
             </p>
 
           </div>
@@ -222,7 +316,7 @@ export default function LihatSoal() {
 
             <button
               className="btn-detail-back"
-              onClick={() => navigate("/bank-soal")}
+              onClick={handleBack}
             >
               Kembali
             </button>
