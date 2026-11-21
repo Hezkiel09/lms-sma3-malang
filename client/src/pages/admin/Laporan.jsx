@@ -37,7 +37,7 @@ export default function LaporanPage() {
   };
 
   // Unduh laporan berdasarkan jenis
-  const handleDownloadReport = async (reportType, reportTitle) => {
+  const handleDownloadReport = async (reportType) => {
     setIsProcessing(true);
     try {
       if (reportType === 'data_akademik') {
@@ -131,8 +131,7 @@ export default function LaporanPage() {
   };
 
   const handleBuatLaporan = () => {
-    const reportItem = mockLaporanCards.find((c) => c.type === selectedJenis) || mockLaporanCards[0];
-    handleDownloadReport(selectedJenis, reportItem.title);
+    handleDownloadReport(selectedJenis);
   };
 
   return (
@@ -274,7 +273,7 @@ export default function LaporanPage() {
                 {card.lastGenerated}
               </span>
               <button
-                onClick={() => handleDownloadReport(card.type, card.title)}
+                onClick={() => handleDownloadReport(card.type)}
                 disabled={isProcessing}
                 className="inline-flex items-center gap-1.5 rounded-full border border-[#008994] px-4 py-1.5 text-xs font-semibold text-[#008994] hover:bg-[#008994] hover:text-white transition-colors disabled:opacity-60 cursor-pointer"
               >

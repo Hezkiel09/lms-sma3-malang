@@ -26,6 +26,8 @@ export default function RekapHasilPage() {
   const [classes, setClasses] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [gradingAttemptId, setGradingAttemptId] = useState(null);
+  const [gradingMessage, setGradingMessage] = useState('');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPengerjaan, setFilterPengerjaan] = useState('Semua status');
@@ -41,15 +43,13 @@ export default function RekapHasilPage() {
   useEffect(() => {
     let active = true;
     Promise.all([
-      b6ApiFetch('/quizzes'),
-      b6ApiFetch('/master/users/students'),
+      b6ApiFetch('/attempts/recap/quizzes'),
       b6ApiFetch('/master/classes'),
     ])
-      .then(([quizData, studentData, classData]) => {
+      .then(([quizData, classData]) => {
         if (!active) return;
         const quizList = Array.isArray(quizData) ? quizData : [];
         setQuizzes(quizList);
-        setStudents(Array.isArray(studentData) ? studentData : []);
         setClasses(Array.isArray(classData) ? classData : []);
         if (quizList.length > 0) setSelectedAsesmen(String(quizList[0].id));
       })
@@ -73,12 +73,13 @@ export default function RekapHasilPage() {
     let active = true;
     Promise.all([
       b6ApiFetch(`/quizzes/${encodeURIComponent(selectedAsesmen)}`),
-      b6ApiFetch(`/attempts?quiz_id=${encodeURIComponent(selectedAsesmen)}`),
+      b6ApiFetch(`/attempts/recap?quiz_id=${encodeURIComponent(selectedAsesmen)}`),
     ])
       .then(([quizData, attemptData]) => {
         if (!active) return;
         setQuizDetail(quizData);
-        setAttempts(Array.isArray(attemptData) ? attemptData : []);
+        setAttempts(Array.isArray(attemptData?.attempts) ? attemptData.attempts : []);
+        setStudents(Array.isArray(attemptData?.students) ? attemptData.students : []);
         setAttemptsQuizId(selectedAsesmen);
         if (quizData.academic_term) setSelectedSemester(quizData.academic_term);
       })
@@ -115,7 +116,7 @@ export default function RekapHasilPage() {
 
     return roster.map((student, index) => {
       const attempt = attemptsByStudent.get(String(student.id));
-      const rawScore = attempt?.score;
+      const rawScore = attempt?.total_score ?? attempt?.score;
       const score = rawScore === null || rawScore === undefined || rawScore === ''
         ? null
         : Number(rawScore);
@@ -130,20 +131,22 @@ export default function RekapHasilPage() {
         ? Math.round((finishedAt - startedAt) / 60000)
         : null;
       const className = student.classes?.name
-        || classes.find((item) => String(item.id) === String(student.class_id))?.name;
+        || classes.find((item) => String(item.id) === String(student.class_id || student.classes?.id))?.name;
       const nis = student.nis || student.id;
       const passingGrade = Number(selectedQuiz?.passing_grade ?? 75);
 
       return {
         no: String(index + 1).padStart(2, '0'),
         studentId: student.id,
+        attemptId: attempt?.id,
         nama: student.name || 'Siswa',
         kode: `${nis}${className ? ` • ${className}` : ''}`,
         nilai: validScore ?? '—',
-        benar: '—',
-        salah: '—',
+        benar: attempt?.correct_count ?? '—',
+        salah: attempt?.incorrect_count ?? '—',
         waktu: elapsedMinutes === null ? '—' : `${elapsedMinutes} mnt`,
         pengerjaan,
+        gradingStatus: attempt?.grading_status || 'BELUM_MULAI',
         ketuntasan: validScore === null ? 'Belum dinilai'
           : validScore >= passingGrade ? 'Tuntas' : 'Belum tuntas',
       };
@@ -197,6 +200,31 @@ export default function RekapHasilPage() {
     alert('Rekap hasil berhasil diekspor dalam format Excel (.xlsx)!');
   };
 
+  const handleAutoGrade = async (attemptId) => {
+    if (!attemptId || !selectedAsesmen || gradingAttemptId) return;
+    setGradingAttemptId(attemptId);
+    setGradingMessage('');
+    setErrorMessage('');
+    try {
+      const result = await b6ApiFetch(`/attempts/${encodeURIComponent(attemptId)}/grade`, {
+        method: 'POST',
+      });
+      const refreshed = await b6ApiFetch(
+        `/attempts/recap?quiz_id=${encodeURIComponent(selectedAsesmen)}`,
+      );
+      setAttempts(Array.isArray(refreshed?.attempts) ? refreshed.attempts : []);
+      setStudents(Array.isArray(refreshed?.students) ? refreshed.students : []);
+      setAttemptsQuizId(selectedAsesmen);
+      setGradingMessage(result?.pending_manual_question_ids?.length
+        ? 'Soal pilihan ganda telah dinilai. Kuis ini masih memiliki soal esai yang memerlukan penilaian manual.'
+        : 'Penilaian otomatis berhasil diselesaikan.');
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setGradingAttemptId(null);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* 1. Breadcrumbs */}
@@ -236,6 +264,11 @@ export default function RekapHasilPage() {
       {errorMessage && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-medium text-red-700">
           {errorMessage}
+        </div>
+      )}
+      {gradingMessage && (
+        <div className="rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-xs font-medium text-[#005b64]">
+          {gradingMessage}
         </div>
       )}
 
@@ -751,13 +784,28 @@ export default function RekapHasilPage() {
 
                     {/* Aksi */}
                     <td className="py-3.5 px-4 text-center">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedSiswa(siswa)}
-                        className="inline-flex items-center text-xs font-semibold text-[#005b64] hover:text-[#003c44] hover:underline"
-                      >
-                        Detail &gt;
-                      </button>
+                      <div className="flex flex-col items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSiswa(siswa)}
+                          className="inline-flex items-center text-xs font-semibold text-[#005b64] hover:text-[#003c44] hover:underline"
+                        >
+                          Detail &gt;
+                        </button>
+                        {siswa.attemptId
+                          && siswa.pengerjaan === 'Selesai'
+                          && siswa.gradingStatus !== 'SELESAI_DINILAI'
+                          && (
+                            <button
+                              type="button"
+                              onClick={() => handleAutoGrade(siswa.attemptId)}
+                              disabled={Boolean(gradingAttemptId)}
+                              className="inline-flex items-center text-[11px] font-semibold text-cyan-700 hover:text-cyan-900 hover:underline disabled:opacity-50"
+                            >
+                              {gradingAttemptId === siswa.attemptId ? 'Menilai...' : 'Nilai Otomatis'}
+                            </button>
+                          )}
+                      </div>
                     </td>
                   </tr>
                 ))

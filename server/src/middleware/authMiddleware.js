@@ -1,7 +1,7 @@
 import { supabase } from '../config/supabase.js';
 
 /**
- * Middleware verifikasi Token JWT Supabase Auth
+ * Middleware verifikasi Token JWT Supabase Auth untuk SEMUA role
  */
 export const authenticateUser = async (req, res, next) => {
   try {
@@ -26,7 +26,29 @@ export const authenticateUser = async (req, res, next) => {
       });
     }
 
-    req.user = user;
+    // Ambil data profil dari master.users untuk menyertakan role
+    const { data: profile, error: profileError } = await supabase
+      .schema('master')
+      .from('users')
+      .select('id, name, email, role')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (profileError || !profile) {
+      return res.status(401).json({
+        success: false,
+        message: 'Akun terautentikasi tetapi data profil di sistem tidak ditemukan.',
+      });
+    }
+
+    req.user = {
+      ...user,
+      role: profile.role,
+      name: profile.name,
+      email: profile.email,
+    };
+    req.userProfile = profile;
+
     next();
   } catch (error) {
     return res.status(500).json({
@@ -38,30 +60,14 @@ export const authenticateUser = async (req, res, next) => {
 };
 
 /**
- * Middleware proteksi role Admin
+ * Middleware proteksi khusus role Admin
  */
 export const requireAdmin = async (req, res, next) => {
   try {
-    const userId = req.user.id;
-
-    const { data: userData, error } = await supabase
-      .schema('master')
-      .from('users')
-      .select('role')
-      .eq('id', userId)
-      .single();
-
-    if (error || !userData) {
-      return res.status(404).json({
-        success: false,
-        message: 'Data profil user tidak ditemukan.',
-      });
-    }
-
-    if (userData.role !== 'admin') {
+    if (!req.user || req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
-        message: 'Akses dilarang. Fitur ini khusus untuk Admin.',
+        message: 'Akses dilarang. Fitur ini khusus untuk Administrator.',
       });
     }
 
@@ -73,4 +79,19 @@ export const requireAdmin = async (req, res, next) => {
       error: error.message,
     });
   }
+};
+
+/**
+ * Middleware proteksi berbasis role (bisa multiple roles)
+ */
+export const requireRole = (allowedRoles = []) => {
+  return (req, res, next) => {
+    if (!req.user || !allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: `Akses ditolak. Fitur ini membutuhkan peran: ${allowedRoles.join(', ')}.`,
+      });
+    }
+    next();
+  };
 };

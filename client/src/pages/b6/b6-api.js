@@ -3,11 +3,16 @@ const API_BASE_URL = import.meta.env.VITE_B6_API_BASE_URL
   || 'http://localhost:3030/api/v1';
 
 export async function b6ApiFetch(path, options = {}) {
+  const token = localStorage.getItem('token')
+    || localStorage.getItem('admin_token')
+    || sessionStorage.getItem('b8-token')
+    || sessionStorage.getItem('b8-teacher-token');
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
       Accept: 'application/json',
       ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   });

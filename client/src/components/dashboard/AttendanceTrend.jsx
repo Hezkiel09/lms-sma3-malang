@@ -1,10 +1,7 @@
-import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { mockAttendanceTrend } from '../../data/mockData';
 
 export default function AttendanceTrend() {
-  const [selectedClass, setSelectedClass] = useState('Semua kelas');
-
   return (
     <div className="flex flex-col justify-between rounded-2xl border border-slate-100 bg-white p-6 shadow-xs">
       {/* Header with Title and Dropdown */}
@@ -19,7 +16,7 @@ export default function AttendanceTrend() {
         {/* Dropdown filter */}
         <div className="relative inline-block">
           <button className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors">
-            <span>{selectedClass}</span>
+            <span>Semua kelas</span>
             <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
           </button>
         </div>

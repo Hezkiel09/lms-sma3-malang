@@ -229,6 +229,8 @@ export default function TambahSoalKuisPage() {
               ? 'PILIHAN_GANDA'
               : jenisSoal === 'Benar / Salah' ? 'BENAR_SALAH' : 'ESAI',
             default_points: bobot,
+            reference_answer: jenisSoal === 'Esai' ? jawabanAcuan : null,
+            grading_rubric: jenisSoal === 'Esai' ? rubricList : null,
             ...(options ? { options } : {}),
           }),
         },

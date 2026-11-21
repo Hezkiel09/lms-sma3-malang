@@ -7,11 +7,10 @@ import {
   Megaphone,
   FileText,
   User,
-  LogOut,
   X,
-  BookOpen,
 } from 'lucide-react';
 import logosmanti from '../../assets/logo smanti.png';
+import SidebarFooter from './SidebarFooter';
 
 const menuItems = [
   { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
@@ -101,24 +100,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
           </nav>
         </div>
 
-        {/* Bottom Switch to Guru & Keluar Button */}
-        <div className="p-4 border-t border-slate-100 space-y-2">
-          <NavLink
-            to="/b6/buat-kuis"
-            className="flex items-center justify-center gap-2 rounded-xl bg-cyan-50/80 px-4 py-2 text-xs font-semibold text-[#008994] hover:bg-cyan-100/80 transition-colors"
-          >
-            <BookOpen className="h-4 w-4" />
-            <span>Beralih ke Portal Guru</span>
-          </NavLink>
-
-          <NavLink
-            to="/login"
-            className="flex items-center justify-between rounded-xl bg-red-50/80 px-4 py-2.5 text-sm font-semibold text-red-500 hover:bg-red-100/80 transition-colors"
-          >
-            <span>Keluar</span>
-            <LogOut className="h-4 w-4" />
-          </NavLink>
-        </div>
+        <SidebarFooter onClose={onClose} />
       </aside>
     </>
   );
