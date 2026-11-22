@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3030/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
 
 const clearStoredTokens = () => {
   ['token', 'admin_token', 'user', 'admin_user'].forEach((key) => localStorage.removeItem(key));

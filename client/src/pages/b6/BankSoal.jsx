@@ -95,9 +95,11 @@ export default function BankSoalPage() {
   // Data states
   const [banks, setBanks] = useState([]);
   const [masterClasses, setMasterClasses] = useState([]);
+  const [masterCourses, setMasterCourses] = useState([]);
   const [questionsByBank, setQuestionsByBank] = useState({});
   const [importedQuestionCount, setImportedQuestionCount] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [provisioningCourseId, setProvisioningCourseId] = useState('');
   const [editingQuestionId, setEditingQuestionId] = useState(null);
   const [isSavingQuestion, setIsSavingQuestion] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -131,11 +133,12 @@ export default function BankSoalPage() {
 
     const loadBanks = async () => {
       try {
-        const [bankResult, importResult, subjectResult, classResult] = await Promise.allSettled([
+        const [bankResult, importResult, subjectResult, classResult, courseResult] = await Promise.allSettled([
           b6ApiFetch('/banks'),
           b6ApiFetch('/imports'),
           b6ApiFetch('/master/academic/subjects'),
           b6ApiFetch('/master/classes'),
+          b6ApiFetch('/master/courses'),
         ]);
         if (!active) return;
         if (bankResult.status === 'rejected') throw bankResult.reason;
@@ -162,6 +165,13 @@ export default function BankSoalPage() {
             `Data kelas master gagal dimuat. ${classResult.reason.message}`,
             'error',
           );
+        }
+
+        if (courseResult.status === 'fulfilled') {
+          setMasterCourses(Array.isArray(courseResult.value) ? courseResult.value : []);
+        } else {
+          setMasterCourses([]);
+          showToast(`Data Course gagal dimuat. ${courseResult.reason.message}`, 'error');
         }
 
         if (subjectResult.status === 'rejected') {
@@ -227,26 +237,49 @@ export default function BankSoalPage() {
         totalSoal: 0,
         mapelList: [],
       };
-      const linkedBankIds = new Set();
-      banks.forEach((bank) => {
-        const isLinkedToClass = (bank.courses || []).some(
-          (course) => String(course.class_id) === String(masterClass.id)
-            && String(course.subject_id) === String(bank.subject_id),
-        );
-        if (isLinkedToClass && !linkedBankIds.has(String(bank.id))) {
-          linkedBankIds.add(String(bank.id));
-          const mapel = {
-            id: bank.id,
-            bankId: bank.id,
-            subjectId: bank.subject_id,
-            nama: bank.subject_name,
-            materi: bank.topic_name || bank.name || 'Materi belum ditentukan',
-            tipeSoal: 'Lihat jenis soal yang tersedia',
-            totalSoal: questionsByBank[bank.id]?.length || 0,
-          };
-          kelas.mapelList.push(mapel);
-          kelas.totalSoal += mapel.totalSoal;
-        }
+      const classCourses = masterCourses.filter(
+        (course) => String(course.class_id) === String(masterClass.id)
+          && course.subject_id,
+      );
+      classCourses.forEach((course) => {
+        const subjectId = String(course.subject_id);
+        const subjectName = course.subject?.name
+          || course.subjects?.name
+          || banks.find((bank) => String(bank.subject_id) === subjectId)?.subject_name
+          || 'Mata pelajaran';
+        const linkedBanks = banks.filter((bank) => (
+          String(bank.subject_id) === subjectId
+            && (bank.courses || []).some(
+              (linkedCourse) => String(linkedCourse.id) === String(course.id),
+            )
+        ));
+
+        const courseEntries = linkedBanks.length
+          ? linkedBanks.map((bank) => ({
+              id: bank.id,
+              bankId: bank.id,
+              courseId: course.id,
+              course,
+              subjectId: course.subject_id,
+              nama: subjectName,
+              materi: bank.topic_name || bank.name || 'Materi belum ditentukan',
+              tipeSoal: 'Lihat jenis soal yang tersedia',
+              totalSoal: questionsByBank[bank.id]?.length || 0,
+            }))
+          : [{
+              id: `course-${course.id}`,
+              bankId: null,
+              courseId: course.id,
+              course,
+              subjectId: course.subject_id,
+              nama: subjectName,
+              materi: 'Bank soal umum',
+              tipeSoal: 'Belum ada soal',
+              totalSoal: 0,
+            }];
+
+        kelas.mapelList.push(...courseEntries);
+        kelas.totalSoal += courseEntries.reduce((total, entry) => total + entry.totalSoal, 0);
       });
 
       kelas.jumlahMapel = new Set(
@@ -259,7 +292,7 @@ export default function BankSoalPage() {
     });
 
     return Array.from(grouped.values());
-  }, [banks, masterClasses, questionsByBank]);
+  }, [banks, masterClasses, masterCourses, questionsByBank]);
 
   const questions = selectedMapel
     ? questionsByBank[selectedMapel.bankId] || []
@@ -297,8 +330,60 @@ export default function BankSoalPage() {
     navigateToStep(2, kelas, null, 2);
   };
 
-  const handlePilihMapel = (mapel) => {
-    navigateToStep(3, selectedKelas, mapel);
+  const handlePilihMapel = async (mapel) => {
+    if (mapel.bankId) {
+      navigateToStep(3, selectedKelas, mapel);
+      return;
+    }
+
+    const course = mapel.course;
+    if (!course?.id || !course.subject_id) {
+      showToast('Data Course tidak lengkap untuk menyiapkan bank soal.', 'error');
+      return;
+    }
+
+    setProvisioningCourseId(String(course.id));
+    try {
+      // Recheck before creating so returning to this page reuses an existing bank.
+      const currentBanks = await b6ApiFetch('/banks');
+      const existingBank = (Array.isArray(currentBanks) ? currentBanks : []).find((bank) => (
+        String(bank.subject_id) === String(course.subject_id)
+          && (bank.courses || []).some(
+            (linkedCourse) => String(linkedCourse.id) === String(course.id),
+          )
+      ));
+
+      const bank = existingBank || await b6ApiFetch('/banks', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: `Bank Soal ${mapel.nama} - ${selectedKelas.nama}`,
+          description: `Bank soal untuk ${mapel.nama} pada ${selectedKelas.nama}.`,
+          subject_id: course.subject_id,
+          subject_name: mapel.nama,
+          teacher_id: course.teacher_id,
+          class_level: course.classes?.level || course.classes?.name || selectedKelas.nama,
+          topic_name: 'Umum',
+          course_ids: [String(course.id)],
+        }),
+      });
+
+      if (!bank?.id) throw new Error('Server tidak mengembalikan bank soal yang dibuat.');
+      setBanks((previous) => [
+        ...previous.filter((item) => String(item.id) !== String(bank.id)),
+        bank,
+      ]);
+      setQuestionsByBank((previous) => ({ ...previous, [bank.id]: previous[bank.id] || [] }));
+      navigateToStep(3, selectedKelas, {
+        ...mapel,
+        id: bank.id,
+        bankId: bank.id,
+        materi: bank.topic_name || bank.name || mapel.materi,
+      });
+    } catch (error) {
+      showToast(error.message, 'error');
+    } finally {
+      setProvisioningCourseId('');
+    }
   };
 
   const handleOpenStepFour = () => {
@@ -792,7 +877,7 @@ export default function BankSoalPage() {
             ) : (
               <div className="space-y-4">
                 {selectedKelas.mapelList.map((mapel) => (
-                  <div key={mapel.bankId} className="rounded-2xl border border-cyan-100/90 bg-white p-5 shadow-2xs space-y-4">
+                  <div key={mapel.id} className="rounded-2xl border border-cyan-100/90 bg-white p-5 shadow-2xs space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3.5">
                         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#e0f7fa] text-[#006064]">
@@ -820,9 +905,12 @@ export default function BankSoalPage() {
                       </span>
                       <button
                         onClick={() => handlePilihMapel(mapel)}
+                        disabled={provisioningCourseId === String(mapel.courseId)}
                         className="rounded-xl bg-[#004d57] px-5 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] transition-colors"
                       >
-                        Lihat Soal {mapel.nama}
+                        {provisioningCourseId === String(mapel.courseId)
+                          ? 'Menyiapkan Bank Soal...'
+                          : `Lihat Soal ${mapel.nama}`}
                       </button>
                     </div>
                   </div>
