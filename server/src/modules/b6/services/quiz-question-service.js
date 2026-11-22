@@ -4,7 +4,7 @@ export const getQuestionsByQuizId = async (quizId) => {
   const { data, error } = await supabase
     .schema('b6')
     .from('quiz_questions')
-    .select('*, questions(*, options:question_options(*))')
+    .select('id, quiz_id, question_id, points, question_order, questions(id, question_text, question_type, image_url, options:question_options(id, option_label, option_text))')
     .eq('quiz_id', quizId)
     .order('question_order', { ascending: true });
 

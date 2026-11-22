@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import * as quizController from '../controllers/quiz-controller.js';
+import { authenticateUser } from '../../../middleware/authMiddleware.js';
 
 const router = Router();
 
 // CRUD Kuis Utama
 router.get('/', quizController.getAllQuizzes);
-router.get('/:id', quizController.getQuizById);
+router.get('/:id', authenticateUser, quizController.getQuizById);
 router.post('/', quizController.createQuiz);
 router.put('/:id', quizController.updateQuiz);
 router.patch('/:id', quizController.updateQuiz);

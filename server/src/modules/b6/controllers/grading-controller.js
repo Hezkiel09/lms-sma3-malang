@@ -7,7 +7,7 @@ export const gradeAttemptController = async (req, res) => {
     const { data: attempt, error: attemptError } = await supabase
       .schema('b6')
       .from('quiz_attempts')
-      .select('id, quiz_id')
+      .select('id, quiz_id, student_id, status')
       .eq('id', attemptId)
       .maybeSingle();
 
@@ -21,11 +21,25 @@ export const gradeAttemptController = async (req, res) => {
       .eq('id', req.user.id)
       .maybeSingle();
     if (userError) throw userError;
-    if (!user || !['admin', 'teacher'].includes(user.role)) {
-      return res.status(403).json({ success: false, message: 'Hanya guru pemilik quiz atau admin yang dapat menjalankan grading.' });
+    if (!user || !['admin', 'teacher', 'student'].includes(user.role)) {
+      return res.status(403).json({ success: false, message: 'Akun ini tidak diizinkan menjalankan grading.' });
     }
 
-    if (user.role === 'teacher') {
+    if (user.role === 'student') {
+      const { data: student, error: studentError } = await supabase
+        .schema('master')
+        .from('students')
+        .select('id')
+        .eq('user_id', req.user.id)
+        .maybeSingle();
+      if (studentError) throw studentError;
+      if (!student || String(attempt.student_id) !== String(student.id)) {
+        return res.status(403).json({ success: false, message: 'Siswa hanya dapat menilai attempt miliknya.' });
+      }
+      if (attempt.status !== 'SELESAI') {
+        return res.status(409).json({ success: false, message: 'Attempt harus disubmit sebelum grading.' });
+      }
+    } else if (user.role === 'teacher') {
       const { data: teacher, error: teacherError } = await supabase
         .schema('master')
         .from('teachers')

@@ -37,6 +37,7 @@ const getQuizById = async (req, res) => {
                 *,
                 quiz_questions (
                     id,
+                    question_id,
                     points,
                     question_order,
                     questions (
@@ -50,10 +51,38 @@ const getQuizById = async (req, res) => {
 
         if (error) throw error;
 
+        let quizResponse = data;
+        if (req.user?.role === 'student') {
+            quizResponse = {
+                ...data,
+                quiz_questions: (data.quiz_questions || []).map((quizQuestion) => {
+                    const question = quizQuestion.questions || {};
+                    const options = question.question_options || question.options || [];
+                    return {
+                        id: quizQuestion.id,
+                        question_id: quizQuestion.question_id,
+                        points: quizQuestion.points,
+                        question_order: quizQuestion.question_order,
+                        questions: {
+                            id: question.id,
+                            question_text: question.question_text,
+                            question_type: question.question_type,
+                            image_url: question.image_url,
+                            options: options.map(({ id: optionId, option_label, option_text }) => ({
+                                id: optionId,
+                                option_label,
+                                option_text,
+                            })),
+                        },
+                    };
+                }),
+            };
+        }
+
         return res.status(200).json({
             success: true,
             message: 'Berhasil mengambil detail kuis',
-            data: data
+            data: quizResponse
         });
     } catch (error) {
         console.error('Error fetching quiz detail:', error);

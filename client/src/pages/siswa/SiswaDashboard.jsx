@@ -1,103 +1,74 @@
-import { useAuth } from '../../context/AuthContext';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { School, User, BookOpen, Calendar, LogOut } from 'lucide-react';
+import { BookOpen, Calendar, Loader2, User } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 
 export default function SiswaDashboard() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const [quizzes, setQuizzes] = useState([]);
+  const [attempts, setAttempts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const profile = user?.profile || {};
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
+  useEffect(() => {
+    let active = true;
+    Promise.all([apiFetch('/quizzes'), apiFetch('/attempts')])
+      .then(([quizData, attemptData]) => {
+        if (!active) return;
+        const classQuizzes = (Array.isArray(quizData) ? quizData : []).filter(
+          (quiz) => !profile.class_id || String(quiz.class_id) === String(profile.class_id),
+        );
+        setQuizzes(classQuizzes);
+        setAttempts(Array.isArray(attemptData) ? attemptData : []);
+      })
+      .catch((requestError) => {
+        if (active) setError(requestError.message || 'Gagal memuat kuis.');
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [profile.class_id]);
 
-  const studentProfile = user?.profile || {};
+  const attemptByQuiz = new Map();
+  attempts.forEach((attempt) => {
+    if (!attemptByQuiz.has(String(attempt.quiz_id))) attemptByQuiz.set(String(attempt.quiz_id), attempt);
+  });
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white px-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#008994] text-white">
-            <School className="h-6 w-6" />
-          </div>
-          <div>
-            <h1 className="text-base font-bold text-slate-800 leading-tight">SMANTI CONNECT</h1>
-            <p className="text-[11px] text-slate-400">Portal Akademik Siswa SMAN 3 Malang</p>
-          </div>
-        </div>
+    <div className="mx-auto max-w-5xl space-y-6">
+      <div className="rounded-2xl bg-gradient-to-r from-[#008994] to-[#0b5566] p-8 text-white shadow-sm">
+        <span className="inline-block rounded-full bg-white/20 px-3 py-1 text-xs font-medium">Siswa Aktif</span>
+        <h1 className="mt-2 text-2xl font-bold">Selamat Datang, {user?.name}!</h1>
+        <p className="mt-1 text-sm text-cyan-100">Lihat kuis untuk kelasmu dan lanjutkan attempt yang belum selesai.</p>
+      </div>
 
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 rounded-xl border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors cursor-pointer"
-        >
-          <LogOut className="h-4 w-4" />
-          <span>Keluar</span>
-        </button>
-      </header>
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="mb-2 flex items-center gap-3 text-slate-400"><User className="h-5 w-5 text-[#008994]" /><span className="text-xs font-semibold uppercase tracking-wider">Identitas</span></div><p className="text-lg font-bold text-slate-800">{user?.name || '-'}</p><p className="mt-1 text-xs text-slate-400">NIS: {profile.nis || '-'}</p></div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="mb-2 flex items-center gap-3 text-slate-400"><BookOpen className="h-5 w-5 text-[#008994]" /><span className="text-xs font-semibold uppercase tracking-wider">Kelas</span></div><p className="text-lg font-bold text-slate-800">{profile.classes?.name || '-'}</p><p className="mt-1 text-xs text-slate-400">{profile.classes?.level || ''} {profile.classes?.major || ''}</p></div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="mb-2 flex items-center gap-3 text-slate-400"><Calendar className="h-5 w-5 text-[#008994]" /><span className="text-xs font-semibold uppercase tracking-wider">Asesmen</span></div><p className="text-lg font-bold text-slate-800">{quizzes.length} kuis</p><p className="mt-1 text-xs text-slate-400">Tersedia untuk kelasmu</p></div>
+      </div>
 
-      {/* Main Content */}
-      <main className="max-w-5xl mx-auto p-6 space-y-6">
-        {/* Welcome Card */}
-        <div className="rounded-2xl bg-gradient-to-r from-[#008994] to-[#0b5566] p-8 text-white shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <span className="inline-block rounded-full bg-white/20 px-3 py-1 text-xs font-medium backdrop-blur-sm">
-                Siswa Aktif
-              </span>
-              <h2 className="mt-2 text-2xl font-bold">Selamat Datang, {user?.name}!</h2>
-              <p className="mt-1 text-sm text-cyan-100">
-                Akses materi, jadwal, tugas, dan presensi belajar kamu di SMANTI Connect.
-              </p>
-            </div>
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-sm text-2xl font-bold">
-              {user?.name?.charAt(0) || 'S'}
-            </div>
-          </div>
-        </div>
-
-        {/* Info Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-            <div className="flex items-center gap-3 mb-2 text-slate-400">
-              <User className="h-5 w-5 text-[#008994]" />
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Identitas Siswa</span>
-            </div>
-            <p className="text-lg font-bold text-slate-800">{user?.name}</p>
-            <p className="text-xs text-slate-400 mt-1">NIS: {studentProfile.nis || '-'}</p>
-            <p className="text-xs text-slate-400">Email: {user?.email}</p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-            <div className="flex items-center gap-3 mb-2 text-slate-400">
-              <BookOpen className="h-5 w-5 text-[#008994]" />
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Kelas & Tingkat</span>
-            </div>
-            <p className="text-lg font-bold text-slate-800">{studentProfile.classes?.name || '-'}</p>
-            <p className="text-xs text-slate-400 mt-1">Tingkat: {studentProfile.classes?.level || '-'}</p>
-            <p className="text-xs text-slate-400">Jurusan: {studentProfile.classes?.major || '-'}</p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-            <div className="flex items-center gap-3 mb-2 text-slate-400">
-              <Calendar className="h-5 w-5 text-[#008994]" />
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tahun Pelajaran</span>
-            </div>
-            <p className="text-lg font-bold text-slate-800">2026 / 2027</p>
-            <p className="text-xs text-slate-400 mt-1">Semester Ganjil</p>
-            <p className="text-xs text-emerald-600 font-semibold">Status: Terdaftar Aktif</p>
-          </div>
-        </div>
-
-        {/* Informasi Modul */}
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
-          <h3 className="text-sm font-bold text-slate-700">Area Portal Siswa</h3>
-          <p className="mt-1 text-xs text-slate-400 max-w-md mx-auto">
-            Halaman ini terintegrasi dengan akun Supabase Auth dan profil master siswa.
-            Modul materi pembelajaran dan presensi otomatis dapat diakses oleh akun ini.
-          </p>
-        </div>
-      </main>
+      <section id="asesmen" className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xs">
+        <div className="mb-5"><h2 className="text-lg font-bold text-slate-800">Kuis & Asesmen</h2><p className="mt-1 text-sm text-slate-500">Pilih kuis untuk mulai atau lanjutkan pengerjaan.</p></div>
+        {loading ? <div className="flex items-center gap-2 py-8 text-sm text-slate-500"><Loader2 className="h-5 w-5 animate-spin" />Memuat daftar kuis...</div>
+          : error ? <div role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</div>
+            : quizzes.length === 0 ? <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">Belum ada kuis untuk kelas ini.</p>
+              : <div className="grid gap-4 md:grid-cols-2">{quizzes.map((quiz) => {
+                const attempt = attemptByQuiz.get(String(quiz.id));
+                const isFinished = attempt?.status === 'SELESAI';
+                return <article key={quiz.id} className="rounded-xl border border-slate-200 p-5">
+                  <div className="flex items-start justify-between gap-3"><div><h3 className="font-bold text-slate-800">{quiz.title}</h3><p className="mt-1 text-sm text-slate-500">{quiz.description || 'Asesmen'}</p></div><span className="shrink-0 rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-800">{quiz.status || '—'}</span></div>
+                  <p className="mt-3 text-xs text-slate-500">Durasi: {quiz.duration_minutes || '—'} menit</p>
+                  <button type="button" onClick={() => navigate(isFinished
+                    ? `/siswa/hasil-akhir?attemptId=${encodeURIComponent(attempt.id)}`
+                    : `/siswa/mengerjakan-kuis?quizId=${encodeURIComponent(quiz.id)}`)} className="mt-4 w-full rounded-xl bg-[#004d57] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#003c44]">
+                    {isFinished ? 'Lihat Hasil' : attempt?.status === 'SEDANG_MENGERJAKAN' ? 'Lanjutkan Kuis' : 'Mulai Kuis'}
+                  </button>
+                </article>;
+              })}</div>}
+      </section>
     </div>
   );
 }

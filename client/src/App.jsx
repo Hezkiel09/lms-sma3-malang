@@ -24,6 +24,9 @@ import LihatSoalPage from './pages/b6/LihatSoal';
 import BuatSoal from './pages/b6/BuatSoal';
 
 import SiswaDashboard from './pages/siswa/SiswaDashboard';
+import MengerjakanKuisPage from './pages/siswa/MengerjakanKuis';
+import HasilAkhirPage from './pages/siswa/HasilAkhir';
+import SiswaLayout from './layouts/SiswaLayout';
 import OrtuDashboard from './pages/ortu/OrtuDashboard';
 
 function GuruPlaceholder({ title }) {
@@ -39,6 +42,10 @@ function GuruPlaceholder({ title }) {
       </div>
     </div>
   );
+}
+
+function StudentPlaceholder({ title }) {
+  return <div className="mx-auto max-w-5xl rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center"><h1 className="font-bold text-slate-800">{title}</h1><p className="mt-2 text-sm text-slate-500">Halaman ini belum tersedia.</p></div>;
 }
 
 function RootRedirect() {
@@ -77,7 +84,16 @@ export default function App() {
             <Route path="*" element={<Navigate to="/b6/bank-soal" replace />} />
           </Route>
 
-          <Route path="/siswa" element={<ProtectedRoute allowedRoles={['student', 'admin']}><SiswaDashboard /></ProtectedRoute>} />
+          <Route path="/siswa" element={<ProtectedRoute allowedRoles={['student']}><SiswaLayout /></ProtectedRoute>}>
+            <Route index element={<SiswaDashboard />} />
+            <Route path="beranda" element={<SiswaDashboard />} />
+            <Route path="kuis" element={<SiswaDashboard />} />
+            <Route path="mengerjakan-kuis" element={<MengerjakanKuisPage />} />
+            <Route path="hasil-akhir" element={<HasilAkhirPage />} />
+            <Route path="presensi" element={<StudentPlaceholder title="Presensi" />} />
+            <Route path="pesan" element={<StudentPlaceholder title="Pesan" />} />
+            <Route path="*" element={<Navigate to="/siswa/beranda" replace />} />
+          </Route>
           <Route path="/ortu" element={<ProtectedRoute allowedRoles={['parent', 'admin']}><OrtuDashboard /></ProtectedRoute>} />
 
           <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout /></ProtectedRoute>}>
