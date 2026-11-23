@@ -26,6 +26,7 @@ export default function HasilAkhir() {
   const [searchParams] = useSearchParams();
   const attemptId = location.state?.attemptId || searchParams.get('attemptId');
   const essayNotPersisted = location.state?.essayNotPersisted || searchParams.get('essayNotPersisted') === '1';
+  const gradingNotice = location.state?.gradingNotice || '';
   const [loading, setLoading] = useState(Boolean(attemptId));
   const [error, setError] = useState('');
   const [stats, setStats] = useState({
@@ -89,6 +90,7 @@ export default function HasilAkhir() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h1 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">Hasil Akhir</h1><p className="mt-1 text-sm text-slate-400">Ringkasan hasil asesmen {stats.title}.</p></div><span className="inline-flex self-start rounded-full border border-[#008994]/20 bg-[#e6f7f8] px-4 py-1.5 text-xs font-semibold text-[#005b64]">{stats.title}</span></div>
       <div className="space-y-6 rounded-2xl border border-slate-100 bg-white p-6 shadow-xs sm:p-8">
         {error && <div role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</div>}
+        {gradingNotice && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{gradingNotice}</div>}
         {loading ? <div className="flex min-h-40 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-[#008994]" /></div> : !error && <>
           <div className="flex items-start justify-between"><div><h2 className="text-xl font-bold text-slate-800">{stats.title}</h2><p className="mt-0.5 text-sm text-slate-400">Hasil akhir asesmen</p></div>{stats.score != null && <span className="rounded-full bg-[#e6f7f8] px-3 py-1 text-xs font-bold text-[#008994]">{Math.round(stats.score)}%</span>}</div>
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-3"><div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:col-span-2"><div className="rounded-xl border border-[#008994]/15 bg-[#f0fafb] p-5"><span className="text-xs font-semibold text-[#008994]">Nilai</span><p className="mt-1 text-2xl font-bold text-[#008994]">{stats.score == null ? 'Menunggu penilaian' : `${stats.score} / 100`}</p></div><div className="rounded-xl border border-slate-200 bg-white p-5"><div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500"><Clock className="h-3.5 w-3.5" />Durasi</div><p className="mt-1 text-2xl font-bold text-slate-800">{stats.duration == null ? '—' : formatDuration(stats.duration)}</p></div></div><div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white p-5">{stats.score == null ? <span className="text-center text-sm text-slate-500">Nilai belum tersedia</span> : <ScoreDonut percentage={Math.max(0, Math.min(100, stats.score))} />}</div></div>

@@ -1,5 +1,26 @@
 import * as masterService from './master.service.js';
 
+export const getStudentCourses = async (req, res) => {
+  if (req.user?.role !== 'student') {
+    return res.status(403).json({ success: false, message: 'Endpoint ini khusus untuk siswa.', data: null });
+  }
+  try {
+    const courses = await masterService.getStudentCoursesService(req.user.id);
+    return res.status(200).json({
+      success: true,
+      message: 'Berhasil mengambil course kelas siswa',
+      data: courses,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Gagal mengambil course kelas siswa',
+      data: null,
+      error: error.message,
+    });
+  }
+};
+
 //dashboard
 export const getDashboardSummary = async (req, res) => {
   try {

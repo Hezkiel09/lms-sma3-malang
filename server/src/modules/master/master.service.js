@@ -1,5 +1,25 @@
 import { supabase, supabaseAdmin } from '../../config/supabase.js';
 
+export const getStudentCoursesService = async (userId) => {
+  const { data: student, error: studentError } = await supabase
+    .schema('master')
+    .from('students')
+    .select('class_id')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (studentError) throw studentError;
+  if (!student?.class_id) return [];
+
+  const { data, error } = await supabase
+    .schema('master')
+    .from('courses')
+    .select('id, class_id, subject_id, academic_year, semester, subjects:subjects!courses_subject_id_fkey(id, name)')
+    .eq('class_id', student.class_id)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+};
+
 // --- KELAS ---
 export const getAllClassesService = async () => {
   const { data, error } = await supabase

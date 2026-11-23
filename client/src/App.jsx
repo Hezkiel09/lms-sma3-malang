@@ -65,6 +65,8 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/login/:audience" element={<LoginPage />} />
+          <Route path="/lupa-kata-sandi/:audience" element={<LoginPage />} />
 
           <Route path="/b6" element={<ProtectedRoute allowedRoles={['teacher']}><GuruLayout /></ProtectedRoute>}>
             <Route index element={<Navigate to="/b6/bank-soal" replace />} />

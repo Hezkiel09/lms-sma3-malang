@@ -8,6 +8,7 @@ export default function SiswaDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [quizzes, setQuizzes] = useState([]);
+  const [courses, setCourses] = useState([]);
   const [attempts, setAttempts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -15,14 +16,17 @@ export default function SiswaDashboard() {
 
   useEffect(() => {
     let active = true;
-    Promise.all([apiFetch('/quizzes'), apiFetch('/attempts')])
-      .then(([quizData, attemptData]) => {
+    Promise.all([apiFetch('/quizzes'), apiFetch('/attempts'), apiFetch('/master/student/courses')])
+      .then(([quizData, attemptData, courseData]) => {
         if (!active) return;
-        const classQuizzes = (Array.isArray(quizData) ? quizData : []).filter(
-          (quiz) => !profile.class_id || String(quiz.class_id) === String(profile.class_id),
-        );
+        const classQuizzes = (Array.isArray(quizData) ? quizData : []).filter((quiz) => (
+          profile.class_id
+          && String(quiz.class_id) === String(profile.class_id)
+          && String(quiz.status || '').toUpperCase() !== 'DRAFT'
+        ));
         setQuizzes(classQuizzes);
         setAttempts(Array.isArray(attemptData) ? attemptData : []);
+        setCourses(Array.isArray(courseData) ? courseData : []);
       })
       .catch((requestError) => {
         if (active) setError(requestError.message || 'Gagal memuat kuis.');
@@ -41,7 +45,7 @@ export default function SiswaDashboard() {
       <div className="rounded-2xl bg-gradient-to-r from-[#008994] to-[#0b5566] p-8 text-white shadow-sm">
         <span className="inline-block rounded-full bg-white/20 px-3 py-1 text-xs font-medium">Siswa Aktif</span>
         <h1 className="mt-2 text-2xl font-bold">Selamat Datang, {user?.name}!</h1>
-        <p className="mt-1 text-sm text-cyan-100">Lihat kuis untuk kelasmu dan lanjutkan attempt yang belum selesai.</p>
+        <p className="mt-1 text-sm text-cyan-100">Lihat mata pelajaran kelasmu, lalu mulai atau lanjutkan kuis yang tersedia.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
@@ -50,11 +54,19 @@ export default function SiswaDashboard() {
         <div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="mb-2 flex items-center gap-3 text-slate-400"><Calendar className="h-5 w-5 text-[#008994]" /><span className="text-xs font-semibold uppercase tracking-wider">Asesmen</span></div><p className="text-lg font-bold text-slate-800">{quizzes.length} kuis</p><p className="mt-1 text-xs text-slate-400">Tersedia untuk kelasmu</p></div>
       </div>
 
+      <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xs">
+        <div className="mb-5"><h2 className="text-lg font-bold text-slate-800">Mata Pelajaran Kelas</h2><p className="mt-1 text-sm text-slate-500">Course yang terdaftar untuk kelasmu.</p></div>
+        {loading ? <div className="flex items-center gap-2 py-5 text-sm text-slate-500"><Loader2 className="h-5 w-5 animate-spin" />Memuat mata pelajaran...</div>
+          : error ? <div role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</div>
+            : courses.length === 0 ? <p className="rounded-xl border border-dashed border-slate-200 p-5 text-center text-sm text-slate-500">Belum ada mata pelajaran terdaftar untuk kelas ini.</p>
+              : <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{courses.map((course) => <article key={course.id} className="rounded-xl border border-slate-200 p-4"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-50 text-[#008994]"><BookOpen className="h-5 w-5" /></div><h3 className="mt-3 font-bold text-slate-800">{course.subjects?.name || 'Mata Pelajaran'}</h3><p className="mt-1 text-xs text-slate-500">{[course.academic_year, course.semester].filter(Boolean).join(' · ') || 'Course kelas'}</p></article>)}</div>}
+      </section>
+
       <section id="asesmen" className="rounded-2xl border border-slate-100 bg-white p-6 shadow-xs">
         <div className="mb-5"><h2 className="text-lg font-bold text-slate-800">Kuis & Asesmen</h2><p className="mt-1 text-sm text-slate-500">Pilih kuis untuk mulai atau lanjutkan pengerjaan.</p></div>
         {loading ? <div className="flex items-center gap-2 py-8 text-sm text-slate-500"><Loader2 className="h-5 w-5 animate-spin" />Memuat daftar kuis...</div>
-          : error ? <div role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</div>
-            : quizzes.length === 0 ? <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">Belum ada kuis untuk kelas ini.</p>
+        : error ? <div role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</div>
+            : quizzes.length === 0 ? <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">{profile.class_id ? 'Belum ada kuis yang tersedia untuk kelas ini.' : 'Data kelas akun siswa belum tersedia. Hubungi administrator untuk melengkapi profil kelas.'}</p>
               : <div className="grid gap-4 md:grid-cols-2">{quizzes.map((quiz) => {
                 const attempt = attemptByQuiz.get(String(quiz.id));
                 const isFinished = attempt?.status === 'SELESAI';

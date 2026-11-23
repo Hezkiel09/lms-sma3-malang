@@ -48,10 +48,11 @@ export default function MengerjakanKuis() {
       try {
         const requestedQuizId = searchParams.get('quizId');
         const quizList = await apiFetch('/quizzes');
-        const classQuizzes = (Array.isArray(quizList) ? quizList : []).filter(
-          (quiz) => !user?.profile?.class_id
-            || String(quiz.class_id) === String(user.profile.class_id),
-        );
+      const classQuizzes = (Array.isArray(quizList) ? quizList : []).filter((quiz) => (
+        user?.profile?.class_id
+        && String(quiz.class_id) === String(user.profile.class_id)
+        && String(quiz.status || '').toUpperCase() !== 'DRAFT'
+      ));
         const quiz = requestedQuizId
           ? classQuizzes.find((item) => String(item.id) === String(requestedQuizId))
           : classQuizzes[0];
@@ -210,14 +211,15 @@ export default function MengerjakanKuis() {
         method: 'PATCH',
         body: JSON.stringify({ status: 'SELESAI' }),
       });
+      let gradingNotice = '';
       try {
         await apiFetch(`/attempts/${encodeURIComponent(attemptId)}/grade`, { method: 'POST' });
       } catch (error) {
-        setApiNotice(`Attempt terkirim. Nilai belum tersedia: ${error.message}`);
+        gradingNotice = `Kuis berhasil dikirim. Nilai belum tersedia: ${error.message}`;
       }
       navigate(`/siswa/hasil-akhir?attemptId=${encodeURIComponent(attemptId)}${hasEssayAnswer ? '&essayNotPersisted=1' : ''}`, {
         replace: true,
-        state: { attemptId, quizId: quizInfo.id, quizTitle: quizInfo.title, totalQuestions, durationUsed, essayNotPersisted: hasEssayAnswer },
+        state: { attemptId, quizId: quizInfo.id, quizTitle: quizInfo.title, totalQuestions, durationUsed, essayNotPersisted: hasEssayAnswer, gradingNotice },
       });
     } catch (error) {
       setApiNotice(`Attempt belum berhasil dikirim: ${error.message}`);
@@ -232,8 +234,12 @@ export default function MengerjakanKuis() {
   }, [timeLeft, loading, loadError, attemptId, isSubmitting]);
 
   const getBadgeStyle = (questionId, index) => {
+    if (doubted[questionId]) {
+      return index === currentIndex
+        ? 'bg-amber-100 text-amber-800 border border-amber-400 ring-2 ring-[#008994]'
+        : 'bg-amber-100 text-amber-700 border border-amber-300';
+    }
     if (index === currentIndex) return 'bg-[#004d57] text-white ring-2 ring-[#008994]';
-    if (doubted[questionId]) return 'bg-amber-100 text-amber-700 border border-amber-300';
     const answer = answers[questionId];
     if (answer?.optionId || answer?.textAnswer?.trim()) return 'bg-[#008994] text-white';
     return 'bg-white text-slate-600 border border-slate-200';
@@ -282,11 +288,11 @@ export default function MengerjakanKuis() {
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <button type="button" onClick={() => goTo(currentIndex - 1)} disabled={currentIndex === 0} className="flex items-center gap-2 rounded-xl border border-[#008994] px-5 py-2.5 text-sm font-semibold text-[#008994] hover:bg-[#e6f7f8] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"><ChevronLeft className="h-4 w-4" />Sebelumnya</button>
-          <button type="button" onClick={() => setDoubted((previous) => ({ ...previous, [currentQuestion.id]: !previous[currentQuestion.id] }))} className={`flex items-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-semibold transition-colors ${doubted[currentQuestion.id] ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}><Flag className="h-4 w-4" />Ragu-ragu</button>
+          <button type="button" aria-pressed={Boolean(doubted[currentQuestion.id])} onClick={() => setDoubted((previous) => ({ ...previous, [currentQuestion.id]: !previous[currentQuestion.id] }))} className={`flex items-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-semibold transition-colors ${doubted[currentQuestion.id] ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}><Flag className="h-4 w-4" />{doubted[currentQuestion.id] ? 'Hapus tanda ragu-ragu' : 'Ragu-ragu'}</button>
           <button type="button" onClick={() => goTo(currentIndex + 1)} disabled={currentIndex === totalQuestions - 1} className="flex items-center gap-2 rounded-xl bg-[#008994] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#007a84] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Selanjutnya<ChevronRight className="h-4 w-4" /></button>
         </div>
       </div>
-      <aside className="w-full lg:w-72 shrink-0"><div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs space-y-5 sticky top-6"><h3 className="text-base font-bold text-center text-slate-800">Nomor Soal</h3><div className="text-center space-y-1"><p className="text-sm font-bold text-slate-800">Jumlah soal: {totalQuestions}</p><p className="text-xs text-slate-400">Durasi: {quizInfo.durationMinutes} menit</p></div><div className="grid grid-cols-7 gap-2 max-h-72 overflow-y-auto p-1">{questions.map((question, index) => <button key={question.id} type="button" onClick={() => goTo(index)} className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-semibold transition-all ${getBadgeStyle(question.id, index)}`} title={`Soal ${index + 1}`}>{index + 1}</button>)}</div><button type="button" disabled={isSubmitting} onClick={() => handleFinish(false)} className="w-full rounded-xl border border-[#008994] px-4 py-2.5 text-sm font-semibold text-[#008994] hover:bg-[#e6f7f8] transition-colors disabled:opacity-60 flex items-center justify-center gap-2">{isSubmitting ? <><Loader2 className="h-4 w-4 animate-spin" />Mengirim...</> : 'Selesai'}</button><div className="space-y-2 pt-2 border-t border-slate-100"><div className="flex items-center gap-2 text-xs text-slate-500"><span className="flex h-4 w-4 rounded bg-[#008994]" />Sudah dijawab</div><div className="flex items-center gap-2 text-xs text-slate-500"><span className="flex h-4 w-4 rounded border border-slate-200 bg-white" />Belum dijawab</div><div className="flex items-center gap-2 text-xs text-slate-500"><span className="flex h-4 w-4 rounded bg-amber-100 border border-amber-300" />Ragu-ragu</div></div></div></aside>
+      <aside className="w-full lg:w-72 shrink-0"><div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs space-y-5 sticky top-6"><h3 className="text-base font-bold text-center text-slate-800">Nomor Soal</h3><div className="text-center space-y-1"><p className="text-sm font-bold text-slate-800">Jumlah soal: {totalQuestions}</p><p className="text-xs text-slate-400">Durasi: {quizInfo.durationMinutes} menit</p></div><div className="grid grid-cols-7 gap-2 max-h-72 overflow-y-auto p-1">{questions.map((question, index) => <button key={question.id} type="button" aria-current={index === currentIndex ? 'step' : undefined} aria-label={`Soal ${index + 1}${doubted[question.id] ? ', ragu-ragu' : ''}${answers[question.id]?.optionId || answers[question.id]?.textAnswer?.trim() ? ', sudah dijawab' : ', belum dijawab'}`} onClick={() => goTo(index)} className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-semibold transition-all ${getBadgeStyle(question.id, index)}`} title={`Soal ${index + 1}${doubted[question.id] ? ' — ragu-ragu' : ''}`}>{index + 1}</button>)}</div><button type="button" disabled={isSubmitting} onClick={() => handleFinish(false)} className="w-full rounded-xl border border-[#008994] px-4 py-2.5 text-sm font-semibold text-[#008994] hover:bg-[#e6f7f8] transition-colors disabled:opacity-60 flex items-center justify-center gap-2">{isSubmitting ? <><Loader2 className="h-4 w-4 animate-spin" />Mengirim...</> : 'Selesai'}</button><div className="space-y-2 pt-2 border-t border-slate-100"><div className="flex items-center gap-2 text-xs text-slate-500"><span className="flex h-4 w-4 rounded bg-[#008994]" />Sudah dijawab</div><div className="flex items-center gap-2 text-xs text-slate-500"><span className="flex h-4 w-4 rounded border border-slate-200 bg-white" />Belum dijawab</div><div className="flex items-center gap-2 text-xs text-slate-500"><span className="flex h-4 w-4 rounded bg-amber-100 border border-amber-300" />Ragu-ragu</div></div></div></aside>
     </div>
   );
 }

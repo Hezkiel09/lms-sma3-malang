@@ -47,6 +47,7 @@ router.put('/users/parents/:id', authenticateUser, requireAdmin, masterControlle
 router.delete('/users/parents/:id', authenticateUser, requireAdmin, masterController.deleteParent);
 
 // Rute Course
+router.get('/student/courses', authenticateUser, masterController.getStudentCourses);
 router.get('/courses', authenticateUser, masterController.getAllCourses);
 router.post('/courses', authenticateUser, requireAdmin, masterController.createCourse);
 router.put('/courses/:id', authenticateUser, requireAdmin, masterController.updateCourse);

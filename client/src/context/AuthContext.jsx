@@ -80,12 +80,23 @@ export function AuthProvider({ children }) {
     return () => { mounted = false; };
   }, []);
 
-  const login = async ({ identifier, email, password }) => {
+  const login = async ({ identifier, email, password, expectedRole }) => {
     const data = await apiFetch('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ identifier: identifier || email, email, password }),
     });
     if (!data?.token || !data?.user) throw new Error('Respons login tidak valid dari server.');
+
+    if (expectedRole && data.user.role !== expectedRole) {
+      const roleLabels = {
+        student: 'siswa',
+        teacher: 'guru',
+        parent: 'orang tua',
+        admin: 'admin',
+      };
+      throw new Error(`Akun ini bukan akun ${roleLabels[expectedRole] || expectedRole}.`);
+    }
+
     syncTokens(data.token, data.user);
     return data.user;
   };
