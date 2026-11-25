@@ -41,8 +41,7 @@ const nav = [
   {
     to: '/ortu/nilai',
     label: 'Rekap Nilai',
-    icon: FileText,
-    soon: true
+    icon: FileText
   },
   {
     to: '/ortu/presensi',

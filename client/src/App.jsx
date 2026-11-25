@@ -24,6 +24,8 @@ import RekapPresensi from './pages/guru/RekapPresensi';
 import OrtuLayout from './components/OrtuLayout';
 import Beranda from './pages/ortu/Beranda';
 import PilihAnak from './pages/ortu/PilihAnak';
+import RekapNilai from './pages/ortu/RekapNilai';
+import DetailNilai from './pages/ortu/DetailNilai';
 
 // Fitur dari temanmu
 import PesanGuru from './pages/ortu/PesanGuru';
@@ -84,6 +86,8 @@ export default function App() {
             <Route path="presensi/riwayat/:subjectId" element={<DetailPresensiAnak />} />
             <Route path="anak" element={<PilihAnak />} />
             <Route path="pesan" element={<PesanGuru />} />
+            <Route path="nilai" element={<RekapNilai />} />
+            <Route path="nilai/:subjectId" element={<DetailNilai />} />
           </Route>
         </Route>
       </Routes>
