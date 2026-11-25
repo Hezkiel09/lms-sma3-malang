@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
@@ -223,7 +223,7 @@ function AppRoutes() {
         <Route path="asesmen/rekap-hasil" element={<RekapHasilPage />} />
         <Route path="presensi" element={<GuruPlaceholder title="Presensi Guru" />} />
         <Route path="pesan" element={<GuruPlaceholder title="Pesan" />} />
-        <Route path="*" element={<Navigate to="/b6/buat-kuis" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
 
       <Route path="/siswa" element={<ProtectedRoute allowedRoles={['student', 'admin']}><SiswaDashboard /></ProtectedRoute>} />
@@ -248,7 +248,7 @@ function AppRoutes() {
       <Route path="/buat-soal" element={<Navigate to="/b6/buat-soal" replace />} />
       <Route path="/rekap-nilai" element={<Navigate to="/b6/rekap-nilai" replace />} />
       <Route path="/rekap-hasil" element={<Navigate to="/b6/rekap-nilai" replace />} />
-      <Route path="/guru/*" element={<Navigate to="/b6/buat-kuis" replace />} />
+      <Route path="/guru/*" element={<Navigate to="/dashboard" replace />} />
       <Route path="/" element={<RootRedirect />} />
       <Route path="*" element={<RootRedirect />} />
     </Routes>

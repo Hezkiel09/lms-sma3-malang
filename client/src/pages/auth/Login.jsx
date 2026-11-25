@@ -6,7 +6,6 @@ import parentImage from '../../assets/ortu.png';
 import teacherImage from '../../assets/guruu.png';
 import {
   AlertCircle,
-  ArrowLeft,
   Eye,
   EyeOff,
   Loader2,
@@ -16,8 +15,8 @@ import { useAuth } from '../../context/AuthContext';
 
 const roleHome = (role) => {
   if (role === 'admin') return '/admin/dashboard';
-  if (role === 'teacher') return '/b6/buat-kuis';
-  if (role === 'student') return '/siswa';
+  if (role === 'teacher') return '/dashboard';
+  if (role === 'student') return '/dashboard-siswa';
   if (role === 'parent') return '/ortu';
   return '/login';
 };
@@ -25,21 +24,35 @@ const roleHome = (role) => {
 const isPathAllowedForRole = (pathname, role) => {
   if (!pathname || pathname === '/login') return false;
   if (pathname.startsWith('/admin')) return role === 'admin';
-  if (pathname.startsWith('/b6') || pathname.startsWith('/guru')) return role === 'teacher';
-  if (pathname.startsWith('/siswa')) return role === 'student' || role === 'admin';
+  if (
+    pathname.startsWith('/b6') ||
+    pathname.startsWith('/guru') ||
+    pathname === '/dashboard' ||
+    pathname.startsWith('/kelas') ||
+    pathname === '/profil'
+  ) {
+    return role === 'teacher' || role === 'admin';
+  }
+  if (
+    pathname.startsWith('/siswa') ||
+    pathname === '/dashboard-siswa' ||
+    pathname === '/profil-siswa'
+  ) {
+    return role === 'student' || role === 'admin';
+  }
   if (pathname.startsWith('/ortu')) return role === 'parent' || role === 'admin';
   return false;
 };
 
 const roleDetails = {
   admin: {
-  role: 'admin',
-  name: 'Admin',
-  identifier: 'Email',
-  placeholder: 'Masukkan email admin',
-  forgotPath: '/lupa-kata-sandi/admin',
-  image: landingImage,
-},
+    role: 'admin',
+    name: 'Admin',
+    identifier: 'Email',
+    placeholder: 'Masukkan email admin',
+    forgotPath: '/lupa-kata-sandi/admin',
+    image: landingImage,
+  },
   siswa: {
     role: 'student',
     name: 'Siswa',
@@ -49,13 +62,13 @@ const roleDetails = {
     image: studentImage,
   },
   ortu: {
-  role: 'parent',
-  name: 'Orang Tua',
-  identifier: 'Email',
-  placeholder: 'Masukkan email orang tua',
-  forgotPath: '/lupa-kata-sandi/ortu',
-  image: parentImage,
-},
+    role: 'parent',
+    name: 'Orang Tua',
+    identifier: 'Email',
+    placeholder: 'Masukkan email orang tua',
+    forgotPath: '/lupa-kata-sandi/ortu',
+    image: parentImage,
+  },
   guru: {
     role: 'teacher',
     name: 'Guru',
@@ -304,7 +317,6 @@ function LoginForm({ audience }) {
         </form>
 
         <HelpText />
-
       </div>
     </SplitLayout>
   );
@@ -397,7 +409,7 @@ export default function LoginPage() {
   if (pathname === '/login/siswa') return <LoginForm audience="siswa" />;
   if (pathname === '/login/guru') return <LoginForm audience="guru" />;
   if (pathname === '/login/ortu') return <LoginForm audience="ortu" />;
-  if (pathname === '/lupa-kata-sandi/admin') {return <ForgotPasswordForm audience="admin" />;}
+  if (pathname === '/lupa-kata-sandi/admin') return <ForgotPasswordForm audience="admin" />;
   if (pathname === '/lupa-kata-sandi/siswa') return <ForgotPasswordForm audience="siswa" />;
   if (pathname === '/lupa-kata-sandi/guru') return <ForgotPasswordForm audience="guru" />;
   if (pathname === '/lupa-kata-sandi/ortu') return <ForgotPasswordForm audience="ortu" />;
