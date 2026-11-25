@@ -1,14 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, FileText, CheckCircle, Download, AlertCircle, Clock } from 'lucide-react';
+import { ArrowLeft, FileText, CheckCircle, Download, AlertCircle, Clock, Loader2 } from 'lucide-react';
 import SidebarSiswa from './SidebarSiswa';
 import TopbarSiswa from './TopbarSiswa';
-import { getStudentGradeDetail } from './studentApi';
+import { getStudentGradeDetail, downloadFileDirect } from './studentApi';
 
 const DetailNilaiSiswa = ({ nilaiId, onKembali, onKeDashboard, onKeProfil, onPilihNotif }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [detailNilai, setDetailNilai] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [downloadingId, setDownloadingId] = useState(null);
+
+    const handleDownloadFile = async (url, fileName, fileId) => {
+        if (!url) return;
+        const targetId = fileId || fileName;
+        try {
+            setDownloadingId(targetId);
+            await downloadFileDirect(url, fileName);
+        } catch (err) {
+            console.error('Download error:', err);
+        } finally {
+            setDownloadingId(null);
+        }
+    };
 
     useEffect(() => {
         const fetchDetail = async () => {
@@ -214,18 +228,26 @@ const DetailNilaiSiswa = ({ nilaiId, onKembali, onKeDashboard, onKeProfil, onPil
                                             <div className="flex items-center gap-2">
                                                 {(file.signed_url || file.file_url) && (
                                                     <>
-                                                        <a
-                                                            href={file.signed_url || file.file_url}
-                                                            download
-                                                            className="px-4 py-2 bg-white border border-gray-200 hover:bg-cyan-50 hover:border-[#0088A8] text-[#17242E] font-bold text-xs rounded-xl transition cursor-pointer shadow-2xs"
+                                                        <button
+                                                            type="button"
+                                                            disabled={downloadingId === (file.id || file.file_name)}
+                                                            onClick={() => handleDownloadFile(file.signed_url || file.file_url, file.file_name, file.id)}
+                                                            className="px-4 py-2 bg-white border border-gray-200 hover:bg-cyan-50 hover:border-[#0088A8] text-[#17242E] font-bold text-xs rounded-xl transition cursor-pointer shadow-2xs flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
                                                         >
-                                                            Unduh
-                                                        </a>
+                                                            {downloadingId === (file.id || file.file_name) ? (
+                                                                <>
+                                                                    <Loader2 size={13} className="animate-spin text-[#0088A8]" />
+                                                                    <span>Mengunduh...</span>
+                                                                </>
+                                                            ) : (
+                                                                <span>Unduh</span>
+                                                            )}
+                                                        </button>
                                                         <a
                                                             href={file.signed_url || file.file_url}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="px-5 py-2 bg-[#054C5A] hover:bg-[#033742] text-white font-bold text-xs rounded-xl transition cursor-pointer shadow-2xs"
+                                                            className="px-5 py-2 bg-[#054C5A] hover:bg-[#033742] text-white font-bold text-xs rounded-xl transition cursor-pointer shadow-2xs inline-flex items-center"
                                                         >
                                                             Buka
                                                         </a>

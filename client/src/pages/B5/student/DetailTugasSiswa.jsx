@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
     ArrowLeft, FileText, Download,
-    Calendar, Clock, CheckCircle, AlertCircle
+    Calendar, Clock, CheckCircle, AlertCircle, Loader2
 } from 'lucide-react';
 import SidebarSiswa from './SidebarSiswa';
 import TopbarSiswa from './TopbarSiswa';
-import { getStudentAssignmentDetail, getStudentMySubmission } from './studentApi';
+import { getStudentAssignmentDetail, getStudentMySubmission, downloadFileDirect } from './studentApi';
 
 const DetailTugasSiswa = ({
     tugasId,
@@ -22,6 +22,20 @@ const DetailTugasSiswa = ({
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [downloadingFile, setDownloadingFile] = useState(null);
+
+    const handleDownloadFile = async (url, fileName, fileId) => {
+        if (!url) return;
+        const targetId = fileId || fileName;
+        try {
+            setDownloadingFile(targetId);
+            await downloadFileDirect(url, fileName);
+        } catch (err) {
+            console.error('Download error:', err);
+        } finally {
+            setDownloadingFile(null);
+        }
+    };
 
     const fetchTugasDetail = async () => {
         if (!tugasId) {
@@ -232,15 +246,19 @@ const DetailTugasSiswa = ({
                                         </div>
                                     </div>
                                     {file.file_url || file.signed_url ? (
-                                        <a
-                                            href={file.signed_url || file.file_url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="p-2.5 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl transition cursor-pointer shadow-xs inline-flex items-center justify-center"
+                                        <button
+                                            type="button"
+                                            disabled={downloadingFile === (file.id || file.file_name)}
+                                            onClick={() => handleDownloadFile(file.signed_url || file.file_url, file.file_name || 'Lampiran_Tugas.pdf', file.id)}
+                                            className="p-2.5 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl transition cursor-pointer shadow-xs inline-flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed"
                                             title="Unduh lampiran"
                                         >
-                                            <Download size={16} />
-                                        </a>
+                                            {downloadingFile === (file.id || file.file_name) ? (
+                                                <Loader2 size={16} className="animate-spin" />
+                                            ) : (
+                                                <Download size={16} />
+                                            )}
+                                        </button>
                                     ) : (
                                         <button
                                             onClick={() => alert("File tidak dapat diakses")}

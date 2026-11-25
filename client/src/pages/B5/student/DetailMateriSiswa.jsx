@@ -1,17 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import {
     ArrowLeft, FileText, Download,
-    Calendar, BookOpen, CheckCircle, Layers
+    Calendar, BookOpen, CheckCircle, Layers, Loader2
 } from 'lucide-react';
 import SidebarSiswa from './SidebarSiswa';
 import TopbarSiswa from './TopbarSiswa';
-import { getStudentMaterialDetail } from './studentApi';
+import { getStudentMaterialDetail, downloadFileDirect } from './studentApi';
 
 const DetailMateriSiswa = ({ materialId, onKembali, onKeDashboard, onKeProfil, onPilihNotif }) => {
     const [material, setMaterial] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [downloadingFile, setDownloadingFile] = useState(null);
+
+    const handleDownloadFile = async (url, fileName) => {
+        if (!url) return;
+        try {
+            setDownloadingFile(fileName);
+            await downloadFileDirect(url, fileName);
+        } catch (err) {
+            console.error('Download error:', err);
+        } finally {
+            setDownloadingFile(null);
+        }
+    };
 
     const formatSafeDate = (val, options = { day: 'numeric', month: 'short', year: 'numeric' }, fallback = '12 Okt 2026') => {
         if (!val) return fallback;
@@ -214,14 +227,24 @@ const DetailMateriSiswa = ({ materialId, onKembali, onKeDashboard, onKeProfil, o
                                                             <p className="text-xs font-bold text-[#17242E]">Dokumen Microsoft Word (.docx)</p>
                                                             <p className="text-[11px] text-gray-500 mt-0.5">Pratinjau langsung tidak tersedia untuk format Word. Silakan unduh file untuk melihat isinya.</p>
                                                         </div>
-                                                        <a
-                                                            href={fileLink}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="px-5 py-2.5 bg-[#054C5A] hover:bg-[#033742] text-white text-xs font-bold rounded-xl transition flex items-center gap-2 shadow-xs"
+                                                        <button
+                                                            type="button"
+                                                            disabled={downloadingFile === file.file_name}
+                                                            onClick={() => handleDownloadFile(fileLink, file.file_name)}
+                                                            className="px-5 py-2.5 bg-[#054C5A] hover:bg-[#033742] text-white text-xs font-bold rounded-xl transition flex items-center gap-2 shadow-xs cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                                                         >
-                                                            <Download size={14} /> Unduh Dokumen
-                                                        </a>
+                                                            {downloadingFile === file.file_name ? (
+                                                                <>
+                                                                    <Loader2 size={14} className="animate-spin" />
+                                                                    <span>Mengunduh...</span>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Download size={14} />
+                                                                    <span>Unduh Dokumen</span>
+                                                                </>
+                                                            )}
+                                                        </button>
                                                     </div>
                                                 ) : (
                                                     /* Jika PDF, aman ditampilkan di iframe */
@@ -274,15 +297,19 @@ const DetailMateriSiswa = ({ materialId, onKembali, onKeDashboard, onKeProfil, o
                                                     </p>
                                                 </div>
                                             </div>
-                                            <a
-                                                href={fileLink}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="p-2.5 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl transition cursor-pointer shadow-xs shrink-0 ml-2"
+                                            <button
+                                                type="button"
+                                                disabled={downloadingFile === file.file_name}
+                                                onClick={() => handleDownloadFile(fileLink, file.file_name)}
+                                                className="p-2.5 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl transition cursor-pointer shadow-xs shrink-0 ml-2 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center"
                                                 title="Unduh file"
                                             >
-                                                <Download size={14} />
-                                            </a>
+                                                {downloadingFile === file.file_name ? (
+                                                    <Loader2 size={14} className="animate-spin" />
+                                                ) : (
+                                                    <Download size={14} />
+                                                )}
+                                            </button>
                                         </div>
                                     );
                                 })

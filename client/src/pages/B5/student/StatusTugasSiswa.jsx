@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
     ArrowLeft, FileText, Download, Calendar, Clock,
-    CheckCircle, AlertCircle, RefreshCw
+    CheckCircle, AlertCircle, RefreshCw, Loader2
 } from 'lucide-react';
 import SidebarSiswa from './SidebarSiswa';
 import TopbarSiswa from './TopbarSiswa';
 import {
     getStudentAssignmentDetail,
     getStudentMySubmission,
-    getStudentProfile
+    getStudentProfile,
+    downloadFileDirect
 } from './studentApi';
 
 const StatusTugasSiswa = ({
@@ -25,6 +26,20 @@ const StatusTugasSiswa = ({
     const [profilSiswa, setProfilSiswa] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [downloadingFile, setDownloadingFile] = useState(null);
+
+    const handleDownloadFile = async (url, fileName, fileId) => {
+        if (!url) return;
+        const targetId = fileId || fileName;
+        try {
+            setDownloadingFile(targetId);
+            await downloadFileDirect(url, fileName);
+        } catch (err) {
+            console.error('Download error:', err);
+        } finally {
+            setDownloadingFile(null);
+        }
+    };
 
     const fetchData = async () => {
         if (!tugasId) {
@@ -342,15 +357,19 @@ const StatusTugasSiswa = ({
                                         </div>
                                     </div>
                                     {submittedFile.signed_url || submittedFile.file_url ? (
-                                        <a
-                                            href={submittedFile.signed_url || submittedFile.file_url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="p-2.5 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl transition cursor-pointer shadow-xs inline-flex items-center justify-center"
+                                        <button
+                                            type="button"
+                                            disabled={downloadingFile === (submittedFile.id || submittedFile.file_name)}
+                                            onClick={() => handleDownloadFile(submittedFile.signed_url || submittedFile.file_url, submittedFile.file_name, submittedFile.id)}
+                                            className="p-2.5 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl transition cursor-pointer shadow-xs inline-flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed"
                                             title="Unduh berkas yang dikumpulkan"
                                         >
-                                            <Download size={16} />
-                                        </a>
+                                            {downloadingFile === (submittedFile.id || submittedFile.file_name) ? (
+                                                <Loader2 size={16} className="animate-spin" />
+                                            ) : (
+                                                <Download size={16} />
+                                            )}
+                                        </button>
                                     ) : null}
                                 </div>
                             ) : (
@@ -390,15 +409,19 @@ const StatusTugasSiswa = ({
                                                 </div>
                                             </div>
                                             {file.signed_url || file.file_url ? (
-                                                <a
-                                                    href={file.signed_url || file.file_url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="p-2.5 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl transition cursor-pointer shadow-xs inline-flex items-center justify-center"
+                                                <button
+                                                    type="button"
+                                                    disabled={downloadingFile === (file.id || file.file_name)}
+                                                    onClick={() => handleDownloadFile(file.signed_url || file.file_url, file.file_name, file.id)}
+                                                    className="p-2.5 bg-[#054C5A] hover:bg-[#033742] text-white rounded-xl transition cursor-pointer shadow-xs inline-flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed"
                                                     title="Unduh file koreksi guru"
                                                 >
-                                                    <Download size={16} />
-                                                </a>
+                                                    {downloadingFile === (file.id || file.file_name) ? (
+                                                        <Loader2 size={16} className="animate-spin" />
+                                                    ) : (
+                                                        <Download size={16} />
+                                                    )}
+                                                </button>
                                             ) : null}
                                         </div>
                                     ))}

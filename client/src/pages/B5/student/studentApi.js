@@ -138,3 +138,7 @@ export const getStudentGradeDetail = async (identifier) => {
   const res = await studentFetch(`/submissions/${identifier}/grade`);
   return res.data;
 };
+
+// 6. Helper Download Langsung
+export { downloadFileDirect } from './downloadHelper';
+
