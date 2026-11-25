@@ -41,6 +41,7 @@ export default function TambahSoalKuisPage() {
   const customMapel = location.state?.mapel;
   const customMateri = location.state?.materi;
   const sourceBankId = location.state?.bankId;
+  const preferredBankId = fromSource === 'buat-kuis' ? sourceBankId : null;
   const returnKelas = location.state?.returnKelas;
   const returnMapel = location.state?.returnMapel;
   const quizId = location.state?.quizId || sessionStorage.getItem('b6.currentQuizId');
@@ -89,7 +90,7 @@ export default function TambahSoalKuisPage() {
 
   const navigateToQuiz = () => {
     navigate('/b6/buat-kuis', {
-      state: { quizId, formData: location.state?.formData },
+      state: { quizId, bankId: preferredBankId || questionBankId },
     });
   };
 
@@ -140,15 +141,26 @@ export default function TambahSoalKuisPage() {
           (max, item) => Math.max(max, Number(item.question_order) || 0),
           attached.length,
         ) + 1);
-        const bank = resolveQuestionBank(
-          Array.isArray(banksData) ? banksData : [],
-          quizData,
-        );
+        const availableBanks = Array.isArray(banksData) ? banksData : [];
+        const preferredBank = preferredBankId
+          ? availableBanks.find((item) => String(item.id) === String(preferredBankId))
+          : null;
+        const preferredBankMatchesQuiz = preferredBank
+          && (!quizData.subject_id || String(preferredBank.subject_id) === String(quizData.subject_id))
+          && (!quizData.class_id || (preferredBank.courses || []).some((course) => (
+            String(course.class_id) === String(quizData.class_id)
+              && (!quizData.subject_id || String(course.subject_id) === String(quizData.subject_id))
+          )));
+        const bank = preferredBankId
+          ? (preferredBankMatchesQuiz ? preferredBank : null)
+          : resolveQuestionBank(availableBanks, quizData);
         if (bank) {
           setQuestionBankId(bank.id);
         } else {
           setLoadError(
-            'Bank soal tidak dapat ditentukan. Pastikan kuis memiliki kelas dan mata pelajaran yang terhubung, atau buka formulir tambah soal dari Bank Soal yang sesuai.',
+            preferredBankId
+              ? 'Bank soal yang dipilih tidak sesuai dengan kelas atau mata pelajaran kuis.'
+              : 'Bank soal tidak dapat ditentukan. Pastikan kuis memiliki kelas dan mata pelajaran yang terhubung, atau buka formulir tambah soal dari Bank Soal yang sesuai.',
           );
         }
         sessionStorage.setItem('b6.currentQuizId', quizData.id);
@@ -163,7 +175,7 @@ export default function TambahSoalKuisPage() {
     return () => {
       active = false;
     };
-  }, [fromSource, quizId, sourceBankId]);
+  }, [fromSource, preferredBankId, quizId, sourceBankId]);
 
   const handleTabChange = (type) => {
     setJenisSoal(type);
@@ -277,7 +289,12 @@ export default function TambahSoalKuisPage() {
       });
 
       navigate('/b6/buat-kuis', {
-        state: { quizId, addedFromBank: true, addedQuestionCount: 1 },
+        state: {
+          quizId,
+          bankId: preferredBankId || questionBankId,
+          addedFromBank: true,
+          addedQuestionCount: 1,
+        },
       });
     } catch (error) {
       if (createdQuestionId) {
@@ -289,7 +306,12 @@ export default function TambahSoalKuisPage() {
             );
             if (isAttached) {
               navigate('/b6/buat-kuis', {
-                state: { quizId, addedFromBank: true, addedQuestionCount: 1 },
+                state: {
+                  quizId,
+                  bankId: preferredBankId || questionBankId,
+                  addedFromBank: true,
+                  addedQuestionCount: 1,
+                },
               });
               return;
             }

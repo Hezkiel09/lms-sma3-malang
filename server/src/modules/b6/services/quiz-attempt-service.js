@@ -1,4 +1,5 @@
 import { supabase } from '../../../config/supabase.js';
+import { isQuizWithinAvailabilityWindow } from '../quiz-availability.js';
 
 export class AttemptError extends Error {
   constructor(statusCode, message) {
@@ -33,6 +34,35 @@ export const getAttemptById = async (id, studentId) => {
 };
 
 export const createAttempt = async ({ quizId, studentId }) => {
+  const [{ data: quiz, error: quizError }, { data: student, error: studentError }] = await Promise.all([
+    supabase.schema('b6').from('quizzes')
+      .select('id, status, class_id, subject_id, start_at, end_at')
+      .eq('id', quizId).maybeSingle(),
+    supabase.schema('master').from('students')
+      .select('class_id').eq('id', studentId).maybeSingle(),
+  ]);
+  if (quizError) throw quizError;
+  if (studentError) throw studentError;
+  if (!quiz) throw new AttemptError(404, 'Kuis tidak ditemukan.');
+  if (String(quiz.status || '').toUpperCase() !== 'PUBLISHED') {
+    throw new AttemptError(403, 'Kuis belum dipublikasikan.');
+  }
+  if (!isQuizWithinAvailabilityWindow(quiz)) {
+    throw new AttemptError(403, 'Kuis belum dimulai atau waktu pengerjaannya sudah berakhir.');
+  }
+  if (!student?.class_id || String(quiz.class_id) !== String(student.class_id) || !quiz.subject_id) {
+    throw new AttemptError(403, 'Kuis ini tidak tersedia untuk kelas siswa.');
+  }
+
+  const { data: course, error: courseError } = await supabase.schema('master').from('courses')
+    .select('id')
+    .eq('class_id', student.class_id)
+    .eq('subject_id', quiz.subject_id)
+    .limit(1)
+    .maybeSingle();
+  if (courseError) throw courseError;
+  if (!course) throw new AttemptError(403, 'Mata pelajaran kuis tidak terdaftar untuk kelas siswa.');
+
   const { data, error } = await supabase.schema('b6').from('quiz_attempts')
     .insert({ quiz_id: quizId, student_id: studentId, status: 'SEDANG_MENGERJAKAN', grading_status: 'BELUM_MULAI' })
     .select().single();

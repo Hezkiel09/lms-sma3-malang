@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { BookOpen, Calendar, Loader2, User } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+import { isQuizAvailableNow } from '../../lib/quizAvailability';
 
 export default function SiswaDashboard() {
   const { user } = useAuth();
@@ -26,7 +27,7 @@ export default function SiswaDashboard() {
           && String(quiz.class_id) === String(profile.class_id)
           && quiz.subject_id
           && courseSubjectIds.has(String(quiz.subject_id))
-          && String(quiz.status || '').toUpperCase() === 'PUBLISHED'
+          && isQuizAvailableNow(quiz)
         ));
         setQuizzes(classQuizzes);
         setAttempts(Array.isArray(attemptData) ? attemptData : []);

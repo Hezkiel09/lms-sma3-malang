@@ -390,6 +390,26 @@ export default function BankSoalPage() {
     navigateToStep(4);
   };
 
+  const handleCreateQuiz = () => {
+    const course = selectedMapel?.course;
+    if (!selectedKelas?.classId || !selectedMapel?.subjectId || !selectedMapel?.bankId || !course?.teacher_id) {
+      showToast('Data kelas, mata pelajaran, bank soal, atau guru pengampu belum lengkap.', 'error');
+      return;
+    }
+
+    sessionStorage.removeItem('b6.currentQuizId');
+    sessionStorage.setItem('b6.currentQuizBankId', String(selectedMapel.bankId));
+    navigate('/b6/buat-kuis', {
+      state: {
+        startNewQuiz: true,
+        classId: selectedKelas.classId,
+        subjectId: selectedMapel.subjectId,
+        teacherId: course.teacher_id,
+        bankId: selectedMapel.bankId,
+      },
+    });
+  };
+
   const handleOpenQuestionForm = (initialType) => {
     if (!selectedKelas || !selectedMapel?.bankId) {
       showToast('Pilih kelas dan mata pelajaran terlebih dahulu.', 'error');
@@ -750,12 +770,18 @@ export default function BankSoalPage() {
           </div>
 
           {currentStep === 3 && (
-            <div>
+            <div className="flex items-center gap-2">
               <button
                 onClick={handleOpenStepFour}
                 className="rounded-xl bg-[#004d57] px-5 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] transition-colors"
               >
                 Buat Soal
+              </button>
+              <button
+                onClick={handleCreateQuiz}
+                className="rounded-xl bg-[#004d57] px-5 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] transition-colors"
+              >
+                Buat Kuis
               </button>
             </div>
           )}

@@ -10,14 +10,46 @@ import {
 import { b6ApiFetch } from './b6-api';
 import { getQuestionTypeLabel } from './b6-utils';
 
+const toDateTimeInputValue = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+};
+
+const toIsoDateTime = (value, label) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) {
+    throw new Error(`${label} tidak valid.`);
+  }
+  return date.toISOString();
+};
+
 export default function BuatKuisPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [quiz, setQuiz] = useState(null);
   const [attachedQuestions, setAttachedQuestions] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
-  const quizId = location.state?.quizId || sessionStorage.getItem('b6.currentQuizId');
-  const [notice] = useState(() => (
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [isLoadingQuiz, setIsLoadingQuiz] = useState(Boolean(
+    location.state?.quizId || (!location.state?.startNewQuiz && sessionStorage.getItem('b6.currentQuizId')),
+  ));
+  const [quizId] = useState(() => (
+    location.state?.startNewQuiz
+      ? null
+      : location.state?.quizId || sessionStorage.getItem('b6.currentQuizId')
+  ));
+  const [quizContext, setQuizContext] = useState(() => ({
+    classId: location.state?.classId || null,
+    subjectId: location.state?.subjectId || null,
+    teacherId: location.state?.teacherId || null,
+    bankId: location.state?.bankId || sessionStorage.getItem('b6.currentQuizBankId') || null,
+  }));
+  const [notice, setNotice] = useState(() => (
     location.state?.addedFromBank
       ? `${location.state.addedQuestionCount || 0} soal berhasil ditambahkan dari Bank Soal.`
       : ''
@@ -29,13 +61,22 @@ export default function BuatKuisPage() {
     kkm: 75,
     durasi: '75 menit',
     deskripsi: '',
+    mulai: '',
+    selesai: '',
   });
+  const hasQuizContext = Boolean(quizContext.classId && quizContext.subjectId && quizContext.teacherId);
 
   useEffect(() => {
     if (!location.state) return;
 
-    if (location.state.quizId) {
+    if (location.state.startNewQuiz) {
+      sessionStorage.removeItem('b6.currentQuizId');
+    } else if (location.state.quizId) {
       sessionStorage.setItem('b6.currentQuizId', location.state.quizId);
+    }
+
+    if (location.state.bankId) {
+      sessionStorage.setItem('b6.currentQuizBankId', location.state.bankId);
     }
 
     navigate(location.pathname, { replace: true, state: null });
@@ -58,10 +99,21 @@ export default function BuatKuisPage() {
           kkm: data.passing_grade ?? 75,
           durasi: data.duration_minutes ? `${data.duration_minutes} menit` : '75 menit',
           deskripsi: data.description || '',
+          mulai: toDateTimeInputValue(data.start_at),
+          selesai: toDateTimeInputValue(data.end_at),
         });
+        setQuizContext((current) => ({
+          classId: data.class_id || current.classId,
+          subjectId: data.subject_id || current.subjectId,
+          teacherId: data.teacher_id || current.teacherId,
+          bankId: current.bankId,
+        }));
         sessionStorage.setItem('b6.currentQuizId', data.id);
       })
-      .catch((error) => window.alert(error.message));
+      .catch((error) => window.alert(error.message))
+      .finally(() => {
+        if (active) setIsLoadingQuiz(false);
+      });
 
     return () => {
       active = false;
@@ -69,6 +121,12 @@ export default function BuatKuisPage() {
   }, [quizId]);
 
   const saveDraft = async () => {
+    if (isLoadingQuiz) {
+      throw new Error('Data kuis masih dimuat. Coba lagi sebentar.');
+    }
+    if (!hasQuizContext) {
+      throw new Error('Pilih kelas dan mata pelajaran melalui Bank Soal sebelum menyimpan kuis.');
+    }
     if (!formData.judul.trim()) {
       throw new Error('Judul kuis wajib diisi sebelum menyimpan draft.');
     }
@@ -81,26 +139,40 @@ export default function BuatKuisPage() {
     if (!Number.isFinite(passingGrade) || passingGrade < 0 || passingGrade > 100) {
       throw new Error('KKM harus berada di antara 0 sampai 100.');
     }
+    const startAt = toIsoDateTime(formData.mulai, 'Waktu mulai');
+    const endAt = toIsoDateTime(formData.selesai, 'Waktu selesai');
+    if (startAt && endAt && Date.parse(endAt) <= Date.parse(startAt)) {
+      throw new Error('Waktu selesai harus setelah waktu mulai.');
+    }
 
     const payload = {
       title: formData.judul.trim(),
       description: formData.deskripsi.trim(),
       duration_minutes: duration,
       passing_grade: passingGrade,
-      status: 'DRAFT',
+      status: quiz?.status === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT',
+      start_at: startAt,
+      end_at: endAt,
+      ...(quizContext.classId ? { class_id: quizContext.classId } : {}),
+      ...(quizContext.subjectId ? { subject_id: quizContext.subjectId } : {}),
+      ...(quizContext.teacherId ? { teacher_id: quizContext.teacherId } : {}),
     };
 
     setIsSaving(true);
     try {
+      const existingQuizId = quiz?.id || quizId;
       const savedQuiz = await b6ApiFetch(
-        quiz?.id ? `/quizzes/${encodeURIComponent(quiz.id)}` : '/quizzes',
+        existingQuizId ? `/quizzes/${encodeURIComponent(existingQuizId)}` : '/quizzes',
         {
-          method: quiz?.id ? 'PUT' : 'POST',
+          method: existingQuizId ? 'PUT' : 'POST',
           body: JSON.stringify(payload),
         },
       );
       setQuiz(savedQuiz);
       sessionStorage.setItem('b6.currentQuizId', savedQuiz.id);
+      if (quizContext.bankId) {
+        sessionStorage.setItem('b6.currentQuizBankId', quizContext.bankId);
+      }
       return savedQuiz;
     } finally {
       setIsSaving(false);
@@ -109,17 +181,50 @@ export default function BuatKuisPage() {
 
   const handleSaveDraft = async () => {
     try {
-      await saveDraft();
-      window.alert('Draft kuis berhasil disimpan.');
+      const savedQuiz = await saveDraft();
+      setNotice(savedQuiz.status === 'PUBLISHED'
+        ? 'Perubahan kuis berhasil disimpan.'
+        : 'Draft kuis berhasil disimpan.');
     } catch (error) {
       window.alert(error.message);
+    }
+  };
+
+  const handlePublish = async () => {
+    setIsPublishing(true);
+    try {
+      const savedQuiz = await saveDraft();
+      const startAt = toIsoDateTime(formData.mulai, 'Waktu mulai');
+      const endAt = toIsoDateTime(formData.selesai, 'Waktu selesai');
+      const publishedQuiz = await b6ApiFetch(
+        `/quizzes/${encodeURIComponent(savedQuiz.id)}/publish`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ start_at: startAt, end_at: endAt }),
+        },
+      );
+      setQuiz(publishedQuiz);
+      setFormData((current) => ({
+        ...current,
+        mulai: toDateTimeInputValue(publishedQuiz.start_at),
+        selesai: toDateTimeInputValue(publishedQuiz.end_at),
+      }));
+      setNotice(Date.parse(publishedQuiz.start_at) > Date.now()
+        ? 'Kuis berhasil dijadwalkan.'
+        : 'Kuis berhasil dipublikasikan.');
+    } catch (error) {
+      window.alert(error.message);
+    } finally {
+      setIsPublishing(false);
     }
   };
 
   const openQuizSubpage = async (path) => {
     try {
       const savedQuiz = await saveDraft();
-      navigate(path, { state: { quizId: savedQuiz.id } });
+      navigate(path, {
+        state: { quizId: savedQuiz.id, bankId: quizContext.bankId },
+      });
     } catch (error) {
       window.alert(error.message);
     }
@@ -138,6 +243,19 @@ export default function BuatKuisPage() {
 
       </div>
 
+      {!hasQuizContext && (
+        <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          Pilih kelas dan mata pelajaran dari Bank Soal sebelum membuat kuis.
+          <button
+            type="button"
+            onClick={() => navigate('/b6/bank-soal')}
+            className="ml-1 font-semibold underline underline-offset-2"
+          >
+            Kembali ke Bank Soal
+          </button>
+        </div>
+      )}
+
       {/* 2. Success Alert Banner (Hanya muncul jika soal ditambahkan - Gambar 4) */}
       {notice && (
         <div className="flex items-center gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-xs sm:text-sm font-semibold text-emerald-800">
@@ -155,13 +273,22 @@ export default function BuatKuisPage() {
               Atur judul, durasi, dan jumlah soal untuk kuis ini.
             </p>
           </div>
-          <div>
+          <div className="flex flex-wrap gap-2">
+            {quiz?.status !== 'PUBLISHED' && (
+              <button
+                onClick={handlePublish}
+                disabled={isSaving || isPublishing || isLoadingQuiz || !hasQuizContext}
+                className="rounded-xl bg-[#008994] px-5 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#007680] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isPublishing ? 'Memublikasikan...' : 'Publikasikan'}
+              </button>
+            )}
             <button
               onClick={handleSaveDraft}
-              disabled={isSaving}
-              className="rounded-xl bg-[#004d57] px-6 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] transition-colors"
+              disabled={isSaving || isPublishing || isLoadingQuiz || !hasQuizContext}
+              className="rounded-xl bg-[#004d57] px-6 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-[#003c44] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSaving ? 'Menyimpan...' : 'Simpan Draft'}
+              {isSaving ? 'Menyimpan...' : quiz?.status === 'PUBLISHED' ? 'Simpan Perubahan' : 'Simpan Draft'}
             </button>
           </div>
         </div>
@@ -222,6 +349,34 @@ export default function BuatKuisPage() {
               </div>
             </div>
           </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1.5">
+                Waktu Mulai
+              </label>
+              <input
+                type="datetime-local"
+                value={formData.mulai}
+                onChange={(e) => setFormData({ ...formData, mulai: e.target.value })}
+                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-xs sm:text-sm text-slate-800 focus:border-[#004d57] focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1.5">
+                Waktu Selesai
+              </label>
+              <input
+                type="datetime-local"
+                value={formData.selesai}
+                onChange={(e) => setFormData({ ...formData, selesai: e.target.value })}
+                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-xs sm:text-sm text-slate-800 focus:border-[#004d57] focus:outline-none"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-slate-400">
+            Kosongkan waktu mulai untuk publikasi langsung. Untuk publikasi terjadwal, isi waktu mulai dan selesai.
+          </p>
 
           {/* Deskripsi */}
           <div>
