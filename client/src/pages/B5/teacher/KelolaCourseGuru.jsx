@@ -568,9 +568,9 @@ const KelolaCourseGuru = ({ onKembali, onKeProfil, onPilihNotif }) => {
 
   // Daftar aktivitas atau sumber
   const daftarAktivitas = [
+    { id: 'File', title: 'File', icon: File },
     { id: 'Tugas', title: 'Tugas', icon: ClipboardList },
     { id: 'Link (URL)', title: 'Tautan (URL)', icon: ExternalLink },
-    { id: 'File', title: 'File', icon: File },
     { id: 'Quiz', title: 'Kuis', icon: HelpCircle },
     { id: 'Forum', title: 'Forum', icon: MessageSquare }
   ];
