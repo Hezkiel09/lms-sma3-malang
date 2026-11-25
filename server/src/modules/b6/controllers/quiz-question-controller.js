@@ -32,7 +32,7 @@ export const attachQuestionToQuiz = async (req, res) => {
     });
     return res.status(201).json({ success: true, data });
   } catch (error) {
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       success: false,
       message: 'Gagal menambahkan soal ke kuis',
       error: error.message,

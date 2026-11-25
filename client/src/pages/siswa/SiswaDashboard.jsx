@@ -19,14 +19,18 @@ export default function SiswaDashboard() {
     Promise.all([apiFetch('/quizzes'), apiFetch('/attempts'), apiFetch('/master/student/courses')])
       .then(([quizData, attemptData, courseData]) => {
         if (!active) return;
+        const classCourses = Array.isArray(courseData) ? courseData : [];
+        const courseSubjectIds = new Set(classCourses.map((course) => String(course.subject_id)));
         const classQuizzes = (Array.isArray(quizData) ? quizData : []).filter((quiz) => (
           profile.class_id
           && String(quiz.class_id) === String(profile.class_id)
-          && String(quiz.status || '').toUpperCase() !== 'DRAFT'
+          && quiz.subject_id
+          && courseSubjectIds.has(String(quiz.subject_id))
+          && String(quiz.status || '').toUpperCase() === 'PUBLISHED'
         ));
         setQuizzes(classQuizzes);
         setAttempts(Array.isArray(attemptData) ? attemptData : []);
-        setCourses(Array.isArray(courseData) ? courseData : []);
+        setCourses(classCourses);
       })
       .catch((requestError) => {
         if (active) setError(requestError.message || 'Gagal memuat kuis.');

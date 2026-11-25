@@ -47,12 +47,19 @@ export default function MengerjakanKuis() {
       setLoadError('');
       try {
         const requestedQuizId = searchParams.get('quizId');
-        const quizList = await apiFetch('/quizzes');
-      const classQuizzes = (Array.isArray(quizList) ? quizList : []).filter((quiz) => (
-        user?.profile?.class_id
-        && String(quiz.class_id) === String(user.profile.class_id)
-        && String(quiz.status || '').toUpperCase() !== 'DRAFT'
-      ));
+        const [quizList, courseList] = await Promise.all([
+          apiFetch('/quizzes'),
+          apiFetch('/master/student/courses'),
+        ]);
+        const courseSubjectIds = new Set((Array.isArray(courseList) ? courseList : [])
+          .map((course) => String(course.subject_id)));
+        const classQuizzes = (Array.isArray(quizList) ? quizList : []).filter((quiz) => (
+          user?.profile?.class_id
+          && String(quiz.class_id) === String(user.profile.class_id)
+          && quiz.subject_id
+          && courseSubjectIds.has(String(quiz.subject_id))
+          && String(quiz.status || '').toUpperCase() === 'PUBLISHED'
+        ));
         const quiz = requestedQuizId
           ? classQuizzes.find((item) => String(item.id) === String(requestedQuizId))
           : classQuizzes[0];

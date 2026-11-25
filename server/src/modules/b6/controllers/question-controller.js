@@ -1,5 +1,26 @@
 import { supabase } from '../../../config/supabase.js';
 
+const isEssayType = (type) => ['ESAI', 'ESSAY'].includes(String(type || '').trim().toUpperCase());
+
+const validateEssayPoints = (questionType, defaultPoints, gradingRubric) => {
+    if (!isEssayType(questionType)) return null;
+    const maximum = Number(defaultPoints);
+    if (!Number.isFinite(maximum) || maximum < 0 || maximum > 10) {
+        return 'Poin maksimal soal esai harus di antara 0 dan 10.';
+    }
+    if (gradingRubric != null) {
+        if (!Array.isArray(gradingRubric)) return 'Rubrik esai harus berupa daftar kriteria.';
+        const points = gradingRubric.map((item) => Number(item?.points));
+        if (points.some((value) => !Number.isFinite(value) || value < 0 || value > 10)) {
+            return 'Poin setiap kriteria esai harus di antara 0 dan 10.';
+        }
+        if (points.reduce((sum, value) => sum + value, 0) > maximum) {
+            return 'Jumlah poin rubrik tidak boleh melebihi poin maksimal soal.';
+        }
+    }
+    return null;
+};
+
 // Mengambil semua soal beserta opsinya berdasarkan Bank Soal ID (GET by ID)
 const getQuestionsByBankId = async (req, res) => {
     try {
@@ -53,6 +74,9 @@ const createQuestion = async (req, res) => {
                 message: 'Teks pertanyaan (question_text) wajib diisi'
             });
         }
+
+        const pointsError = validateEssayPoints(question_type, default_points, grading_rubric);
+        if (pointsError) return res.status(400).json({ success: false, message: pointsError });
 
         const { data: newQuestion, error: questionError } = await supabase
             .schema('b6')
@@ -152,6 +176,20 @@ const updateQuestion = async (req, res) => {
             options
         } = req.body;
 
+        let currentQuestion = null;
+        if (question_type === undefined || default_points === undefined || grading_rubric === undefined) {
+            const { data, error } = await supabase.schema('b6').from('questions')
+                .select('question_type, default_points, grading_rubric').eq('id', questionId).single();
+            if (error) throw error;
+            currentQuestion = data;
+        }
+        const pointsError = validateEssayPoints(
+            question_type ?? currentQuestion?.question_type,
+            default_points ?? currentQuestion?.default_points,
+            grading_rubric ?? currentQuestion?.grading_rubric,
+        );
+        if (pointsError) return res.status(400).json({ success: false, message: pointsError });
+
         // 1. Update tabel b6.questions
         const { data: updatedQuestion, error: questionError } = await supabase
             .schema('b6')
@@ -225,6 +263,20 @@ const patchQuestion = async (req, res) => {
     try {
         const { questionId } = req.params;
         const { options, ...questionFields } = req.body;
+
+        if (questionFields.question_type !== undefined || questionFields.default_points !== undefined || questionFields.grading_rubric !== undefined) {
+            const { data: existingQuestion, error: existingError } = await supabase
+                .schema('b6').from('questions')
+                .select('question_type, default_points, grading_rubric')
+                .eq('id', questionId).single();
+            if (existingError) throw existingError;
+            const pointsError = validateEssayPoints(
+                questionFields.question_type ?? existingQuestion.question_type,
+                questionFields.default_points ?? existingQuestion.default_points,
+                questionFields.grading_rubric ?? existingQuestion.grading_rubric,
+            );
+            if (pointsError) return res.status(400).json({ success: false, message: pointsError });
+        }
 
         let updatedQuestion = null;
 

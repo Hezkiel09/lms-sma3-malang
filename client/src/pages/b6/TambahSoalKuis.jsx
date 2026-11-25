@@ -193,14 +193,20 @@ export default function TambahSoalKuisPage() {
       window.alert('Pertanyaan wajib diisi.');
       return;
     }
-    if (!Number.isFinite(bobot) || bobot <= 0) {
-      window.alert('Bobot nilai harus lebih dari 0.');
+    if (!Number.isFinite(bobot) || bobot <= 0 || (jenisSoal === 'Esai' && bobot > 10)) {
+      window.alert(jenisSoal === 'Esai'
+        ? 'Bobot nilai esai harus di antara 0 dan 10.'
+        : 'Bobot nilai harus lebih dari 0.');
       return;
     }
     if (jenisSoal === 'Esai' && rubric.some((item) => (
-      !item.text.trim() || !Number.isFinite(Number(item.points)) || Number(item.points) < 0
+      !item.text.trim() || !Number.isFinite(Number(item.points)) || Number(item.points) < 0 || Number(item.points) > 10
     ))) {
-      window.alert('Lengkapi kriteria penilaian esai dengan teks dan poin yang valid.');
+      window.alert('Lengkapi kriteria esai dengan poin antara 0 dan 10.');
+      return;
+    }
+    if (jenisSoal === 'Esai' && rubric.reduce((sum, item) => sum + Number(item.points), 0) > bobot) {
+      window.alert('Jumlah poin kriteria tidak boleh melebihi bobot maksimal soal.');
       return;
     }
 
@@ -652,6 +658,7 @@ export default function TambahSoalKuisPage() {
                       <input
                         type="number"
                         min="0"
+                        max="10"
                         value={item.points}
                         onChange={(event) => setRubric((current) => current.map((entry, entryIndex) => (
                           entryIndex === idx ? { ...entry, points: event.target.value } : entry
@@ -694,6 +701,8 @@ export default function TambahSoalKuisPage() {
               <div className="flex items-center gap-2">
                 <input
                   type="number"
+                  min={jenisSoal === 'Esai' ? '0' : undefined}
+                  max={jenisSoal === 'Esai' ? '10' : undefined}
                   value={bobot}
                   onChange={(e) => setBobot(Number(e.target.value))}
                   className="w-24 rounded-xl border border-slate-200 px-3.5 py-2 text-xs sm:text-sm font-bold text-slate-800 focus:border-[#004d57] focus:outline-none"

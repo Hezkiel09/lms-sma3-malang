@@ -13,6 +13,15 @@ export const getQuestionsByQuizId = async (quizId) => {
 };
 
 export const attachQuestionToQuiz = async ({ quiz_id, question_id, question_order, points }) => {
+  const { data: question, error: questionError } = await supabase.schema('b6')
+    .from('questions').select('question_type').eq('id', question_id).single();
+  if (questionError) throw questionError;
+  if (['ESAI', 'ESSAY'].includes(String(question.question_type || '').toUpperCase())
+    && (!Number.isFinite(Number(points)) || Number(points) < 0 || Number(points) > 10)) {
+    const error = new Error('Poin soal esai harus di antara 0 dan 10.');
+    error.status = 400;
+    throw error;
+  }
   const { data, error } = await supabase
     .schema('b6')
     .from('quiz_questions')

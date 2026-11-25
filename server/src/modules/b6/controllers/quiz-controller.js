@@ -1,5 +1,20 @@
 import { supabase } from '../../../config/supabase.js';
 
+const validateEssayQuizPoints = async (questions = []) => {
+    if (!Array.isArray(questions)) return null;
+    const ids = [...new Set(questions.map((question) => question.question_id).filter(Boolean))];
+    if (!ids.length) return null;
+    const { data, error } = await supabase.schema('b6').from('questions')
+        .select('id, question_type').in('id', ids);
+    if (error) throw error;
+    const essayIds = new Set((data || []).filter((question) =>
+        ['ESAI', 'ESSAY'].includes(String(question.question_type || '').toUpperCase())
+    ).map((question) => String(question.id)));
+    const invalid = questions.some((question) => essayIds.has(String(question.question_id))
+        && (!Number.isFinite(Number(question.points)) || Number(question.points) < 0 || Number(question.points) > 10));
+    return invalid ? 'Poin soal esai harus di antara 0 dan 10.' : null;
+};
+
 // 1. Ambil semua kuis
 const getAllQuizzes = async (req, res) => {
     try {
@@ -112,6 +127,9 @@ const createQuiz = async (req, res) => {
             academic_term,
             questions // Array dari [{ question_id, points, question_order }]
         } = req.body;
+
+        const essayPointsError = await validateEssayQuizPoints(questions || []);
+        if (essayPointsError) return res.status(400).json({ success: false, message: essayPointsError });
 
         if (!title) {
             return res.status(400).json({
@@ -265,6 +283,9 @@ const addQuestionsToQuiz = async (req, res) => {
                 message: 'Daftar soal (questions) tidak boleh kosong'
             });
         }
+
+        const essayPointsError = await validateEssayQuizPoints(questions);
+        if (essayPointsError) return res.status(400).json({ success: false, message: essayPointsError });
 
         const formattedQuestions = questions.map((q, index) => ({
             quiz_id: id,
