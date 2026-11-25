@@ -4,16 +4,16 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseKey;
 
-if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
-    throw new Error('Supabase URL or Service Role Key is not defined in environment variables.');
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error('Set SUPABASE_URL and SUPABASE_SECRET_KEY in server/.env.');
 }
 
+const authOptions = { persistSession: false, autoRefreshToken: false };
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseKey, { auth: authOptions });
+export const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, { auth: authOptions });
 
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
-
-//module.exports = supabase;
+export const createAuthClient = () => createClient(supabaseUrl, supabaseKey, { auth: authOptions });
