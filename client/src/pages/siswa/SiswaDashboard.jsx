@@ -1,6 +1,6 @@
 import { useAuth } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { School, User, BookOpen, Calendar, LogOut } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { School, User, BookOpen, Calendar, LogOut, MessageSquare } from 'lucide-react';
 
 export default function SiswaDashboard() {
   const { user, logout } = useAuth();
@@ -27,13 +27,19 @@ export default function SiswaDashboard() {
           </div>
         </div>
 
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 rounded-xl border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors cursor-pointer"
-        >
-          <LogOut className="h-4 w-4" />
-          <span>Keluar</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <Link to="/b7/forum" className="flex items-center gap-2 rounded-xl border border-teal-200 px-3.5 py-2 text-xs font-semibold text-teal-800 hover:bg-teal-50">
+            <MessageSquare className="h-4 w-4" />
+            <span>Forum Diskusi</span>
+          </Link>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 rounded-xl border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 cursor-pointer"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Keluar</span>
+          </button>
+        </div>
       </header>
 
       {/* Main Content */}

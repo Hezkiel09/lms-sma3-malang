@@ -25,6 +25,7 @@ const menuItems = [
     relatedPaths: ['/b6/rekap-nilai', '/b6/asesmen/rekap-hasil'],
   },
   { name: 'Presensi', path: '/b6/presensi', icon: Calendar },
+  { name: 'Forum Diskusi', path: '/b7/forum', icon: MessageSquare },
   { name: 'Pesan', path: '/b6/pesan', icon: MessageSquare },
 ];
 

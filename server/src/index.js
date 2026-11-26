@@ -1,6 +1,8 @@
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
+import { createServer } from 'node:http';
+import { Server } from 'socket.io';
 import { supabase } from './config/supabase.js';
 import authRouter from './modules/auth/auth.routes.js';
 import bankRouter from './modules/b6/routes/question-bank-routes.js';
@@ -11,12 +13,16 @@ import attemptRouter from './modules/b6/routes/quiz-attempt-routes.js';
 import masterRouter from './modules/master/master.routes.js';
 import quizQuestionRouter from './modules/b6/routes/quiz-question-routes.js';
 import studentAnswerRouter from './modules/b6/routes/student-answer-routes.js';
+import { createForumRouter } from './modules/b7/forum/forum-routes.js';
+import { registerForumSockets } from './modules/b7/forum/forum-sockets.js';
 import { seedAdmin } from './scripts/seedAdmin.js';
 
 dotenv.config();
 
 const app = express();
+const httpServer = createServer(app);
 const port = process.env.PORT || 5000;
+const io = new Server(httpServer, { cors: { origin: '*', methods: ['GET', 'POST'] } });
 
 app.use(cors());
 app.use(express.json());
@@ -43,8 +49,11 @@ app.use('/api/v1/options', optionRouter);
 app.use('/api/v1/attempts', attemptRouter);
 app.use('/api/v1/academic', quizQuestionRouter);
 app.use('/api/v1/academic', studentAnswerRouter);
+app.use('/api/v1/b7/forum', createForumRouter(io));
 
-app.listen(port, async () => {
+registerForumSockets(io);
+
+httpServer.listen(port, async () => {
   console.log(`Server is running on port http://localhost:${port}`);
   try {
     await seedAdmin();

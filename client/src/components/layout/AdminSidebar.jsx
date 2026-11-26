@@ -7,6 +7,7 @@ import {
   Megaphone,
   FileText,
   User,
+  MessageSquare,
   X,
 } from 'lucide-react';
 import logosmanti from '../../assets/logo smanti.png';
@@ -18,6 +19,7 @@ const menuItems = [
   { name: 'Akademik', path: '/admin/akademik', icon: GraduationCap },
   { name: 'Monitoring', path: '/admin/monitoring', icon: Activity, badge: '4' },
   { name: 'Pengumuman', path: '/admin/pengumuman', icon: Megaphone },
+  { name: 'Forum Diskusi', path: '/b7/forum', icon: MessageSquare },
   { name: 'Laporan', path: '/admin/laporan', icon: FileText },
   { name: 'Profil', path: '/admin/profil', icon: User },
 ];

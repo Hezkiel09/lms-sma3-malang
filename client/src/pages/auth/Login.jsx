@@ -150,6 +150,15 @@ function LandingPage() {
           >
             Masuk sebagai Guru
           </Link>
+
+          <Link
+            to="/login/admin"
+            onMouseEnter={() => setActiveRole('admin')}
+            onFocus={() => setActiveRole('admin')}
+            className={roleButtonClass('admin')}
+          >
+            Masuk sebagai Admin
+          </Link>
         </div>
 
         <HelpText />

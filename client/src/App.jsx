@@ -13,6 +13,7 @@ import ProfilPage from './pages/admin/Profil';
 import LoginPage from './pages/auth/Login';
 
 import GuruLayout from './layouts/GuruLayout';
+import B7ForumLayout from './layouts/B7ForumLayout';
 import BankSoalPage from './pages/b6/BankSoal';
 import BuatKuisPage from './pages/b6/BuatKuis';
 import ImportSoalExcelPage from './pages/b6/ImportSoalExcel';
@@ -24,6 +25,8 @@ import LihatSoalPage from './pages/b6/LihatSoal';
 import BuatSoal from './pages/b6/BuatSoal';
 
 import SiswaDashboard from './pages/siswa/SiswaDashboard';
+import Forum from './pages/b7/Forum';
+import ForumDetail from './pages/b7/ForumDetail';
 import OrtuDashboard from './pages/ortu/OrtuDashboard';
 
 function GuruPlaceholder({ title }) {
@@ -60,6 +63,12 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/login/:audience" element={<LoginPage />} />
           <Route path="/lupa-kata-sandi/:audience" element={<LoginPage />} />
+
+          <Route path="/b7" element={<ProtectedRoute allowedRoles={['admin', 'teacher', 'student']}><B7ForumLayout /></ProtectedRoute>}>
+            <Route index element={<Navigate to="/b7/forum" replace />} />
+            <Route path="forum" element={<Forum />} />
+            <Route path="forum/:topicId" element={<ForumDetail />} />
+          </Route>
 
           <Route path="/b6" element={<ProtectedRoute allowedRoles={['teacher']}><GuruLayout /></ProtectedRoute>}>
             <Route index element={<Navigate to="/b6/buat-kuis" replace />} />
